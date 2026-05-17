@@ -634,12 +634,15 @@ const useExcelDB = () => {
     const users = loadUsers();
     const updated = users.map(u => {
       if (u.id !== id) return u;
-      return {
-        ...u, ...updates,
-        permissions: updates.permissions ? JSON.stringify(updates.permissions) : u.permissions,
-      };
+      const merged = { ...u, ...updates };
+      // Always serialize permissions array to JSON string
+      if (updates.permissions) merged.permissions = JSON.stringify(updates.permissions);
+      // If password was explicitly provided and non-empty, update it; otherwise keep existing
+      if (!updates.password || updates.password.trim() === "") merged.password = u.password;
+      return merged;
     });
-    saveUsers(updated); setAppUsers(updated);
+    saveUsers(updated);
+    setAppUsers(updated);
   }, []);
 
   const deleteUser = useCallback((id) => {
@@ -2679,7 +2682,9 @@ const UsersPage = ({ db }) => {
   const UserForm = ({ initial, onSave, onClose }) => {
     const blank = { name:"", email:"", password:"", role:"teacher", is_active:"YES",
       permissions: initial ? parsePerms(initial.permissions) : [...TEACHER_PERMS_DEFAULT] };
-    const [form, setForm] = useState(initial ? { ...blank, ...initial, permissions: parsePerms(initial.permissions) } : blank);
+    const [form, setForm] = useState(initial
+      ? { ...blank, ...initial, password: "", permissions: parsePerms(initial.permissions) }  // password always starts blank on edit
+      : blank);
     const [err, setErr]   = useState("");
     const [showPw, setShowPw] = useState(false);
 
@@ -2805,7 +2810,10 @@ const UsersPage = ({ db }) => {
       if (result?.error) { alert(result.error); return; }
     } else {
       const updates = { ...form };
-      if (!updates.password) delete updates.password; // Don't wipe password if blank
+      // Only update password if admin actually typed a new one (field starts empty on edit)
+      if (!updates.password || updates.password.trim() === "") {
+        delete updates.password; // Keep existing password unchanged
+      }
       updateUser(modal.id, updates);
     }
     setModal(null);
