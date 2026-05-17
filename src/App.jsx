@@ -342,14 +342,26 @@ const DEFAULT_USERS = [
 const loadUsers = () => {
   try {
     const raw = localStorage.getItem(USERS_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
   } catch {}
+  // First time — seed defaults and save
   localStorage.setItem(USERS_KEY, JSON.stringify(DEFAULT_USERS));
   return DEFAULT_USERS;
 };
 
 const saveUsers = (users) => {
-  try { localStorage.setItem(USERS_KEY, JSON.stringify(users)); } catch {}
+  try {
+    const str = JSON.stringify(users);
+    localStorage.setItem(USERS_KEY, str);
+    // Verify it saved correctly
+    const check = localStorage.getItem(USERS_KEY);
+    if (!check) console.error("saveUsers: localStorage write failed");
+  } catch(e) {
+    console.error("saveUsers error:", e);
+  }
 };
 
 const parsePerms = (p) => { try { return JSON.parse(p||"[]"); } catch { return []; } };
@@ -615,18 +627,27 @@ const useExcelDB = () => {
 
   // ── App Users ─────────────────────────────────────────────
   const addUser = useCallback((data) => {
+    if (!data.name?.trim())     return { error: "Name is required." };
+    if (!data.email?.trim())    return { error: "Email is required." };
+    if (!data.password?.trim()) return { error: "Password is required." };
+
     const users = loadUsers();
-    const exists = users.find(u=>u.email.toLowerCase()===data.email.toLowerCase());
-    if (exists) return { error: "Email already in use." };
+    const exists = users.find(u => u.email.toLowerCase() === data.email.toLowerCase().trim());
+    if (exists) return { error: "An account with this email already exists." };
+
     const newU = {
-      id: `U${Date.now()}`, name: data.name, email: data.email,
-      password: data.password, role: data.role||"teacher",
-      is_active: "YES",
-      permissions: JSON.stringify(data.permissions || TEACHER_PERMS_DEFAULT),
-      created_at: new Date().toISOString().slice(0,10),
+      id:          `U${Date.now()}`,
+      name:        data.name.trim(),
+      email:       data.email.toLowerCase().trim(),
+      password:    data.password.trim(),
+      role:        data.role || "teacher",
+      is_active:   "YES",
+      permissions: JSON.stringify(Array.isArray(data.permissions) ? data.permissions : TEACHER_PERMS_DEFAULT),
+      created_at:  new Date().toISOString().slice(0,10),
     };
     const updated = [...users, newU];
-    saveUsers(updated); setAppUsers(updated);
+    saveUsers(updated);
+    setAppUsers([...updated]);
     return { success: true, user: newU };
   }, []);
 
@@ -634,15 +655,25 @@ const useExcelDB = () => {
     const users = loadUsers();
     const updated = users.map(u => {
       if (u.id !== id) return u;
-      const merged = { ...u, ...updates };
-      // Always serialize permissions array to JSON string
-      if (updates.permissions) merged.permissions = JSON.stringify(updates.permissions);
-      // If password was explicitly provided and non-empty, update it; otherwise keep existing
-      if (!updates.password || updates.password.trim() === "") merged.password = u.password;
+      const merged = { ...u };
+      if (updates.name)                      merged.name      = updates.name.trim();
+      if (updates.email)                     merged.email     = updates.email.toLowerCase().trim();
+      if (updates.role)                      merged.role      = updates.role;
+      if (updates.is_active !== undefined)   merged.is_active = updates.is_active;
+      // Only update password if a new non-empty value was provided
+      if (updates.password && updates.password.trim() !== "") {
+        merged.password = updates.password.trim();
+      }
+      // Update permissions if provided
+      if (updates.permissions !== undefined) {
+        merged.permissions = Array.isArray(updates.permissions)
+          ? JSON.stringify(updates.permissions)
+          : updates.permissions;
+      }
       return merged;
     });
     saveUsers(updated);
-    setAppUsers(updated);
+    setAppUsers([...updated]);
   }, []);
 
   const deleteUser = useCallback((id) => {
@@ -2794,11 +2825,27 @@ const UsersPage = ({ db }) => {
         </div>
 
         {err && <div style={{ color:t.danger, fontSize:12, marginBottom:12, padding:"8px 12px", background:t.danger+"11", borderRadius:7 }}>{err}</div>}
+
+        {/* Password hint for edit mode */}
+        {initial && (
+          <div style={{ fontSize:11, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif",
+            padding:"8px 12px", background:t.surfaceAlt, borderRadius:7, marginBottom:12,
+            border:`1px solid ${t.border}` }}>
+            💡 Leave the password field blank to keep the existing password unchanged.
+          </div>
+        )}
+
         <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
           <button style={{ ...btnOutline, padding:"10px 20px" }} onClick={onClose}>Cancel</button>
-          <button style={{ ...btnGold, padding:"10px 24px" }} onClick={handleSave}>
-            {initial ? "Save Changes" : "Create User"}
-          </button>
+          {initial ? (
+            <button style={{ ...btnGold, padding:"10px 28px", background:"linear-gradient(135deg,#0A5A9C,#1A7DC8)" }} onClick={handleSave}>
+              ✓ Update User
+            </button>
+          ) : (
+            <button style={{ ...btnGold, padding:"10px 28px" }} onClick={handleSave}>
+              + Save New User
+            </button>
+          )}
         </div>
       </div>
     );
@@ -2808,13 +2855,11 @@ const UsersPage = ({ db }) => {
     if (modal === "add") {
       const result = addUser(form);
       if (result?.error) { alert(result.error); return; }
+      alert(`✓ User "${form.name}" created successfully!\nThey can now log in with:\nEmail: ${form.email.trim()}\nPassword: ${form.password.trim()}`);
     } else {
-      const updates = { ...form };
-      // Only update password if admin actually typed a new one (field starts empty on edit)
-      if (!updates.password || updates.password.trim() === "") {
-        delete updates.password; // Keep existing password unchanged
-      }
-      updateUser(modal.id, updates);
+      updateUser(modal.id, form);
+      const pwMsg = form.password?.trim() ? `\nNew password: ${form.password.trim()}` : "\nPassword unchanged.";
+      alert(`✓ User "${form.name}" updated successfully!${pwMsg}`);
     }
     setModal(null);
   };
@@ -3052,8 +3097,8 @@ const LoginPage = ({ onLogin }) => {
     setTimeout(() => {
       const users = loadUsers();
       const found = users.find(u =>
-        u.email.toLowerCase() === email.toLowerCase() &&
-        u.password === password &&
+        u.email.toLowerCase().trim() === email.toLowerCase().trim() &&
+        u.password.trim() === password.trim() &&
         u.is_active === "YES"
       );
       setLoading(false);
