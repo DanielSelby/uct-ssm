@@ -331,40 +331,44 @@ const loadWorkbook = () => {
 };
 
 // ── Users stored in localStorage (separate from workbook) ────
+const USERS_VERSION = "v3"; // bump this to force reset on all browsers
+const USERS_KEY_VERSIONED = `${USERS_KEY}_${USERS_VERSION}`;
+
 const DEFAULT_USERS = [
-  { id:"U001", name:"System Admin",          email:"admin@uct.org",    password:"admin123",  role:"admin",   is_active:"YES", permissions: JSON.stringify(ADMIN_PERMS),                created_at:"2024-01-01" },
-  { id:"U002", name:"Bro. Emmanuel Adu",     email:"emmanuel@uct.org", password:"teacher1",  role:"teacher", is_active:"YES", permissions: JSON.stringify(TEACHER_PERMS_DEFAULT),      created_at:"2024-01-01" },
-  { id:"U003", name:"Sis. Grace Mensah",     email:"grace@uct.org",    password:"teacher2",  role:"teacher", is_active:"YES", permissions: JSON.stringify(TEACHER_PERMS_DEFAULT),      created_at:"2024-01-01" },
-  { id:"U004", name:"Bro. Samuel Ofori",     email:"samuel@uct.org",   password:"teacher3",  role:"teacher", is_active:"YES", permissions: JSON.stringify(TEACHER_PERMS_DEFAULT),      created_at:"2024-01-01" },
-  { id:"U005", name:"Superintendent",        email:"super@uct.org",    password:"super123",  role:"teacher", is_active:"YES", permissions: JSON.stringify([...TEACHER_PERMS_DEFAULT,"analytics","view_analytics","dashboard","export","view_export"]), created_at:"2024-01-01" },
+  { id:"U001", name:"System Admin",       email:"admin@uct.org",    password:"admin123",  role:"admin",   is_active:"YES", permissions: JSON.stringify(ADMIN_PERMS),           created_at:"2024-01-01" },
+  { id:"U002", name:"Bro. Emmanuel Adu",  email:"emmanuel@uct.org", password:"teacher1",  role:"teacher", is_active:"YES", permissions: JSON.stringify(TEACHER_PERMS_DEFAULT), created_at:"2024-01-01" },
+  { id:"U003", name:"Sis. Grace Mensah",  email:"grace@uct.org",    password:"teacher2",  role:"teacher", is_active:"YES", permissions: JSON.stringify(TEACHER_PERMS_DEFAULT), created_at:"2024-01-01" },
+  { id:"U004", name:"Bro. Samuel Ofori",  email:"samuel@uct.org",   password:"teacher3",  role:"teacher", is_active:"YES", permissions: JSON.stringify(TEACHER_PERMS_DEFAULT), created_at:"2024-01-01" },
+  { id:"U005", name:"Superintendent",     email:"super@uct.org",    password:"super123",  role:"teacher", is_active:"YES", permissions: JSON.stringify([...TEACHER_PERMS_DEFAULT,"analytics","view_analytics","dashboard","export","view_export"]), created_at:"2024-01-01" },
 ];
 
+// The ONLY function that reads users — always from versioned key
 const loadUsers = () => {
   try {
-    const raw = localStorage.getItem(USERS_KEY);
+    const raw = localStorage.getItem(USERS_KEY_VERSIONED);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
   } catch {}
-  // First time — seed defaults and save
-  localStorage.setItem(USERS_KEY, JSON.stringify(DEFAULT_USERS));
-  return DEFAULT_USERS;
+  // Not found or empty — seed defaults
+  const seed = JSON.parse(JSON.stringify(DEFAULT_USERS)); // deep copy
+  localStorage.setItem(USERS_KEY_VERSIONED, JSON.stringify(seed));
+  return seed;
 };
 
+// The ONLY function that writes users
 const saveUsers = (users) => {
-  try {
-    const str = JSON.stringify(users);
-    localStorage.setItem(USERS_KEY, str);
-    // Verify it saved correctly
-    const check = localStorage.getItem(USERS_KEY);
-    if (!check) console.error("saveUsers: localStorage write failed");
-  } catch(e) {
-    console.error("saveUsers error:", e);
+  const str = JSON.stringify(users);
+  localStorage.setItem(USERS_KEY_VERSIONED, str);
+  // Immediately verify round-trip
+  const verify = localStorage.getItem(USERS_KEY_VERSIONED);
+  if (verify !== str) {
+    alert("Warning: Could not save user data. Your browser storage may be full.");
   }
 };
 
-const parsePerms = (p) => { try { return JSON.parse(p||"[]"); } catch { return []; } };
+const parsePerms = (p) => { try { return JSON.parse(p || "[]"); } catch { return []; } };
 
 // Parse a sheet into array of objects
 const sheetToRows = (wb, sheetName) => {
@@ -2855,17 +2859,23 @@ const UsersPage = ({ db }) => {
     if (modal === "add") {
       const result = addUser(form);
       if (result?.error) { alert(result.error); return; }
-      alert(`✓ User "${form.name}" created successfully!\nThey can now log in with:\nEmail: ${form.email.trim()}\nPassword: ${form.password.trim()}`);
+      alert(`✓ User created!\n\nLogin details:\nEmail: ${form.email.toLowerCase().trim()}\nPassword: ${form.password.trim()}`);
     } else {
       updateUser(modal.id, form);
-      const pwMsg = form.password?.trim() ? `\nNew password: ${form.password.trim()}` : "\nPassword unchanged.";
-      alert(`✓ User "${form.name}" updated successfully!${pwMsg}`);
+      const pwMsg = form.password?.trim()
+        ? `\nPassword changed to: ${form.password.trim()}`
+        : "\nPassword: unchanged";
+      alert(`✓ User updated!\n\nEmail: ${form.email.toLowerCase().trim()}${pwMsg}`);
     }
     setModal(null);
   };
 
   const activeCount = appUsers.filter(u=>u.is_active==="YES").length;
   const adminCount  = appUsers.filter(u=>u.role==="admin").length;
+
+  // Live storage check — reads directly from localStorage to verify what's actually saved
+  const [showCredentials, setShowCredentials] = useState(false);
+  const storedUsers = loadUsers();
 
   return (
     <div>
@@ -2894,6 +2904,60 @@ const UsersPage = ({ db }) => {
         <KpiCard label="Active"        value={activeCount}     sub="Can log in"        icon="play"     color={t.success} />
         <KpiCard label="Inactive"      value={appUsers.length-activeCount} sub="Locked out" icon="pause" color={t.textMuted} />
         <KpiCard label="Admins"        value={adminCount}      sub="Full access"       icon="settings" color={t.info} />
+      </div>
+
+      {/* Login Credentials Panel */}
+      <div style={{ ...card, marginBottom:20, borderLeft:`3px solid ${t.gold}` }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          <div>
+            <div style={{ fontSize:13, fontWeight:700, color:t.text, fontFamily:"'Trebuchet MS',sans-serif" }}>
+              Login Credentials (Admin View)
+            </div>
+            <div style={{ fontSize:11, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginTop:2 }}>
+              These are the exact emails and passwords stored — what users must type to log in
+            </div>
+          </div>
+          <button onClick={()=>setShowCredentials(v=>!v)}
+            style={{ padding:"7px 14px", borderRadius:8, border:`1px solid ${t.border}`,
+              background:showCredentials?t.gold:"transparent",
+              color:showCredentials?"#0B1628":t.textMuted,
+              fontFamily:"'Trebuchet MS',sans-serif", fontSize:12, cursor:"pointer" }}>
+            {showCredentials ? "Hide" : "Show Credentials"}
+          </button>
+        </div>
+        {showCredentials && (
+          <div style={{ marginTop:14, overflowX:"auto" }}>
+            <table style={{ width:"100%", borderCollapse:"collapse", fontFamily:"'Trebuchet MS',sans-serif", fontSize:13 }}>
+              <thead>
+                <tr style={{ background:t.surfaceAlt }}>
+                  {["Name","Email (type exactly)","Password (type exactly)","Role","Status"].map(h=>(
+                    <th key={h} style={{ padding:"9px 14px", textAlign:"left", borderBottom:`1px solid ${t.border}`,
+                      color:t.gold, fontSize:10, textTransform:"uppercase", letterSpacing:1 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {storedUsers.map(u => (
+                  <tr key={u.id}>
+                    <td style={{ padding:"10px 14px", borderBottom:`1px solid ${t.border}18`, color:t.text }}>{u.name}</td>
+                    <td style={{ padding:"10px 14px", borderBottom:`1px solid ${t.border}18` }}>
+                      <code style={{ background:t.surfaceAlt, padding:"3px 8px", borderRadius:5, fontSize:12, color:t.info }}>{u.email}</code>
+                    </td>
+                    <td style={{ padding:"10px 14px", borderBottom:`1px solid ${t.border}18` }}>
+                      <code style={{ background:t.surfaceAlt, padding:"3px 8px", borderRadius:5, fontSize:12, color:t.success }}>{u.password}</code>
+                    </td>
+                    <td style={{ padding:"10px 14px", borderBottom:`1px solid ${t.border}18` }}>
+                      <Badge label={u.role} color={u.role==="admin"?t.gold:t.info} />
+                    </td>
+                    <td style={{ padding:"10px 14px", borderBottom:`1px solid ${t.border}18` }}>
+                      <Badge label={u.is_active==="YES"?"Active":"Inactive"} color={u.is_active==="YES"?t.success:t.textMuted} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Search */}
