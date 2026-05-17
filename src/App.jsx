@@ -818,32 +818,47 @@ const TeacherForm = ({ initial, classes, onSave, onClose }) => {
   const { t, inp, sel, lbl, btnGold, btnOutline } = useThemeStyles();
   const blank = { name:"", phone:"", email:"", class_name:"", role:"Teacher", is_active:"YES", joined_date:new Date().toISOString().slice(0,10), notes:"" };
   const [form, setForm] = useState(initial ? { ...blank, ...initial } : blank);
-  const set = k => e => setForm(f=>({...f,[k]:e.target.value}));
 
-  const F = ({ label, field, type="text", opts=null, full=false }) => (
-    <div style={{ display:"flex", flexDirection:"column", gap:5, gridColumn:full?"1 / -1":"auto" }}>
-      <label style={lbl}>{label}</label>
-      {opts
-        ? <select style={{ ...sel, width:"100%" }} value={form[field]} onChange={set(field)}>
-            <option value="">Select…</option>
-            {opts.map(o=><option key={o}>{o}</option>)}
-          </select>
-        : <input style={inp} type={type} value={form[field]} onChange={set(field)} />}
-    </div>
-  );
+  const handleChange = useCallback((e) => {
+    const { name, value } = e.target;
+    setForm(f => ({ ...f, [name]: value }));
+  }, []);
 
   return (
     <div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
-        <F label="Full Name *" field="name" full />
-        <F label="Phone" field="phone" />
-        <F label="Email" field="email" type="email" />
-        <F label="Assigned Class" field="class_name" opts={classes.map(c=>c.name)} />
-        <F label="Role" field="role" opts={["Teacher","Asst. Teacher","Superintendent","Observer"]} />
-        <F label="Date Joined" field="joined_date" type="date" />
+        <div style={{ display:"flex", flexDirection:"column", gap:5, gridColumn:"1 / -1" }}>
+          <label style={lbl}>Full Name *</label>
+          <input name="name" style={inp} value={form.name} onChange={handleChange} />
+        </div>
+        <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+          <label style={lbl}>Phone</label>
+          <input name="phone" style={inp} value={form.phone} onChange={handleChange} />
+        </div>
+        <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+          <label style={lbl}>Email</label>
+          <input name="email" style={inp} type="email" value={form.email} onChange={handleChange} />
+        </div>
+        <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+          <label style={lbl}>Assigned Class</label>
+          <select name="class_name" style={{ ...sel, width:"100%" }} value={form.class_name} onChange={handleChange}>
+            <option value="">Select…</option>
+            {classes.map(c=><option key={c.name}>{c.name}</option>)}
+          </select>
+        </div>
+        <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+          <label style={lbl}>Role</label>
+          <select name="role" style={{ ...sel, width:"100%" }} value={form.role} onChange={handleChange}>
+            {["Teacher","Asst. Teacher","Superintendent","Observer"].map(o=><option key={o}>{o}</option>)}
+          </select>
+        </div>
+        <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+          <label style={lbl}>Date Joined</label>
+          <input name="joined_date" style={inp} type="date" value={form.joined_date} onChange={handleChange} />
+        </div>
         <div style={{ display:"flex", flexDirection:"column", gap:5, gridColumn:"1 / -1" }}>
           <label style={lbl}>Notes</label>
-          <textarea style={{ ...inp, minHeight:60, resize:"vertical" }} value={form.notes} onChange={set("notes")} />
+          <textarea name="notes" style={{ ...inp, minHeight:60, resize:"vertical" }} value={form.notes} onChange={handleChange} />
         </div>
       </div>
       <div style={{ display:"flex", gap:10, marginTop:22, justifyContent:"flex-end" }}>
@@ -1405,33 +1420,46 @@ const DashboardPage = ({ db }) => {
 const SubmitPage = ({ db, user, onSuccess }) => {
   const { t, inp, sel, lbl, btnGold, btnOutline, card } = useThemeStyles();
   const { teachers, classes, addRecord } = db;
-  const activeTeachers = teachers.filter(x=>x.is_active==="YES");
+  const activeTeachers = teachers.filter(x => x.is_active === "YES");
 
-  const blank = {
-    date:new Date().toISOString().slice(0,10), day_of_week:"Sunday",
-    service_type:"Regular Sunday School", class_name:"", teacher_name:user?.name||"",
-    assistant_teacher:"", submitted_by:user?.name||"", time_started:"09:00", time_ended:"10:30",
+  const makeBlank = () => ({
+    date: new Date().toISOString().slice(0,10), day_of_week:"Sunday",
+    service_type:"Regular Sunday School", class_name:"", teacher_name: user?.name||"",
+    assistant_teacher:"", submitted_by: user?.name||"", time_started:"09:00", time_ended:"10:30",
     total_beginning:"", total_closing:"", male_present:"", female_present:"",
     first_timers:"", visitors:"", absent_members:"",
     bibles_beginning:"", bibles_closing:"", members_without_bibles:"",
     topic:"", bible_references:"", memory_verse:"", key_notes:"", assignment:"",
     teachers_present:"", teacher_names:"", challenges:"", prayer_requests:"", announcements:""
-  };
-  const [form, setForm] = useState(blank);
+  });
+
+  const [form, setForm]     = useState(makeBlank);
   const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState(false);
-  const set = k => e => setForm(f=>({...f,[k]:e.target.value}));
+  const [done, setDone]     = useState(false);
+
+  // KEY FIX: single stable handler using input's `name` attribute
+  const handleChange = useCallback((e) => {
+    const { name, value } = e.target;
+    setForm(prev => ({ ...prev, [name]: value }));
+  }, []);
 
   const handleSubmit = () => {
-    if (!form.class_name) { alert("Please select a class."); return; }
+    if (!form.class_name)   { alert("Please select a class."); return; }
     if (!form.topic.trim()) { alert("Please enter the lesson topic."); return; }
     setLoading(true);
     setTimeout(() => {
       addRecord(form);
-      setLoading(false); setDone(true);
-      setTimeout(()=>{ setDone(false); setForm(blank); onSuccess && onSuccess(); }, 2500);
+      setLoading(false);
+      setDone(true);
+      setTimeout(() => { setDone(false); setForm(makeBlank()); onSuccess && onSuccess(); }, 2500);
     }, 400);
   };
+
+  const g2  = { display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 };
+  const fw  = (span=1) => ({ display:"flex", flexDirection:"column", gap:5, gridColumn: span===2?"1 / -1":"auto" });
+  const sec = { fontSize:11, fontWeight:700, color:t.gold, fontFamily:"'Trebuchet MS',sans-serif",
+    textTransform:"uppercase", letterSpacing:1.8, padding:"18px 0 8px",
+    borderTop:`1px solid ${t.border}`, marginTop:16 };
 
   if (done) return (
     <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", minHeight:400, gap:16 }}>
@@ -1439,103 +1467,81 @@ const SubmitPage = ({ db, user, onSuccess }) => {
         <Icon name="check" size={40} color={t.success} />
       </div>
       <div style={{ fontSize:24, color:t.gold, fontFamily:"'Georgia',serif" }}>Report Submitted!</div>
-      <div style={{ color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", fontSize:14 }}>Saved to your Excel workbook. Download anytime from Export.</div>
+      <div style={{ color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", fontSize:14 }}>Saved to your Excel workbook.</div>
     </div>
-  );
-
-  const grid2 = { display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 };
-  const F = ({label, field, type="text", span=1}) => (
-    <div style={{ display:"flex", flexDirection:"column", gap:5, gridColumn:span===2?"1 / -1":"auto" }}>
-      <label style={lbl}>{label}</label>
-      <input style={inp} type={type} value={form[field]} onChange={set(field)} />
-    </div>
-  );
-  const S = ({label, field, opts, span=1}) => (
-    <div style={{ display:"flex", flexDirection:"column", gap:5, gridColumn:span===2?"1 / -1":"auto" }}>
-      <label style={lbl}>{label}</label>
-      <select style={{ ...sel, width:"100%" }} value={form[field]} onChange={set(field)}>
-        <option value="">Select…</option>
-        {opts.map(o=><option key={o}>{o}</option>)}
-      </select>
-    </div>
-  );
-  const TA = ({label, field}) => (
-    <div style={{ display:"flex", flexDirection:"column", gap:5, gridColumn:"1 / -1" }}>
-      <label style={lbl}>{label}</label>
-      <textarea style={{ ...inp, minHeight:65, resize:"vertical" }} value={form[field]} onChange={set(field)} />
-    </div>
-  );
-  const Sec = ({title}) => (
-    <div style={{ fontSize:11, fontWeight:700, color:t.gold, fontFamily:"'Trebuchet MS',sans-serif",
-      textTransform:"uppercase", letterSpacing:1.8, padding:"18px 0 8px",
-      borderTop:`1px solid ${t.border}`, marginTop:16 }}>{title}</div>
   );
 
   return (
     <div>
       <div style={{ fontSize:23, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif", marginBottom:3 }}>Submit Attendance Report</div>
-      <div style={{ fontSize:13, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:24 }}>
-        Saved directly to your local Excel workbook — no internet required.
-      </div>
-      <div style={{ ...card }}>
-        <Sec title="Basic Information" />
-        <div style={grid2}>
-          <F label="Date" field="date" type="date" />
-          <S label="Day" field="day_of_week" opts={["Sunday","Saturday","Wednesday"]} />
-          <S label="Service Type" field="service_type" opts={["Regular Sunday School","Joint Sunday School","Special Service"]} />
-          <S label="Class Name *" field="class_name" opts={classes.map(c=>c.name)} />
-          <S label="Teacher Name" field="teacher_name" opts={activeTeachers.map(t2=>t2.name)} />
-          <S label="Assistant Teacher" field="assistant_teacher" opts={["—",...activeTeachers.map(t2=>t2.name)]} />
-          <F label="Submitted By" field="submitted_by" />
+      <div style={{ fontSize:13, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:24 }}>Saved directly to your local Excel workbook — no internet required.</div>
+      <div style={card}>
+
+        <div style={sec}>Basic Information</div>
+        <div style={g2}>
+          <div style={fw()}><label style={lbl}>Date</label><input name="date" style={inp} type="date" value={form.date} onChange={handleChange} /></div>
+          <div style={fw()}><label style={lbl}>Day</label><select name="day_of_week" style={{...sel,width:"100%"}} value={form.day_of_week} onChange={handleChange}>{["Sunday","Saturday","Wednesday"].map(o=><option key={o}>{o}</option>)}</select></div>
+          <div style={fw()}><label style={lbl}>Service Type</label><select name="service_type" style={{...sel,width:"100%"}} value={form.service_type} onChange={handleChange}><option>Regular Sunday School</option><option>Joint Sunday School</option><option>Special Service</option></select></div>
+          <div style={fw()}><label style={lbl}>Class Name *</label><select name="class_name" style={{...sel,width:"100%"}} value={form.class_name} onChange={handleChange}><option value="">Select…</option>{classes.map(c=><option key={c.name} value={c.name}>{c.name}</option>)}</select></div>
+          <div style={fw()}><label style={lbl}>Teacher Name</label><select name="teacher_name" style={{...sel,width:"100%"}} value={form.teacher_name} onChange={handleChange}><option value="">Select…</option>{activeTeachers.map(x=><option key={x.name} value={x.name}>{x.name}</option>)}</select></div>
+          <div style={fw()}><label style={lbl}>Assistant Teacher</label><select name="assistant_teacher" style={{...sel,width:"100%"}} value={form.assistant_teacher} onChange={handleChange}><option value="">None</option>{activeTeachers.map(x=><option key={x.name} value={x.name}>{x.name}</option>)}</select></div>
+          <div style={fw()}><label style={lbl}>Submitted By</label><input name="submitted_by" style={inp} value={form.submitted_by} onChange={handleChange} /></div>
           <div />
-          <F label="Time Started" field="time_started" type="time" />
-          <F label="Time Ended"   field="time_ended"   type="time" />
+          <div style={fw()}><label style={lbl}>Time Started</label><input name="time_started" style={inp} type="time" value={form.time_started} onChange={handleChange} /></div>
+          <div style={fw()}><label style={lbl}>Time Ended</label><input name="time_ended" style={inp} type="time" value={form.time_ended} onChange={handleChange} /></div>
         </div>
-        <Sec title="Attendance Information" />
-        <div style={grid2}>
-          <F label="Total Present (Beginning)" field="total_beginning"  type="number" />
-          <F label="Total Present (Closing)"   field="total_closing"    type="number" />
-          <F label="Male Present"              field="male_present"     type="number" />
-          <F label="Female Present"            field="female_present"   type="number" />
-          <F label="First Timers"              field="first_timers"     type="number" />
-          <F label="Visitors"                  field="visitors"         type="number" />
-          <F label="Absent Members"            field="absent_members"   type="number" />
+
+        <div style={sec}>Attendance Information</div>
+        <div style={g2}>
+          <div style={fw()}><label style={lbl}>Total Present (Beginning)</label><input name="total_beginning" style={inp} type="number" value={form.total_beginning} onChange={handleChange} /></div>
+          <div style={fw()}><label style={lbl}>Total Present (Closing)</label><input name="total_closing" style={inp} type="number" value={form.total_closing} onChange={handleChange} /></div>
+          <div style={fw()}><label style={lbl}>Male Present</label><input name="male_present" style={inp} type="number" value={form.male_present} onChange={handleChange} /></div>
+          <div style={fw()}><label style={lbl}>Female Present</label><input name="female_present" style={inp} type="number" value={form.female_present} onChange={handleChange} /></div>
+          <div style={fw()}><label style={lbl}>First Timers</label><input name="first_timers" style={inp} type="number" value={form.first_timers} onChange={handleChange} /></div>
+          <div style={fw()}><label style={lbl}>Visitors</label><input name="visitors" style={inp} type="number" value={form.visitors} onChange={handleChange} /></div>
+          <div style={fw()}><label style={lbl}>Absent Members</label><input name="absent_members" style={inp} type="number" value={form.absent_members} onChange={handleChange} /></div>
         </div>
-        <Sec title="Bible Records" />
-        <div style={grid2}>
-          <F label="Bibles at Beginning"      field="bibles_beginning"       type="number" />
-          <F label="Bibles at Closing"        field="bibles_closing"         type="number" />
-          <F label="Members Without Bibles"   field="members_without_bibles" type="number" />
+
+        <div style={sec}>Bible Records</div>
+        <div style={g2}>
+          <div style={fw()}><label style={lbl}>Bibles at Beginning</label><input name="bibles_beginning" style={inp} type="number" value={form.bibles_beginning} onChange={handleChange} /></div>
+          <div style={fw()}><label style={lbl}>Bibles at Closing</label><input name="bibles_closing" style={inp} type="number" value={form.bibles_closing} onChange={handleChange} /></div>
+          <div style={fw()}><label style={lbl}>Members Without Bibles</label><input name="members_without_bibles" style={inp} type="number" value={form.members_without_bibles} onChange={handleChange} /></div>
         </div>
-        <Sec title="Lesson Information" />
-        <div style={grid2}>
-          <F label="Topic Discussed *" field="topic" span={2} />
-          <F label="Bible References"  field="bible_references" />
-          <F label="Memory Verse"      field="memory_verse" />
-          <TA label="Key Notes / Summary" field="key_notes" />
-          <TA label="Assignment / Homework" field="assignment" />
+
+        <div style={sec}>Lesson Information</div>
+        <div style={g2}>
+          <div style={fw(2)}><label style={lbl}>Topic Discussed *</label><input name="topic" style={inp} value={form.topic} onChange={handleChange} /></div>
+          <div style={fw()}><label style={lbl}>Bible References</label><input name="bible_references" style={inp} value={form.bible_references} onChange={handleChange} /></div>
+          <div style={fw()}><label style={lbl}>Memory Verse</label><input name="memory_verse" style={inp} value={form.memory_verse} onChange={handleChange} /></div>
+          <div style={fw(2)}><label style={lbl}>Key Notes / Summary</label><textarea name="key_notes" style={{...inp,minHeight:65,resize:"vertical"}} value={form.key_notes} onChange={handleChange} /></div>
+          <div style={fw(2)}><label style={lbl}>Assignment / Homework</label><textarea name="assignment" style={{...inp,minHeight:65,resize:"vertical"}} value={form.assignment} onChange={handleChange} /></div>
         </div>
-        <Sec title="Teacher Attendance" />
-        <div style={grid2}>
-          <F label="Number of Teachers Present" field="teachers_present" type="number" />
-          <F label="Names of Teachers Present"  field="teacher_names" />
+
+        <div style={sec}>Teacher Attendance</div>
+        <div style={g2}>
+          <div style={fw()}><label style={lbl}>Number of Teachers Present</label><input name="teachers_present" style={inp} type="number" value={form.teachers_present} onChange={handleChange} /></div>
+          <div style={fw()}><label style={lbl}>Names of Teachers Present</label><input name="teacher_names" style={inp} value={form.teacher_names} onChange={handleChange} /></div>
         </div>
-        <Sec title="Additional Notes" />
-        <div style={grid2}>
-          <TA label="Challenges"      field="challenges" />
-          <TA label="Prayer Requests" field="prayer_requests" />
-          <TA label="Announcements"   field="announcements" />
+
+        <div style={sec}>Additional Notes</div>
+        <div style={g2}>
+          <div style={fw(2)}><label style={lbl}>Challenges</label><textarea name="challenges" style={{...inp,minHeight:65,resize:"vertical"}} value={form.challenges} onChange={handleChange} /></div>
+          <div style={fw(2)}><label style={lbl}>Prayer Requests</label><textarea name="prayer_requests" style={{...inp,minHeight:65,resize:"vertical"}} value={form.prayer_requests} onChange={handleChange} /></div>
+          <div style={fw(2)}><label style={lbl}>Announcements</label><textarea name="announcements" style={{...inp,minHeight:65,resize:"vertical"}} value={form.announcements} onChange={handleChange} /></div>
         </div>
+
         <div style={{ marginTop:24, display:"flex", gap:12 }}>
           <button onClick={handleSubmit} disabled={loading} style={{ ...btnGold, padding:"13px 36px", fontSize:14 }}>
             {loading ? "Saving…" : "Submit Report"}
           </button>
-          <button onClick={()=>setForm(blank)} style={{ ...btnOutline, padding:"13px 24px" }}>Clear Form</button>
+          <button onClick={()=>setForm(makeBlank())} style={{ ...btnOutline, padding:"13px 24px" }}>Clear Form</button>
         </div>
       </div>
     </div>
   );
 };
+
 
 // ─── ATTENDANCE PAGE ──────────────────────────────────────────────────────────
 const AttendancePage = ({ db, user }) => {
@@ -2279,7 +2285,12 @@ const ChurchAttendancePage = ({ db, user }) => {
   const [showForm, setShowForm] = useState(false);
   const [filter, setFilter]   = useState({ program:"", month:"" });
   const [loading, setLoading] = useState(false);
-  const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
+
+  // Stable handler — prevents focus loss on each keystroke
+  const handleChange = useCallback((e) => {
+    const { name, value } = e.target;
+    setForm(f => ({ ...f, [name]: value }));
+  }, []);
 
   // Auto-calc totals for display
   const totalBegin  = (Number(form.male_beginning)||0) + (Number(form.female_beginning)||0);
@@ -2319,20 +2330,13 @@ const ChurchAttendancePage = ({ db, user }) => {
   // Unique months for filter
   const months = [...new Set(churchRecs.map(r=>(r.date||"").slice(0,7)).filter(Boolean))].sort().reverse();
 
-  const F = ({ label, field, type="text", half=false }) => (
-    <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-      <label style={lbl}>{label}</label>
-      <input style={inp} type={type} value={form[field]} onChange={set(field)} />
-    </div>
-  );
-
-  const numBox = (label, field, color) => (
+  const numBox = useCallback((label, field, color) => (
     <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
       <label style={{ ...lbl, color }}>{label}</label>
-      <input style={{ ...inp, borderColor: color+"55", color }} type="number" min="0"
-        value={form[field]} onChange={set(field)} />
+      <input name={field} style={{ ...inp, borderColor: color+"55", color }} type="number" min="0"
+        value={form[field]} onChange={handleChange} />
     </div>
-  );
+  ), [form, handleChange, inp, lbl]);
 
   return (
     <div>
@@ -2375,17 +2379,17 @@ const ChurchAttendancePage = ({ db, user }) => {
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 2fr", gap:14, marginBottom:16 }}>
             <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
               <label style={lbl}>Date *</label>
-              <input style={inp} type="date" value={form.date} onChange={set("date")} />
+              <input style={inp} type="date" value={form.date} name="date" onChange={handleChange} />
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
               <label style={lbl}>Day</label>
-              <select style={{ ...sel, width:"100%" }} value={form.day_of_week} onChange={set("day_of_week")}>
+              <select style={{ ...sel, width:"100%" }} value={form.day_of_week} name="day_of_week" onChange={handleChange}>
                 {DAYS.map(d=><option key={d}>{d}</option>)}
               </select>
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
               <label style={lbl}>Church Program *</label>
-              <select style={{ ...sel, width:"100%" }} value={form.program} onChange={set("program")}>
+              <select style={{ ...sel, width:"100%" }} value={form.program} name="program" onChange={handleChange}>
                 <option value="">— Select Program —</option>
                 {activePrograms.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}
               </select>
@@ -2427,20 +2431,20 @@ const ChurchAttendancePage = ({ db, user }) => {
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:14, marginBottom:16 }}>
             <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
               <label style={lbl}>First Timers</label>
-              <input style={inp} type="number" min="0" value={form.first_timers} onChange={set("first_timers")} />
+              <input style={inp} type="number" min="0" value={form.first_timers} name="first_timers" onChange={handleChange} />
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
               <label style={lbl}>Visitors</label>
-              <input style={inp} type="number" min="0" value={form.visitors} onChange={set("visitors")} />
+              <input style={inp} type="number" min="0" value={form.visitors} name="visitors" onChange={handleChange} />
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
               <label style={lbl}>Submitted By</label>
-              <input style={inp} type="text" value={form.submitted_by} onChange={set("submitted_by")} />
+              <input style={inp} type="text" value={form.submitted_by} name="submitted_by" onChange={handleChange} />
             </div>
           </div>
           <div style={{ display:"flex", flexDirection:"column", gap:5, marginBottom:20 }}>
             <label style={lbl}>Notes / Remarks</label>
-            <textarea style={{ ...inp, minHeight:55, resize:"vertical" }} value={form.notes} onChange={set("notes")} />
+            <textarea style={{ ...inp, minHeight:55, resize:"vertical" }} value={form.notes} name="notes" onChange={handleChange} />
           </div>
 
           <div style={{ display:"flex", gap:10 }}>
@@ -2676,14 +2680,18 @@ const UsersPage = ({ db }) => {
     const blank = { name:"", email:"", password:"", role:"teacher", is_active:"YES",
       permissions: initial ? parsePerms(initial.permissions) : [...TEACHER_PERMS_DEFAULT] };
     const [form, setForm] = useState(initial ? { ...blank, ...initial, permissions: parsePerms(initial.permissions) } : blank);
-    const [err, setErr] = useState("");
-    const set = k => e => setForm(f=>({...f,[k]:e.target.value}));
+    const [err, setErr]   = useState("");
+    const [showPw, setShowPw] = useState(false);
 
-    const handleSave = () => {
-      if (!form.name.trim()) { setErr("Name is required."); return; }
-      if (!form.email.trim()) { setErr("Email is required."); return; }
-      if (!initial && !form.password.trim()) { setErr("Password is required for new users."); return; }
-      onSave(form); 
+    // Stable handler — no focus loss
+    const handleChange = useCallback((e) => {
+      const { name, value } = e.target;
+      setForm(f => ({ ...f, [name]: value }));
+    }, []);
+
+    const handleRoleChange = (e) => {
+      const role = e.target.value;
+      setForm(f => ({ ...f, role, permissions: role==="admin" ? [...ADMIN_PERMS] : [...TEACHER_PERMS_DEFAULT] }));
     };
 
     const togglePerm = (key) => {
@@ -2695,36 +2703,49 @@ const UsersPage = ({ db }) => {
       }));
     };
 
+    const handleSave = () => {
+      if (!form.name.trim())  { setErr("Name is required."); return; }
+      if (!form.email.trim()) { setErr("Email is required."); return; }
+      if (!initial && !form.password.trim()) { setErr("Password is required for new users."); return; }
+      onSave(form);
+    };
+
     const groups = [...new Set(ALL_PERMISSIONS.map(p=>p.group))];
+    const eyeBtn = { background:"transparent", border:"none", cursor:"pointer", padding:"0 8px", position:"absolute", right:8, top:"50%", transform:"translateY(-50%)" };
 
     return (
       <div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:20 }}>
           <div style={{ display:"flex", flexDirection:"column", gap:5, gridColumn:"1 / -1" }}>
             <label style={lbl}>Full Name *</label>
-            <input style={inp} value={form.name} onChange={set("name")} placeholder="e.g. Bro. John Mensah" />
+            <input name="name" style={inp} value={form.name} onChange={handleChange} placeholder="e.g. Bro. John Mensah" />
           </div>
           <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
             <label style={lbl}>Email Address *</label>
-            <input style={inp} type="email" value={form.email} onChange={set("email")} placeholder="email@uct.org" />
+            <input name="email" style={inp} type="email" value={form.email} onChange={handleChange} placeholder="email@uct.org" />
           </div>
+          {/* Password with show/hide toggle */}
           <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
             <label style={lbl}>{initial ? "New Password (leave blank to keep)" : "Password *"}</label>
-            <input style={inp} type="password" value={form.password} onChange={set("password")} placeholder="••••••••" />
+            <div style={{ position:"relative" }}>
+              <input name="password" style={{ ...inp, paddingRight:40 }}
+                type={showPw ? "text" : "password"}
+                value={form.password} onChange={handleChange} placeholder="••••••••" />
+              <button type="button" style={eyeBtn} onClick={()=>setShowPw(v=>!v)} title={showPw?"Hide":"Show"}>
+                <Icon name="eye" size={16} color={t.textMuted} />
+              </button>
+            </div>
           </div>
           <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
             <label style={lbl}>Role</label>
-            <select style={{ ...sel, width:"100%" }} value={form.role} onChange={e=>{
-              const role = e.target.value;
-              setForm(f=>({ ...f, role, permissions: role==="admin" ? [...ADMIN_PERMS] : [...TEACHER_PERMS_DEFAULT] }));
-            }}>
+            <select style={{ ...sel, width:"100%" }} value={form.role} onChange={handleRoleChange}>
               <option value="teacher">Teacher / Staff</option>
               <option value="admin">Admin</option>
             </select>
           </div>
           <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
             <label style={lbl}>Status</label>
-            <select style={{ ...sel, width:"100%" }} value={form.is_active} onChange={set("is_active")}>
+            <select name="is_active" style={{ ...sel, width:"100%" }} value={form.is_active} onChange={handleChange}>
               <option value="YES">Active</option>
               <option value="NO">Inactive</option>
             </select>
@@ -2756,7 +2777,7 @@ const UsersPage = ({ db }) => {
                         transition:"all 0.15s" }}>
                       <div style={{ width:16, height:16, borderRadius:4, border:`2px solid ${on?t.gold:t.textFaint}`,
                         background: on ? t.gold : "transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                        {on && <Icon name="check" size={10} color="#0B1628" />}
+                        {on && <Icon name="check" size={10} color="#FFFFFF" />}
                       </div>
                       <span style={{ fontSize:12, color:on?t.text:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}>{perm.label}</span>
                     </label>
@@ -3013,6 +3034,7 @@ const LoginPage = ({ onLogin }) => {
   const t = T[dark?"dark":"light"];
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
+  const [showPw, setShowPw]     = useState(false);
   const [err, setErr]           = useState("");
   const [loading, setLoading]   = useState(false);
 
@@ -3036,14 +3058,21 @@ const LoginPage = ({ onLogin }) => {
     }, 300);
   };
 
-  const inp = { background:dark?"rgba(255,255,255,0.05)":t.surfaceAlt, border:`1px solid ${t.border}`, borderRadius:10, padding:"12px 16px", color:t.text, fontFamily:"'Trebuchet MS',sans-serif", fontSize:14, width:"100%", boxSizing:"border-box", outline:"none" };
+  const inp = {
+    background: dark?"rgba(255,255,255,0.05)":t.surfaceAlt,
+    border:`1px solid ${t.border}`, borderRadius:10, padding:"12px 16px",
+    color:t.text, fontFamily:"'Trebuchet MS',sans-serif", fontSize:14,
+    width:"100%", boxSizing:"border-box", outline:"none"
+  };
 
   return (
     <div style={{ minHeight:"100vh", background:t.bg, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Trebuchet MS',sans-serif", transition:"background 0.3s" }}>
       <button onClick={toggle} style={{ position:"fixed", top:20, right:20, background:t.surface, border:`1px solid ${t.border}`, borderRadius:9, padding:"8px 14px", cursor:"pointer", color:t.text, display:"flex", alignItems:"center", gap:7, fontSize:13 }}>
         <Icon name={dark?"sun":"moon"} size={15} color={t.gold} />{dark?"Light":"Dark"}
       </button>
-      <div style={{ width:430, padding:44, background:t.surface, borderRadius:22, border:`1px solid ${t.border}`, boxShadow:`0 24px 80px rgba(0,0,0,0.2)` }}>
+
+      <div style={{ width:420, padding:44, background:t.surface, borderRadius:22, border:`1px solid ${t.border}`, boxShadow:`0 24px 80px rgba(0,0,0,0.15)` }}>
+        {/* Logo */}
         <div style={{ textAlign:"center", marginBottom:36 }}>
           <div style={{ width:80, height:80, borderRadius:"50%", background:`linear-gradient(135deg,#004b23,#006e34)`,
             display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 18px",
@@ -3055,33 +3084,50 @@ const LoginPage = ({ onLogin }) => {
           <div style={{ fontSize:20, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif", letterSpacing:0.3 }}>{CHURCH_NAME}</div>
           <div style={{ fontSize:11, color:t.textMuted, marginTop:5, letterSpacing:0.8, textTransform:"uppercase" }}>{CHURCH_SUB}</div>
         </div>
+
+        {/* Fields */}
         <div style={{ display:"flex", flexDirection:"column", gap:14, marginBottom:20 }}>
           <div>
             <div style={{ fontSize:10, color:t.textMuted, textTransform:"uppercase", letterSpacing:1.2, marginBottom:7 }}>Email Address</div>
-            <input style={inp} type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="your@email.com" onKeyDown={e=>e.key==="Enter"&&handleLogin()} />
+            <input style={inp} type="email" value={email}
+              onChange={e=>setEmail(e.target.value)}
+              placeholder="your@email.com"
+              onKeyDown={e=>e.key==="Enter"&&handleLogin()} />
           </div>
           <div>
             <div style={{ fontSize:10, color:t.textMuted, textTransform:"uppercase", letterSpacing:1.2, marginBottom:7 }}>Password</div>
-            <input style={inp} type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••" onKeyDown={e=>e.key==="Enter"&&handleLogin()} />
+            <div style={{ position:"relative" }}>
+              <input style={{ ...inp, paddingRight:44 }}
+                type={showPw ? "text" : "password"}
+                value={password}
+                onChange={e=>setPassword(e.target.value)}
+                placeholder="••••••••"
+                onKeyDown={e=>e.key==="Enter"&&handleLogin()} />
+              <button type="button" onClick={()=>setShowPw(v=>!v)}
+                style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)",
+                  background:"transparent", border:"none", cursor:"pointer", padding:4 }}
+                title={showPw?"Hide password":"Show password"}>
+                <Icon name="eye" size={17} color={t.textMuted} />
+              </button>
+            </div>
           </div>
         </div>
-        {err && <div style={{ color:t.danger, fontSize:12, marginBottom:14, padding:"9px 12px", background:t.danger+"12", borderRadius:7, border:`1px solid ${t.danger}33` }}>{err}</div>}
-        <button onClick={handleLogin} disabled={loading} style={{ width:"100%", padding:14, borderRadius:10, border:"none", cursor:"pointer", background:`linear-gradient(135deg,${t.btnFrom},${t.btnTo})`, color:t.btnText, fontWeight:700, fontSize:15, fontFamily:"'Trebuchet MS',sans-serif", boxShadow:`0 4px 16px ${t.gold}33`, opacity:loading?0.7:1 }}>
+
+        {err && (
+          <div style={{ color:t.danger, fontSize:12, marginBottom:14, padding:"9px 12px",
+            background:t.danger+"12", borderRadius:7, border:`1px solid ${t.danger}33` }}>
+            {err}
+          </div>
+        )}
+
+        <button onClick={handleLogin} disabled={loading}
+          style={{ width:"100%", padding:14, borderRadius:10, border:"none", cursor:"pointer",
+            background:`linear-gradient(135deg,#004b23,#006e34)`,
+            color:"#FFFFFF", fontWeight:700, fontSize:15,
+            fontFamily:"'Trebuchet MS',sans-serif",
+            boxShadow:`0 4px 16px #004b2333`, opacity:loading?0.7:1 }}>
           {loading ? "Signing in…" : "Sign In"}
         </button>
-        <div style={{ marginTop:20, padding:"12px 14px", background:t.surfaceAlt, borderRadius:9, border:`1px solid ${t.border}` }}>
-          <div style={{ fontSize:11, color:t.gold, fontFamily:"'Trebuchet MS',sans-serif", fontWeight:700, marginBottom:6 }}>Demo Accounts</div>
-          {[
-            ["admin@uct.org","admin123","Admin"],
-            ["super@uct.org","super123","Superintendent"],
-            ["emmanuel@uct.org","teacher1","Teacher"],
-          ].map(([e,p,r])=>(
-            <div key={e} onClick={()=>{ setEmail(e); setPassword(p); }} style={{ cursor:"pointer", fontSize:11, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", padding:"3px 0", display:"flex", gap:8 }}>
-              <span style={{ color:t.gold, width:90 }}>{r}</span>
-              <span>{e} / {p}</span>
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   );
