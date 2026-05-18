@@ -330,20 +330,46 @@ const loadWorkbook = () => {
   return null;
 };
 
-// ── Users stored in localStorage (separate from workbook) ────
-const USERS_VERSION = "v3"; // bump this to force reset on all browsers
+// ── SHARED USER STORAGE via Supabase ─────────────────────────
+// Users are stored in Supabase so ALL devices see the same data.
+// Set your Supabase URL and anon key below after creating a free project.
+// Until configured, falls back to localStorage (single-device only).
+
+const SUPABASE_URL   = "https://phnqknoritzmgcjzsgic.supabase.co";
+const SUPABASE_ANON  = "sb_publishable_mDTovCRDkK_7WUyM3amo_w_mKwyUFjD";
+
+const SUPABASE_READY = Boolean(SUPABASE_URL && SUPABASE_ANON);
+
+// ── Supabase REST helpers (no SDK needed) ─────────────────────
+const sbFetch = async (path, opts = {}) => {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    ...opts,
+    headers: {
+      "Content-Type":  "application/json",
+      "apikey":        SUPABASE_ANON,
+      "Authorization": `Bearer ${SUPABASE_ANON}`,
+      "Prefer":        "return=representation",
+      ...(opts.headers || {}),
+    },
+  });
+  if (!res.ok) { const e = await res.text(); throw new Error(e); }
+  const txt = await res.text();
+  return txt ? JSON.parse(txt) : [];
+};
+
+// ── Fallback localStorage (used until Supabase is configured) ─
+const USERS_VERSION    = "v4";
 const USERS_KEY_VERSIONED = `${USERS_KEY}_${USERS_VERSION}`;
 
 const DEFAULT_USERS = [
-  { id:"U001", name:"System Admin",       email:"admin@uct.org",    password:"admin123",  role:"admin",   is_active:"YES", permissions: JSON.stringify(ADMIN_PERMS),           created_at:"2024-01-01" },
-  { id:"U002", name:"Bro. Emmanuel Adu",  email:"emmanuel@uct.org", password:"teacher1",  role:"teacher", is_active:"YES", permissions: JSON.stringify(TEACHER_PERMS_DEFAULT), created_at:"2024-01-01" },
-  { id:"U003", name:"Sis. Grace Mensah",  email:"grace@uct.org",    password:"teacher2",  role:"teacher", is_active:"YES", permissions: JSON.stringify(TEACHER_PERMS_DEFAULT), created_at:"2024-01-01" },
-  { id:"U004", name:"Bro. Samuel Ofori",  email:"samuel@uct.org",   password:"teacher3",  role:"teacher", is_active:"YES", permissions: JSON.stringify(TEACHER_PERMS_DEFAULT), created_at:"2024-01-01" },
-  { id:"U005", name:"Superintendent",     email:"super@uct.org",    password:"super123",  role:"teacher", is_active:"YES", permissions: JSON.stringify([...TEACHER_PERMS_DEFAULT,"analytics","view_analytics","dashboard","export","view_export"]), created_at:"2024-01-01" },
+  { id:"U001", name:"System Admin",      email:"admin@uct.org",    password:"admin123",  role:"admin",   is_active:"YES", permissions: JSON.stringify(ADMIN_PERMS),           created_at:"2024-01-01" },
+  { id:"U002", name:"Bro. Emmanuel Adu", email:"emmanuel@uct.org", password:"teacher1",  role:"teacher", is_active:"YES", permissions: JSON.stringify(TEACHER_PERMS_DEFAULT), created_at:"2024-01-01" },
+  { id:"U003", name:"Sis. Grace Mensah", email:"grace@uct.org",    password:"teacher2",  role:"teacher", is_active:"YES", permissions: JSON.stringify(TEACHER_PERMS_DEFAULT), created_at:"2024-01-01" },
+  { id:"U004", name:"Bro. Samuel Ofori", email:"samuel@uct.org",   password:"teacher3",  role:"teacher", is_active:"YES", permissions: JSON.stringify(TEACHER_PERMS_DEFAULT), created_at:"2024-01-01" },
+  { id:"U005", name:"Superintendent",    email:"super@uct.org",    password:"super123",  role:"teacher", is_active:"YES", permissions: JSON.stringify([...TEACHER_PERMS_DEFAULT,"analytics","view_analytics","dashboard","export","view_export"]), created_at:"2024-01-01" },
 ];
 
-// The ONLY function that reads users — always from versioned key
-const loadUsers = () => {
+const loadUsersLocal = () => {
   try {
     const raw = localStorage.getItem(USERS_KEY_VERSIONED);
     if (raw) {
@@ -351,24 +377,143 @@ const loadUsers = () => {
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
   } catch {}
-  // Not found or empty — seed defaults
-  const seed = JSON.parse(JSON.stringify(DEFAULT_USERS)); // deep copy
+  const seed = JSON.parse(JSON.stringify(DEFAULT_USERS));
   localStorage.setItem(USERS_KEY_VERSIONED, JSON.stringify(seed));
   return seed;
 };
 
-// The ONLY function that writes users
-const saveUsers = (users) => {
-  const str = JSON.stringify(users);
-  localStorage.setItem(USERS_KEY_VERSIONED, str);
-  // Immediately verify round-trip
-  const verify = localStorage.getItem(USERS_KEY_VERSIONED);
-  if (verify !== str) {
-    alert("Warning: Could not save user data. Your browser storage may be full.");
-  }
+const saveUsersLocal = (users) => {
+  localStorage.setItem(USERS_KEY_VERSIONED, JSON.stringify(users));
 };
 
+// loadUsers — async when Supabase ready, sync fallback otherwise
+const loadUsers = () => loadUsersLocal();  // sync wrapper for login
+
 const parsePerms = (p) => { try { return JSON.parse(p || "[]"); } catch { return []; } };
+
+// ── useUsers hook — handles both Supabase + localStorage ──────
+const useUsers = () => {
+  const [appUsers, setAppUsers] = useState([]);
+  const [usersReady, setUsersReady] = useState(false);
+
+  // Load on mount
+  useEffect(() => {
+    const fetchUsers = async () => {
+      if (SUPABASE_READY) {
+        try {
+          const rows = await sbFetch("uct_users?select=*&order=created_at.asc");
+          if (rows.length > 0) {
+            setAppUsers(rows);
+            // Mirror to localStorage as cache
+            saveUsersLocal(rows);
+            setUsersReady(true);
+            return;
+          }
+          // Empty table — seed defaults
+          for (const u of DEFAULT_USERS) {
+            await sbFetch("uct_users", { method:"POST", body: JSON.stringify(u) });
+          }
+          setAppUsers([...DEFAULT_USERS]);
+          saveUsersLocal([...DEFAULT_USERS]);
+        } catch (err) {
+          console.warn("Supabase unavailable, falling back to localStorage:", err.message);
+          setAppUsers(loadUsersLocal());
+        }
+      } else {
+        setAppUsers(loadUsersLocal());
+      }
+      setUsersReady(true);
+    };
+    fetchUsers();
+  }, []);
+
+  const saveAll = useCallback(async (users) => {
+    setAppUsers([...users]);
+    saveUsersLocal(users);
+    // No Supabase sync needed here — individual operations handle it
+  }, []);
+
+  const addUser = useCallback(async (data) => {
+    if (!data.name?.trim())     return { error: "Name is required." };
+    if (!data.email?.trim())    return { error: "Email is required." };
+    if (!data.password?.trim()) return { error: "Password is required." };
+
+    const current = SUPABASE_READY ? appUsers : loadUsersLocal();
+    const exists  = current.find(u => u.email.toLowerCase() === data.email.toLowerCase().trim());
+    if (exists) return { error: "An account with this email already exists." };
+
+    const newU = {
+      id:          `U${Date.now()}`,
+      name:        data.name.trim(),
+      email:       data.email.toLowerCase().trim(),
+      password:    data.password.trim(),
+      role:        data.role || "teacher",
+      is_active:   "YES",
+      permissions: JSON.stringify(Array.isArray(data.permissions) ? data.permissions : TEACHER_PERMS_DEFAULT),
+      created_at:  new Date().toISOString().slice(0,10),
+    };
+
+    if (SUPABASE_READY) {
+      try { await sbFetch("uct_users", { method:"POST", body: JSON.stringify(newU) }); }
+      catch(e) { return { error: `Save failed: ${e.message}` }; }
+    }
+
+    const updated = [...current, newU];
+    saveUsersLocal(updated);
+    setAppUsers([...updated]);
+    return { success: true, user: newU };
+  }, [appUsers]);
+
+  const updateUser = useCallback(async (id, updates) => {
+    const current = SUPABASE_READY ? appUsers : loadUsersLocal();
+    const updated = current.map(u => {
+      if (u.id !== id) return u;
+      const merged = { ...u };
+      if (updates.name)                    merged.name      = updates.name.trim();
+      if (updates.email)                   merged.email     = updates.email.toLowerCase().trim();
+      if (updates.role)                    merged.role      = updates.role;
+      if (updates.is_active !== undefined) merged.is_active = updates.is_active;
+      if (updates.password?.trim())        merged.password  = updates.password.trim();
+      if (updates.permissions !== undefined) {
+        merged.permissions = Array.isArray(updates.permissions)
+          ? JSON.stringify(updates.permissions)
+          : updates.permissions;
+      }
+      return merged;
+    });
+
+    if (SUPABASE_READY) {
+      const changed = updated.find(u => u.id === id);
+      try {
+        await sbFetch(`uct_users?id=eq.${id}`, {
+          method: "PATCH",
+          body:   JSON.stringify(changed),
+        });
+      } catch(e) { alert(`Update failed: ${e.message}`); return; }
+    }
+
+    saveUsersLocal(updated);
+    setAppUsers([...updated]);
+  }, [appUsers]);
+
+  const deleteUser = useCallback(async (id) => {
+    if (SUPABASE_READY) {
+      try { await sbFetch(`uct_users?id=eq.${id}`, { method:"DELETE" }); }
+      catch(e) { alert(`Delete failed: ${e.message}`); return; }
+    }
+    const updated = loadUsersLocal().filter(u => u.id !== id);
+    saveUsersLocal(updated);
+    setAppUsers([...updated]);
+  }, []);
+
+  const toggleUserActive = useCallback(async (id) => {
+    const current = SUPABASE_READY ? appUsers : loadUsersLocal();
+    const user    = current.find(u => u.id === id);
+    if (user) await updateUser(id, { is_active: user.is_active === "YES" ? "NO" : "YES" });
+  }, [appUsers, updateUser]);
+
+  return { appUsers, usersReady, addUser, updateUser, deleteUser, toggleUserActive };
+};
 
 // Parse a sheet into array of objects
 const sheetToRows = (wb, sheetName) => {
@@ -434,7 +579,6 @@ const useExcelDB = () => {
   const [classes, setClasses]       = useState([]);
   const [churchRecs, setChurchRecs] = useState([]);
   const [programs, setPrograms]     = useState([]);
-  const [appUsers, setAppUsers]     = useState([]);
 
   const load = useCallback(() => {
     let book = loadWorkbook();
@@ -468,7 +612,6 @@ const useExcelDB = () => {
     setClasses(sheetToRows(book, SHEETS.CLASSES));
     setChurchRecs(sheetToRows(book, SHEETS.CHURCH));
     setPrograms(sheetToRows(book, SHEETS.PROGRAMS));
-    setAppUsers(loadUsers());
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -629,81 +772,12 @@ const useExcelDB = () => {
     });
   }, [load]);
 
-  // ── App Users ─────────────────────────────────────────────
-  const addUser = useCallback((data) => {
-    if (!data.name?.trim())     return { error: "Name is required." };
-    if (!data.email?.trim())    return { error: "Email is required." };
-    if (!data.password?.trim()) return { error: "Password is required." };
-
-    const users = loadUsers();
-    const exists = users.find(u => u.email.toLowerCase() === data.email.toLowerCase().trim());
-    if (exists) return { error: "An account with this email already exists." };
-
-    const newU = {
-      id:          `U${Date.now()}`,
-      name:        data.name.trim(),
-      email:       data.email.toLowerCase().trim(),
-      password:    data.password.trim(),
-      role:        data.role || "teacher",
-      is_active:   "YES",
-      permissions: JSON.stringify(Array.isArray(data.permissions) ? data.permissions : TEACHER_PERMS_DEFAULT),
-      created_at:  new Date().toISOString().slice(0,10),
-    };
-    const updated = [...users, newU];
-    saveUsers(updated);
-    setAppUsers([...updated]);
-    return { success: true, user: newU };
-  }, []);
-
-  const updateUser = useCallback((id, updates) => {
-    const users = loadUsers();
-    const updated = users.map(u => {
-      if (u.id !== id) return u;
-      const merged = { ...u };
-      if (updates.name)                      merged.name      = updates.name.trim();
-      if (updates.email)                     merged.email     = updates.email.toLowerCase().trim();
-      if (updates.role)                      merged.role      = updates.role;
-      if (updates.is_active !== undefined)   merged.is_active = updates.is_active;
-      // Only update password if a new non-empty value was provided
-      if (updates.password && updates.password.trim() !== "") {
-        merged.password = updates.password.trim();
-      }
-      // Update permissions if provided
-      if (updates.permissions !== undefined) {
-        merged.permissions = Array.isArray(updates.permissions)
-          ? JSON.stringify(updates.permissions)
-          : updates.permissions;
-      }
-      return merged;
-    });
-    saveUsers(updated);
-    setAppUsers([...updated]);
-  }, []);
-
-  const deleteUser = useCallback((id) => {
-    const users = loadUsers().filter(u => u.id !== id);
-    saveUsers(users); setAppUsers(users);
-  }, []);
-
-  const toggleUserActive = useCallback((id) => {
-    const users = loadUsers();
-    const user = users.find(u=>u.id===id);
-    if (user) updateUser(id, { is_active: user.is_active==="YES" ? "NO" : "YES" });
-  }, [updateUser]);
-
-  // Auth: find user by email+password
-  const authenticateUser = useCallback((email, password) => {
-    const users = loadUsers();
-    return users.find(u => u.email.toLowerCase()===email.toLowerCase() && u.password===password && u.is_active==="YES") || null;
-  }, []);
-
   return {
-    records, teachers, classes, churchRecs, programs, appUsers,
+    records, teachers, classes, churchRecs, programs,
     addRecord, updateRecord, deleteRecord, approveRecord,
     addTeacher, updateTeacher, deleteTeacher, toggleTeacherActive,
     addChurchRec, updateChurchRec, deleteChurchRec,
     addProgram, updateProgram, deleteProgram, toggleProgramActive,
-    addUser, updateUser, deleteUser, toggleUserActive, authenticateUser,
     downloadWorkbook, importWorkbook,
   };
 };
@@ -2700,9 +2774,9 @@ const ProgramsPage = ({ db }) => {
 };
 
 // ─── USERS & PERMISSIONS PAGE ─────────────────────────────────────────────────
-const UsersPage = ({ db }) => {
+const UsersPage = ({ users: userHook }) => {
   const { t, card, btnGold, btnOutline, btnGhost, inp, sel, lbl, th, td } = useThemeStyles();
-  const { appUsers, addUser, updateUser, deleteUser, toggleUserActive } = db;
+  const { appUsers, addUser, updateUser, deleteUser, toggleUserActive } = userHook;
 
   const [modal, setModal]   = useState(null); // null | "add" | user-obj
   const [editPerms, setEditPerms] = useState(null); // user being permissions-edited
@@ -3159,15 +3233,17 @@ const LoginPage = ({ onLogin }) => {
     if (!email || !password) { setErr("Please fill in all fields."); return; }
     setLoading(true); setErr("");
     setTimeout(() => {
-      const users = loadUsers();
+      const users = loadUsersLocal();
+      const emailLower = email.toLowerCase().trim();
+      const pwTrim     = password.trim();
       const found = users.find(u =>
-        u.email.toLowerCase().trim() === email.toLowerCase().trim() &&
-        u.password.trim() === password.trim() &&
+        u.email.toLowerCase().trim() === emailLower &&
+        u.password.trim() === pwTrim &&
         u.is_active === "YES"
       );
       setLoading(false);
       if (!found) {
-        setErr("Invalid email or password, or your account is inactive.");
+        setErr("Invalid email or password, or account is inactive.");
         return;
       }
       const perms = parsePerms(found.permissions);
@@ -3417,6 +3493,7 @@ export default function App() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [toasts, setToasts]         = useState([]);
   const db     = useExcelDB();
+  const users  = useUsers();   // ← separate, Supabase-ready user system
   const mobile = useIsMobile();
 
   useEffect(() => { injectGlobalCSS(); }, []);
@@ -3468,7 +3545,7 @@ export default function App() {
     teachers:  guard("teachers",   <TeachersPage db={db} />),
     classes:   guard("classes",    <ClassesPage db={db} />),
     programs:  guard("programs",   <ProgramsPage db={db} />),
-    users:     user?.role==="admin" ? <UsersPage db={db} /> : <AccessDenied />,
+    users:     user?.role==="admin" ? <UsersPage users={users} /> : <AccessDenied />,
     branding:  user?.role==="admin" ? <BrandingPage /> : <AccessDenied />,
     export:    guard("export",     <ExportPage db={db} />),
     submit:    guard("submit",     <SubmitPage db={db} user={user} onSuccess={()=>toast("Report saved!","success")} />),
