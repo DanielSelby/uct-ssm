@@ -162,19 +162,44 @@ const ALL_PERMISSIONS = [
   { key:"programs",   label:"Programs Management",  group:"Navigation" },
   { key:"export",     label:"Export Center",        group:"Navigation" },
   { key:"submit",     label:"Submit SS Report",     group:"Navigation" },
-  { key:"approve_records",   label:"Approve / Reject Records",  group:"Actions" },
-  { key:"delete_records",    label:"Delete Records",             group:"Actions" },
-  { key:"view_analytics",    label:"View Analytics Data",        group:"Actions" },
-  { key:"view_church_data",  label:"View Church Attendance",     group:"Actions" },
-  { key:"view_export",       label:"Download / Export Data",     group:"Actions" },
-  { key:"view_all_classes",  label:"See All Classes' Records",   group:"Actions" },
-  { key:"manage_teachers",   label:"Add / Edit / Delete Teachers",group:"Actions" },
+  { key:"approve_records",  label:"Approve / Reject Records",   group:"Actions" },
+  { key:"delete_records",   label:"Delete Records",              group:"Actions" },
+  { key:"view_analytics",   label:"View Analytics Data",         group:"Actions" },
+  { key:"view_church_data", label:"View Church Attendance",      group:"Actions" },
+  { key:"view_export",      label:"Download / Export Data",      group:"Actions" },
+  { key:"view_all_classes", label:"See All Classes' Records",    group:"Actions" },
+  { key:"manage_teachers",  label:"Add / Edit / Delete Teachers",group:"Actions" },
 ];
 
 // Default full access for admin
 const ADMIN_PERMS = ALL_PERMISSIONS.map(p=>p.key);
 // Default limited access for teacher
 const TEACHER_PERMS_DEFAULT = ["submit","attendance","church","view_church_data"];
+
+// ── Built-in roles (always available) ────────────────────────
+const BUILT_IN_ROLES = [
+  { id:"admin",          name:"Admin",          color:"#004b23", permissions: ADMIN_PERMS,           isBuiltIn: true,  description:"Full access to everything" },
+  { id:"teacher",        name:"Teacher",        color:"#1565C0", permissions: TEACHER_PERMS_DEFAULT, isBuiltIn: true,  description:"Submit reports and view own records" },
+  { id:"superintendent", name:"Superintendent", color:"#9B59B6", permissions: [...TEACHER_PERMS_DEFAULT,"analytics","view_analytics","dashboard","export","view_export","view_all_classes"], isBuiltIn: true, description:"Teacher + analytics and exports" },
+  { id:"assistant",      name:"Asst. Teacher",  color:"#E67E22", permissions: ["submit","church","view_church_data"], isBuiltIn: true, description:"Submit SS reports and church records only" },
+];
+
+const ROLES_KEY = "uct_custom_roles_v1";
+
+// Load custom roles from localStorage (synced separately)
+const loadCustomRoles = () => {
+  try {
+    const raw = localStorage.getItem(ROLES_KEY);
+    if (raw) { const p = JSON.parse(raw); if (Array.isArray(p)) return p; }
+  } catch {}
+  return [];
+};
+const saveCustomRoles = (roles) => {
+  try { localStorage.setItem(ROLES_KEY, JSON.stringify(roles)); } catch {}
+};
+
+// All roles = built-in + custom
+const getAllRoles = () => [...BUILT_IN_ROLES, ...loadCustomRoles()];
 
 const USERS_KEY = "uct_ss_users";
 
@@ -2804,8 +2829,14 @@ const UsersPage = ({ users: userHook }) => {
     }, []);
 
     const handleRoleChange = (e) => {
-      const role = e.target.value;
-      setForm(f => ({ ...f, role, permissions: role==="admin" ? [...ADMIN_PERMS] : [...TEACHER_PERMS_DEFAULT] }));
+      const roleId = e.target.value;
+      const allRoles = getAllRoles();
+      const found = allRoles.find(r => r.id === roleId);
+      setForm(f => ({
+        ...f,
+        role: roleId,
+        permissions: found ? [...found.permissions] : [...TEACHER_PERMS_DEFAULT]
+      }));
     };
 
     const togglePerm = (key) => {
@@ -2853,9 +2884,13 @@ const UsersPage = ({ users: userHook }) => {
           <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
             <label style={lbl}>Role</label>
             <select style={{ ...sel, width:"100%" }} value={form.role} onChange={handleRoleChange}>
-              <option value="teacher">Teacher / Staff</option>
-              <option value="admin">Admin</option>
+              {getAllRoles().map(r => (
+                <option key={r.id} value={r.id}>{r.name}{r.isBuiltIn ? "" : " (Custom)"}</option>
+              ))}
             </select>
+            <div style={{ fontSize:11, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}>
+              Selecting a role auto-fills permissions below
+            </div>
           </div>
           <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
             <label style={lbl}>Status</label>
@@ -3128,6 +3163,309 @@ const UsersPage = ({ users: userHook }) => {
   );
 };
 
+// ─── ROLES PAGE ───────────────────────────────────────────────────────────────
+const RolesPage = () => {
+  const { t, card, btnGold, btnOutline, btnGhost, inp, lbl } = useThemeStyles();
+  const [roles, setRoles]         = useState(getAllRoles);
+  const [modal, setModal]         = useState(null); // null | "add" | role-obj
+  const [expandedId, setExpandedId] = useState(null);
+
+  const customRoles = roles.filter(r => !r.isBuiltIn);
+  const builtInRoles = roles.filter(r => r.isBuiltIn);
+
+  // ── Role Form ──────────────────────────────────────────────
+  const RoleForm = ({ initial, onSave, onClose }) => {
+    const ROLE_COLORS = ["#004b23","#1565C0","#9B59B6","#E67E22","#E74C3C","#1ABC9C","#C87A0A","#2ECC71"];
+    const blank = { name:"", description:"", color:"#1565C0", permissions:[] };
+    const [form, setForm] = useState(initial ? { ...blank, ...initial } : blank);
+    const [err, setErr]   = useState("");
+
+    const handleChange = useCallback((e) => {
+      const { name, value } = e.target;
+      setForm(f => ({ ...f, [name]: value }));
+    }, []);
+
+    const togglePerm = (key) => {
+      setForm(f => ({
+        ...f,
+        permissions: f.permissions.includes(key)
+          ? f.permissions.filter(p => p !== key)
+          : [...f.permissions, key]
+      }));
+    };
+
+    const handleSave = () => {
+      if (!form.name.trim()) { setErr("Role name is required."); return; }
+      const allR = getAllRoles();
+      const dup = allR.find(r => r.name.toLowerCase() === form.name.trim().toLowerCase() && r.id !== initial?.id);
+      if (dup) { setErr("A role with this name already exists."); return; }
+      onSave({ ...form, name: form.name.trim(), description: form.description.trim() });
+    };
+
+    const groups = [...new Set(ALL_PERMISSIONS.map(p => p.group))];
+
+    return (
+      <div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:20 }}>
+          <div style={{ display:"flex", flexDirection:"column", gap:5, gridColumn:"1 / -1" }}>
+            <label style={lbl}>Role Name *</label>
+            <input name="name" style={inp} value={form.name} onChange={handleChange} placeholder="e.g. Class Monitor, Secretary" />
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:5, gridColumn:"1 / -1" }}>
+            <label style={lbl}>Description</label>
+            <input name="description" style={inp} value={form.description} onChange={handleChange} placeholder="What does this role do?" />
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+            <label style={lbl}>Colour</label>
+            <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginTop:4 }}>
+              {ROLE_COLORS.map(c => (
+                <div key={c} onClick={()=>setForm(f=>({...f,color:c}))}
+                  style={{ width:28, height:28, borderRadius:"50%", background:c, cursor:"pointer",
+                    border: form.color===c ? `3px solid ${t.text}` : "3px solid transparent",
+                    transition:"transform 0.1s", transform: form.color===c ? "scale(1.2)" : "scale(1)" }} />
+              ))}
+            </div>
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+            <label style={lbl}>Preview</label>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <span style={{ display:"inline-flex", alignItems:"center", padding:"5px 14px", borderRadius:20,
+                fontSize:13, fontWeight:700, fontFamily:"'Trebuchet MS',sans-serif",
+                background:form.color+"22", color:form.color, border:`1px solid ${form.color}44` }}>
+                {form.name || "Role Name"}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Permission matrix */}
+        <div style={{ background:t.surfaceAlt, borderRadius:12, padding:16, border:`1px solid ${t.border}`, marginBottom:16 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+            <div style={{ fontSize:12, fontWeight:700, color:t.gold, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1.2 }}>
+              Permissions for this Role
+            </div>
+            <div style={{ display:"flex", gap:8 }}>
+              <button onClick={()=>setForm(f=>({...f,permissions:[...ADMIN_PERMS]}))}
+                style={{ fontSize:11, padding:"4px 10px", borderRadius:6, border:`1px solid ${t.success}44`, background:t.success+"11", color:t.success, cursor:"pointer", fontFamily:"'Trebuchet MS',sans-serif" }}>
+                Select All
+              </button>
+              <button onClick={()=>setForm(f=>({...f,permissions:[]}))}
+                style={{ fontSize:11, padding:"4px 10px", borderRadius:6, border:`1px solid ${t.danger}44`, background:t.danger+"11", color:t.danger, cursor:"pointer", fontFamily:"'Trebuchet MS',sans-serif" }}>
+                Clear All
+              </button>
+            </div>
+          </div>
+          {groups.map(group => (
+            <div key={group} style={{ marginBottom:12 }}>
+              <div style={{ fontSize:10, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif",
+                textTransform:"uppercase", letterSpacing:1.2, marginBottom:8,
+                borderBottom:`1px solid ${t.border}`, paddingBottom:4 }}>{group}</div>
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))", gap:7 }}>
+                {ALL_PERMISSIONS.filter(p => p.group===group).map(perm => {
+                  const on = form.permissions.includes(perm.key);
+                  return (
+                    <label key={perm.key} onClick={()=>togglePerm(perm.key)}
+                      style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 10px",
+                        borderRadius:8, cursor:"pointer",
+                        background: on ? form.color+"18" : t.surface,
+                        border: `1px solid ${on ? form.color+"66" : t.border}`,
+                        transition:"all 0.15s" }}>
+                      <div style={{ width:15, height:15, borderRadius:4,
+                        border:`2px solid ${on ? form.color : t.textFaint}`,
+                        background: on ? form.color : "transparent",
+                        display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                        {on && <Icon name="check" size={9} color="#FFFFFF" />}
+                      </div>
+                      <span style={{ fontSize:11, color:on?t.text:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}>{perm.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ fontSize:11, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif",
+          padding:"8px 12px", background:t.surfaceAlt, borderRadius:7, marginBottom:16 }}>
+          💡 {form.permissions.length} permission{form.permissions.length!==1?"s":""} selected
+        </div>
+
+        {err && <div style={{ color:t.danger, fontSize:12, marginBottom:12,
+          padding:"8px 12px", background:t.danger+"11", borderRadius:7 }}>{err}</div>}
+
+        <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+          <button style={{ ...btnOutline, padding:"10px 20px" }} onClick={onClose}>Cancel</button>
+          {initial ? (
+            <button style={{ ...btnGold, padding:"10px 28px", background:"linear-gradient(135deg,#0A5A9C,#1A7DC8)" }} onClick={handleSave}>
+              ✓ Update Role
+            </button>
+          ) : (
+            <button style={{ ...btnGold, padding:"10px 28px" }} onClick={handleSave}>
+              + Create Role
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const handleSave = (form) => {
+    let updated;
+    if (modal === "add") {
+      const newRole = { ...form, id:`ROLE_${Date.now()}`, isBuiltIn: false };
+      const customs = [...loadCustomRoles(), newRole];
+      saveCustomRoles(customs);
+      updated = [...BUILT_IN_ROLES, ...customs];
+    } else {
+      const customs = loadCustomRoles().map(r => r.id===modal.id ? { ...r, ...form } : r);
+      saveCustomRoles(customs);
+      updated = [...BUILT_IN_ROLES, ...customs];
+    }
+    setRoles(updated);
+    setModal(null);
+  };
+
+  const handleDelete = (id) => {
+    if (!window.confirm("Delete this role? Users assigned to it will keep their current permissions.")) return;
+    const customs = loadCustomRoles().filter(r => r.id !== id);
+    saveCustomRoles(customs);
+    setRoles([...BUILT_IN_ROLES, ...customs]);
+  };
+
+  const RoleCard = ({ role }) => {
+    const expanded = expandedId === role.id;
+    return (
+      <div style={{ ...card, borderLeft:`4px solid ${role.color}`, padding:0, overflow:"hidden" }}>
+        <div style={{ padding:"16px 20px", display:"flex", alignItems:"center", gap:14, cursor:"pointer" }}
+          onClick={()=>setExpandedId(expanded ? null : role.id)}>
+          {/* Color dot */}
+          <div style={{ width:36, height:36, borderRadius:"50%", background:role.color+"22",
+            border:`2px solid ${role.color}55`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+            <Icon name={role.isBuiltIn?"settings":"users"} size={16} color={role.color} />
+          </div>
+          <div style={{ flex:1 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <span style={{ fontSize:15, fontWeight:700, color:t.text, fontFamily:"'Trebuchet MS',sans-serif" }}>{role.name}</span>
+              {role.isBuiltIn && <Badge label="Built-in" color={t.textMuted} />}
+              <Badge label={`${role.permissions.length} permissions`} color={role.color} />
+            </div>
+            {role.description && (
+              <div style={{ fontSize:12, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginTop:3 }}>{role.description}</div>
+            )}
+          </div>
+          {!role.isBuiltIn && (
+            <div style={{ display:"flex", gap:6 }} onClick={e=>e.stopPropagation()}>
+              <button style={btnGhost} title="Edit" onClick={()=>setModal(role)}>
+                <Icon name="edit" size={14} color={t.gold} />
+              </button>
+              <button style={btnGhost} title="Delete" onClick={()=>handleDelete(role.id)}>
+                <Icon name="trash" size={14} color={t.danger} />
+              </button>
+            </div>
+          )}
+          <div style={{ color:t.textMuted, fontSize:18, marginLeft:4 }}>{expanded?"▲":"▼"}</div>
+        </div>
+
+        {/* Expanded permissions */}
+        {expanded && (
+          <div style={{ padding:"0 20px 16px", borderTop:`1px solid ${t.border}` }}>
+            <div style={{ fontSize:11, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif",
+              textTransform:"uppercase", letterSpacing:1, marginBottom:10, marginTop:12 }}>
+              Permissions Included
+            </div>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:7 }}>
+              {role.permissions.length > 0
+                ? role.permissions.map(pk => {
+                    const pm = ALL_PERMISSIONS.find(x => x.key===pk);
+                    return pm ? (
+                      <span key={pk} style={{ fontSize:11, padding:"3px 10px", borderRadius:20,
+                        background:role.color+"14", color:role.color,
+                        border:`1px solid ${role.color}33`, fontFamily:"'Trebuchet MS',sans-serif" }}>
+                        {pm.label}
+                      </span>
+                    ) : null;
+                  })
+                : <span style={{ fontSize:12, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}>No permissions assigned</span>
+              }
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div>
+      {modal && (
+        <Modal
+          title={modal==="add" ? "Create New Role" : `Edit Role — ${modal.name}`}
+          onClose={()=>setModal(null)}
+          width={680}>
+          <RoleForm
+            initial={modal==="add" ? null : modal}
+            onSave={handleSave}
+            onClose={()=>setModal(null)} />
+        </Modal>
+      )}
+
+      {/* Header */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:24 }}>
+        <div>
+          <div style={{ fontSize:23, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif", marginBottom:3 }}>
+            Roles Management
+          </div>
+          <div style={{ fontSize:13, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}>
+            Define custom roles with specific permissions. Assign roles to users in Users & Access.
+          </div>
+        </div>
+        <button style={btnGold} onClick={()=>setModal("add")}>
+          <span style={{ display:"flex", alignItems:"center", gap:7 }}>
+            <Icon name="plus" size={16} color="#FFFFFF" /> Create Role
+          </span>
+        </button>
+      </div>
+
+      {/* KPIs */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:14, marginBottom:24 }}>
+        <KpiCard label="Total Roles"    value={roles.length}       sub="All roles"        icon="users"    color={t.gold} />
+        <KpiCard label="Built-in"       value={builtInRoles.length} sub="Cannot be deleted" icon="settings" color={t.info} />
+        <KpiCard label="Custom"         value={customRoles.length} sub="Created by admin" icon="edit"     color={t.success} />
+        <KpiCard label="Permissions"    value={ALL_PERMISSIONS.length} sub="Available"    icon="check"    color="#9B59B6" />
+      </div>
+
+      {/* Info banner */}
+      <div style={{ ...card, marginBottom:24, display:"flex", gap:12, alignItems:"flex-start", borderLeft:`3px solid ${t.info}` }}>
+        <Icon name="info" size={18} color={t.info} />
+        <div style={{ fontSize:12, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", lineHeight:1.7 }}>
+          <strong style={{ color:t.text }}>How roles work:</strong> Create a role here with the permissions you want,
+          then go to <strong style={{ color:t.text }}>Users & Access</strong> to assign it to a user.
+          Built-in roles (Admin, Teacher, Superintendent, Asst. Teacher) cannot be deleted but custom roles can be edited freely.
+        </div>
+      </div>
+
+      {/* Built-in roles */}
+      <div style={{ fontSize:12, fontWeight:700, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif",
+        textTransform:"uppercase", letterSpacing:1.2, marginBottom:12 }}>Built-in Roles</div>
+      <div style={{ display:"flex", flexDirection:"column", gap:10, marginBottom:28 }}>
+        {builtInRoles.map(r => <RoleCard key={r.id} role={r} />)}
+      </div>
+
+      {/* Custom roles */}
+      <div style={{ fontSize:12, fontWeight:700, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif",
+        textTransform:"uppercase", letterSpacing:1.2, marginBottom:12 }}>Custom Roles</div>
+      {customRoles.length > 0 ? (
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {customRoles.map(r => <RoleCard key={r.id} role={r} />)}
+        </div>
+      ) : (
+        <div style={{ ...card, textAlign:"center", padding:40, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}>
+          No custom roles yet. Click <strong style={{ color:t.gold }}>"Create Role"</strong> to add one — e.g. Secretary, Class Monitor, Treasurer.
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── SIDEBAR ──────────────────────────────────────────────────────────────────
 const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => {
   const { dark, toggle } = useTheme();
@@ -3144,7 +3482,8 @@ const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => 
     {id:"classes",    label:"Classes",        icon:"classes",    perm:"classes"},
     {id:"programs",   label:"Programs",       icon:"settings",   perm:"programs"},
     {id:"users",      label:"Users & Access", icon:"users",      perm:"__admin_only__"},
-    {id:"branding",   label:"Logo & Name",    icon:"edit",       perm:"__admin_only__"},
+    {id:"roles",      label:"Roles",          icon:"edit",       perm:"__admin_only__"},
+    {id:"branding",   label:"Logo & Name",    icon:"bible",      perm:"__admin_only__"},
     {id:"export",     label:"Export",         icon:"export",     perm:"export"},
   ];
   const allTeacherNav = [
@@ -3410,6 +3749,8 @@ const MobileDrawer = ({ open, onClose, page, setPage, user, onLogout, db }) => {
     {id:"classes",    label:"Classes",        icon:"classes"},
     {id:"programs",   label:"Programs",       icon:"settings"},
     {id:"users",      label:"Users & Access", icon:"users"},
+    {id:"roles",      label:"Roles",          icon:"edit"},
+    {id:"branding",   label:"Logo & Name",    icon:"bible"},
     {id:"export",     label:"Export",         icon:"export"},
   ] : [
     {id:"submit",     label:"Submit Report",  icon:"submit",    perm:"submit"},
@@ -3546,6 +3887,7 @@ export default function App() {
     classes:   guard("classes",    <ClassesPage db={db} />),
     programs:  guard("programs",   <ProgramsPage db={db} />),
     users:     user?.role==="admin" ? <UsersPage users={users} /> : <AccessDenied />,
+    roles:     user?.role==="admin" ? <RolesPage /> : <AccessDenied />,
     branding:  user?.role==="admin" ? <BrandingPage /> : <AccessDenied />,
     export:    guard("export",     <ExportPage db={db} />),
     submit:    guard("submit",     <SubmitPage db={db} user={user} onSuccess={()=>toast("Report saved!","success")} />),
