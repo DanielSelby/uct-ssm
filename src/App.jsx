@@ -2981,8 +2981,6 @@ const UsersPage = ({ users: userHook }) => {
 
   const activeCount = appUsers.filter(u=>u.is_active==="YES").length;
   const adminCount  = appUsers.filter(u=>u.role==="admin").length;
-
-  // Live storage check — reads directly from localStorage to verify what's actually saved
   const [showCredentials, setShowCredentials] = useState(false);
   const storedUsers = loadUsers();
 
@@ -3056,7 +3054,7 @@ const UsersPage = ({ users: userHook }) => {
                       <code style={{ background:t.surfaceAlt, padding:"3px 8px", borderRadius:5, fontSize:12, color:t.success }}>{u.password}</code>
                     </td>
                     <td style={{ padding:"10px 14px", borderBottom:`1px solid ${t.border}18` }}>
-                      <Badge label={u.role} color={u.role==="admin"?t.gold:t.info} />
+                      <Badge label={getAllRoles().find(r=>r.id===u.role)?.name || u.role} color={u.role==="admin"?t.gold:t.info} />
                     </td>
                     <td style={{ padding:"10px 14px", borderBottom:`1px solid ${t.border}18` }}>
                       <Badge label={u.is_active==="YES"?"Active":"Inactive"} color={u.is_active==="YES"?t.success:t.textMuted} />
@@ -3102,7 +3100,13 @@ const UsersPage = ({ users: userHook }) => {
                     </div>
                   </td>
                   <td style={{ ...td, color:t.textMuted, fontSize:12 }}>{u.email}</td>
-                  <td style={td}><Badge label={u.role==="admin"?"Admin":"Teacher"} color={u.role==="admin"?t.gold:t.info}/></td>
+                  <td style={td}>{(() => {
+                    const allRoles = getAllRoles();
+                    const found = allRoles.find(r => r.id === u.role);
+                    const label = found?.name || u.role;
+                    const color = found?.color || (u.role==="admin" ? t.gold : t.info);
+                    return <Badge label={label} color={color} />;
+                  })()}</td>
                   <td style={td}>
                     {isAdmin ? (
                       <span style={{ fontSize:11, color:t.success, fontFamily:"'Trebuchet MS',sans-serif" }}>Full Access ({perms.length})</span>
@@ -3538,7 +3542,7 @@ const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => 
           <div style={{ marginBottom:10 }}>
             <div style={{ fontSize:12, color:"#FFFFFF", fontFamily:"'Trebuchet MS',sans-serif", fontWeight:600 }}>{user?.name}</div>
             <div style={{ fontSize:10, color:"rgba(255,255,255,0.55)", fontFamily:"'Trebuchet MS',sans-serif", textTransform:"capitalize" }}>
-              {user?.role}{!isAdmin && ` · ${perms.length} permissions`}
+              {getAllRoles().find(r=>r.id===user?.role)?.name || user?.role}{!isAdmin && ` · ${perms.length} permissions`}
             </div>
           </div>
         )}
@@ -3786,7 +3790,9 @@ const MobileDrawer = ({ open, onClose, page, setPage, user, onLogout, db }) => {
           <Avatar name={user?.name} size={36} color="rgba(255,255,255,0.22)" />
           <div>
             <div style={{ fontSize:13, fontWeight:600, color:"#FFFFFF", fontFamily:"'Trebuchet MS',sans-serif" }}>{user?.name}</div>
-            <div style={{ fontSize:10, color:"rgba(255,255,255,0.5)", fontFamily:"'Trebuchet MS',sans-serif", textTransform:"capitalize" }}>{user?.role}</div>
+            <div style={{ fontSize:10, color:"rgba(255,255,255,0.5)", fontFamily:"'Trebuchet MS',sans-serif", textTransform:"capitalize" }}>
+              {getAllRoles().find(r=>r.id===user?.role)?.name || user?.role}
+            </div>
           </div>
         </div>
         {/* Nav */}
@@ -3976,7 +3982,7 @@ export default function App() {
                 <div style={{ padding:"3px 9px", borderRadius:20, background:"rgba(255,255,255,0.15)",
                   border:"1px solid rgba(255,255,255,0.28)", display:"flex", alignItems:"center", gap:5 }}>
                   <span style={{ fontSize:10, color:"#FFFFFF", fontFamily:"'Trebuchet MS',sans-serif", fontWeight:700 }}>
-                    {user.role==="admin" ? "ADMIN" : `${(user.permissions||[]).length} PERMS`}
+                    {user.role==="admin" ? "ADMIN" : (getAllRoles().find(r=>r.id===user.role)?.name || user.role).toUpperCase()}
                   </span>
                 </div>
               )}
