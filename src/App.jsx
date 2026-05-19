@@ -571,216 +571,211 @@ const initWorkbook = () => {
   return wb;
 };
 
-// ─── DATA HOOK ────────────────────────────────────────────────────────────────
-const useExcelDB = () => {
-  const [wb, setWbState] = useState(null);
-  const [records, setRecords]       = useState([]);
-  const [teachers, setTeachers]     = useState([]);
-  const [classes, setClasses]       = useState([]);
+
+// ─── SUPABASE DATA HOOK ───────────────────────────────────────────────────────
+const useSupabaseDB = () => {
+  const [records,    setRecords]    = useState([]);
+  const [teachers,   setTeachers]   = useState([]);
+  const [classes,    setClasses]    = useState([]);
   const [churchRecs, setChurchRecs] = useState([]);
-  const [programs, setPrograms]     = useState([]);
+  const [programs,   setPrograms]   = useState([]);
+  const [loading,    setLoading]    = useState(true);
 
-  const load = useCallback(() => {
-    let book = loadWorkbook();
-    if (!book) book = initWorkbook();
-    // Migrate old workbooks that lack Church sheets
-    if (!book.Sheets[SHEETS.CHURCH])   { rowsToSheet(book, SHEETS.CHURCH,   [], CHURCH_COLS); saveWorkbook(book); }
-    if (!book.Sheets[SHEETS.PROGRAMS]) {
-      const defaultPrograms = [
-        { id:"P001", name:"Sunday Church Service",       is_active:"YES", sort_order:1 },
-        { id:"P002", name:"Wednesday Prayer Meeting",    is_active:"YES", sort_order:2 },
-        { id:"P003", name:"Friday Bible Study",          is_active:"YES", sort_order:3 },
-        { id:"P004", name:"Sunday Evening Service",      is_active:"YES", sort_order:4 },
-        { id:"P005", name:"Special Revival Service",     is_active:"YES", sort_order:5 },
-        { id:"P006", name:"Wedding Occasion",            is_active:"YES", sort_order:6 },
-        { id:"P007", name:"Funeral / Memorial Service",  is_active:"YES", sort_order:7 },
-        { id:"P008", name:"Harvest / Thanksgiving",      is_active:"YES", sort_order:8 },
-        { id:"P009", name:"Dedication Service",          is_active:"YES", sort_order:9 },
-        { id:"P010", name:"Outreach / Evangelism",       is_active:"YES", sort_order:10 },
-        { id:"P011", name:"Youth Service",               is_active:"YES", sort_order:11 },
-        { id:"P012", name:"Men's Fellowship",            is_active:"YES", sort_order:12 },
-        { id:"P013", name:"Women's Fellowship",          is_active:"YES", sort_order:13 },
-        { id:"P014", name:"Choir / Praise Night",        is_active:"YES", sort_order:14 },
-        { id:"P015", name:"Communion Service",           is_active:"YES", sort_order:15 },
-      ];
-      rowsToSheet(book, SHEETS.PROGRAMS, defaultPrograms, PROGRAM_COLS);
-      saveWorkbook(book);
+  // ── Generic fetch ────────────────────────────────────────
+  const sbGet = useCallback(async (table, order = "created_at.asc") => {
+    try {
+      const rows = await sbFetch(`${table}?select=*&order=${order}`);
+      return Array.isArray(rows) ? rows : [];
+    } catch (e) {
+      console.error(`sbGet ${table}:`, e.message);
+      return [];
     }
-    setWbState(book);
-    setRecords(sheetToRows(book, SHEETS.RECORDS));
-    setTeachers(sheetToRows(book, SHEETS.TEACHERS));
-    setClasses(sheetToRows(book, SHEETS.CLASSES));
-    setChurchRecs(sheetToRows(book, SHEETS.CHURCH));
-    setPrograms(sheetToRows(book, SHEETS.PROGRAMS));
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  // ── Load all data ─────────────────────────────────────────
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    const [r, t, c, ch, p] = await Promise.all([
+      sbGet("uct_records",  "created_at.desc"),
+      sbGet("uct_teachers", "name.asc"),
+      sbGet("uct_classes",  "id.asc"),
+      sbGet("uct_church",   "created_at.desc"),
+      sbGet("uct_programs", "sort_order.asc"),
+    ]);
+    setRecords(r);
+    setTeachers(t);
+    setClasses(c.length ? c : [
+      {id:"C1",name:"Children (5–9)",is_active:"YES"},
+      {id:"C2",name:"Teen (10–15)",is_active:"YES"},
+      {id:"C3",name:"New Convert",is_active:"YES"},
+      {id:"C4",name:"Prophet Class",is_active:"YES"},
+      {id:"C5",name:"Church Age",is_active:"YES"},
+      {id:"C6",name:"C.O.D",is_active:"YES"},
+      {id:"C7",name:"Joint Sunday School",is_active:"YES"},
+    ]);
+    setChurchRecs(ch);
+    setPrograms(p.length ? p : [
+      {id:"P001",name:"Sunday Church Service",is_active:"YES",sort_order:"1"},
+      {id:"P002",name:"Wednesday Prayer Meeting",is_active:"YES",sort_order:"2"},
+      {id:"P003",name:"Friday Bible Study",is_active:"YES",sort_order:"3"},
+      {id:"P004",name:"Sunday Evening Service",is_active:"YES",sort_order:"4"},
+      {id:"P005",name:"Special Revival Service",is_active:"YES",sort_order:"5"},
+      {id:"P006",name:"Wedding Occasion",is_active:"YES",sort_order:"6"},
+      {id:"P007",name:"Funeral / Memorial Service",is_active:"YES",sort_order:"7"},
+      {id:"P008",name:"Harvest / Thanksgiving",is_active:"YES",sort_order:"8"},
+      {id:"P009",name:"Dedication Service",is_active:"YES",sort_order:"9"},
+      {id:"P010",name:"Outreach / Evangelism",is_active:"YES",sort_order:"10"},
+      {id:"P011",name:"Youth Service",is_active:"YES",sort_order:"11"},
+      {id:"P012",name:"Men's Fellowship",is_active:"YES",sort_order:"12"},
+      {id:"P013",name:"Women's Fellowship",is_active:"YES",sort_order:"13"},
+      {id:"P014",name:"Choir / Praise Night",is_active:"YES",sort_order:"14"},
+      {id:"P015",name:"Communion Service",is_active:"YES",sort_order:"15"},
+    ]);
+    setLoading(false);
+  }, [sbGet]);
 
-  const persist = useCallback((book, newRecords, newTeachers, newClasses, newChurch, newPrograms) => {
-    rowsToSheet(book, SHEETS.RECORDS,  newRecords,   RECORD_COLS);
-    rowsToSheet(book, SHEETS.TEACHERS, newTeachers,  TEACHER_COLS);
-    rowsToSheet(book, SHEETS.CLASSES,  newClasses,   ["id","name","is_active"]);
-    rowsToSheet(book, SHEETS.CHURCH,   newChurch,    CHURCH_COLS);
-    rowsToSheet(book, SHEETS.PROGRAMS, newPrograms,  PROGRAM_COLS);
-    saveWorkbook(book);
-    setWbState({ ...book });
-    setRecords([...newRecords]);
-    setTeachers([...newTeachers]);
-    setClasses([...newClasses]);
-    setChurchRecs([...newChurch]);
-    setPrograms([...newPrograms]);
-  }, []);
-
-  const getAll = (book) => ({
-    r: sheetToRows(book, SHEETS.RECORDS),
-    t: sheetToRows(book, SHEETS.TEACHERS),
-    c: sheetToRows(book, SHEETS.CLASSES),
-    ch: sheetToRows(book, SHEETS.CHURCH),
-    p: sheetToRows(book, SHEETS.PROGRAMS),
-  });
+  useEffect(() => { loadAll(); }, [loadAll]);
 
   // ── SS Records ───────────────────────────────────────────
-  const addRecord = useCallback((rec) => {
-    const book = loadWorkbook() || initWorkbook();
-    const { r, t, c, ch, p } = getAll(book);
-    const newRec = { ...rec, id: `R${Date.now()}`, status: "pending", created_at: new Date().toISOString() };
-    persist(book, [...r, newRec], t, c, ch, p);
+  const addRecord = useCallback(async (rec) => {
+    const newRec = { ...rec, id:`R${Date.now()}`, status:"pending", created_at:new Date().toISOString() };
+    try {
+      await sbFetch("uct_records", { method:"POST", body:JSON.stringify(newRec) });
+      setRecords(r => [newRec, ...r]);
+    } catch(e) { alert("Save failed: " + e.message); }
     return newRec;
-  }, [persist]);
-
-  const updateRecord = useCallback((id, updates) => {
-    const book = loadWorkbook() || initWorkbook();
-    const { r, t, c, ch, p } = getAll(book);
-    persist(book, r.map(x => x.id===id ? {...x,...updates} : x), t, c, ch, p);
-  }, [persist]);
-
-  const deleteRecord = useCallback((id) => {
-    const book = loadWorkbook() || initWorkbook();
-    const { r, t, c, ch, p } = getAll(book);
-    persist(book, r.filter(x=>x.id!==id), t, c, ch, p);
-  }, [persist]);
-
-  const approveRecord = useCallback((id) => updateRecord(id, { status: "approved" }), [updateRecord]);
-
-  // ── Teachers ─────────────────────────────────────────────
-  const addTeacher = useCallback((data) => {
-    const book = loadWorkbook() || initWorkbook();
-    const { r, t, c, ch, p } = getAll(book);
-    const newT = { ...data, id: `T${Date.now()}`, is_active: "YES", joined_date: data.joined_date || new Date().toISOString().slice(0,10) };
-    persist(book, r, [...t, newT], c, ch, p);
-  }, [persist]);
-
-  const updateTeacher = useCallback((id, updates) => {
-    const book = loadWorkbook() || initWorkbook();
-    const { r, t, c, ch, p } = getAll(book);
-    persist(book, r, t.map(x=>x.id===id?{...x,...updates}:x), c, ch, p);
-  }, [persist]);
-
-  const deleteTeacher = useCallback((id) => {
-    const book = loadWorkbook() || initWorkbook();
-    const { r, t, c, ch, p } = getAll(book);
-    persist(book, r, t.filter(x=>x.id!==id), c, ch, p);
-  }, [persist]);
-
-  const toggleTeacherActive = useCallback((id) => {
-    const book = loadWorkbook() || initWorkbook();
-    const cur = sheetToRows(book, SHEETS.TEACHERS);
-    const teacher = cur.find(x=>x.id===id);
-    if (teacher) updateTeacher(id, { is_active: teacher.is_active==="YES" ? "NO" : "YES" });
-  }, [updateTeacher]);
-
-  // ── Church Attendance ─────────────────────────────────────
-  const addChurchRec = useCallback((data) => {
-    const book = loadWorkbook() || initWorkbook();
-    const { r, t, c, ch, p } = getAll(book);
-    const mb = Number(data.male_beginning)||0, fb = Number(data.female_beginning)||0;
-    const mc = Number(data.male_closing)||0,   fc = Number(data.female_closing)||0;
-    const rec = {
-      ...data, id: `C${Date.now()}`,
-      total_beginning: mb + fb,
-      total_closing:   mc + fc,
-      created_at: new Date().toISOString(),
-    };
-    persist(book, r, t, c, [...ch, rec], p);
-    return rec;
-  }, [persist]);
-
-  const updateChurchRec = useCallback((id, updates) => {
-    const book = loadWorkbook() || initWorkbook();
-    const { r, t, c, ch, p } = getAll(book);
-    const updated = ch.map(x => {
-      if (x.id !== id) return x;
-      const merged = { ...x, ...updates };
-      merged.total_beginning = (Number(merged.male_beginning)||0) + (Number(merged.female_beginning)||0);
-      merged.total_closing   = (Number(merged.male_closing)||0)   + (Number(merged.female_closing)||0);
-      return merged;
-    });
-    persist(book, r, t, c, updated, p);
-  }, [persist]);
-
-  const deleteChurchRec = useCallback((id) => {
-    const book = loadWorkbook() || initWorkbook();
-    const { r, t, c, ch, p } = getAll(book);
-    persist(book, r, t, c, ch.filter(x=>x.id!==id), p);
-  }, [persist]);
-
-  // ── Programs ──────────────────────────────────────────────
-  const addProgram = useCallback((name) => {
-    const book = loadWorkbook() || initWorkbook();
-    const { r, t, c, ch, p } = getAll(book);
-    const newP = { id:`P${Date.now()}`, name: name.trim(), is_active:"YES", sort_order: p.length+1 };
-    persist(book, r, t, c, ch, [...p, newP]);
-  }, [persist]);
-
-  const updateProgram = useCallback((id, updates) => {
-    const book = loadWorkbook() || initWorkbook();
-    const { r, t, c, ch, p } = getAll(book);
-    persist(book, r, t, c, ch, p.map(x=>x.id===id?{...x,...updates}:x));
-  }, [persist]);
-
-  const deleteProgram = useCallback((id) => {
-    const book = loadWorkbook() || initWorkbook();
-    const { r, t, c, ch, p } = getAll(book);
-    persist(book, r, t, c, ch, p.filter(x=>x.id!==id));
-  }, [persist]);
-
-  const toggleProgramActive = useCallback((id) => {
-    const book = loadWorkbook() || initWorkbook();
-    const cur = sheetToRows(book, SHEETS.PROGRAMS);
-    const prog = cur.find(x=>x.id===id);
-    if (prog) updateProgram(id, { is_active: prog.is_active==="YES" ? "NO" : "YES" });
-  }, [updateProgram]);
-
-  // ── Export ────────────────────────────────────────────────
-  const downloadWorkbook = useCallback(() => {
-    const book = loadWorkbook() || initWorkbook();
-    XLSX.writeFile(book, `UCT_Church_${new Date().toISOString().slice(0,10)}.xlsx`);
   }, []);
 
-  const importWorkbook = useCallback((file) => {
-    return new Promise((res, rej) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const book = XLSX.read(e.target.result, { type: "array" });
-          saveWorkbook(book);
-          load();
-          res(true);
-        } catch (err) { rej(err); }
-      };
-      reader.readAsArrayBuffer(file);
-    });
-  }, [load]);
+  const updateRecord = useCallback(async (id, updates) => {
+    try {
+      await sbFetch(`uct_records?id=eq.${id}`, { method:"PATCH", body:JSON.stringify(updates) });
+      setRecords(r => r.map(x => x.id===id ? {...x,...updates} : x));
+    } catch(e) { alert("Update failed: " + e.message); }
+  }, []);
+
+  const deleteRecord = useCallback(async (id) => {
+    try {
+      await sbFetch(`uct_records?id=eq.${id}`, { method:"DELETE" });
+      setRecords(r => r.filter(x => x.id!==id));
+    } catch(e) { alert("Delete failed: " + e.message); }
+  }, []);
+
+  const approveRecord = useCallback((id) => updateRecord(id, { status:"approved" }), [updateRecord]);
+
+  // ── Teachers ─────────────────────────────────────────────
+  const addTeacher = useCallback(async (data) => {
+    const newT = { ...data, id:`T${Date.now()}`, is_active:"YES",
+      joined_date: data.joined_date || new Date().toISOString().slice(0,10),
+      created_at: new Date().toISOString() };
+    try {
+      await sbFetch("uct_teachers", { method:"POST", body:JSON.stringify(newT) });
+      setTeachers(t => [...t, newT].sort((a,b)=>a.name.localeCompare(b.name)));
+    } catch(e) { alert("Save failed: " + e.message); }
+  }, []);
+
+  const updateTeacher = useCallback(async (id, updates) => {
+    try {
+      await sbFetch(`uct_teachers?id=eq.${id}`, { method:"PATCH", body:JSON.stringify(updates) });
+      setTeachers(t => t.map(x => x.id===id ? {...x,...updates} : x));
+    } catch(e) { alert("Update failed: " + e.message); }
+  }, []);
+
+  const deleteTeacher = useCallback(async (id) => {
+    try {
+      await sbFetch(`uct_teachers?id=eq.${id}`, { method:"DELETE" });
+      setTeachers(t => t.filter(x => x.id!==id));
+    } catch(e) { alert("Delete failed: " + e.message); }
+  }, []);
+
+  const toggleTeacherActive = useCallback(async (id) => {
+    const teacher = teachers.find(t => t.id===id);
+    if (teacher) await updateTeacher(id, { is_active: teacher.is_active==="YES" ? "NO" : "YES" });
+  }, [teachers, updateTeacher]);
+
+  // ── Church Attendance ─────────────────────────────────────
+  const addChurchRec = useCallback(async (data) => {
+    const mb = Number(data.male_beginning)||0, fb = Number(data.female_beginning)||0;
+    const mc = Number(data.male_closing)||0,   fc = Number(data.female_closing)||0;
+    const rec = { ...data, id:`C${Date.now()}`,
+      total_beginning: String(mb+fb), total_closing: String(mc+fc),
+      created_at: new Date().toISOString() };
+    try {
+      await sbFetch("uct_church", { method:"POST", body:JSON.stringify(rec) });
+      setChurchRecs(c => [rec, ...c]);
+    } catch(e) { alert("Save failed: " + e.message); }
+    return rec;
+  }, []);
+
+  const updateChurchRec = useCallback(async (id, updates) => {
+    const merged = { ...updates };
+    merged.total_beginning = String((Number(merged.male_beginning)||0)+(Number(merged.female_beginning)||0));
+    merged.total_closing   = String((Number(merged.male_closing)||0)+(Number(merged.female_closing)||0));
+    try {
+      await sbFetch(`uct_church?id=eq.${id}`, { method:"PATCH", body:JSON.stringify(merged) });
+      setChurchRecs(c => c.map(x => x.id===id ? {...x,...merged} : x));
+    } catch(e) { alert("Update failed: " + e.message); }
+  }, []);
+
+  const deleteChurchRec = useCallback(async (id) => {
+    try {
+      await sbFetch(`uct_church?id=eq.${id}`, { method:"DELETE" });
+      setChurchRecs(c => c.filter(x => x.id!==id));
+    } catch(e) { alert("Delete failed: " + e.message); }
+  }, []);
+
+  // ── Programs ──────────────────────────────────────────────
+  const addProgram = useCallback(async (name) => {
+    const newP = { id:`P${Date.now()}`, name:name.trim(), is_active:"YES",
+      sort_order: String(programs.length+1) };
+    try {
+      await sbFetch("uct_programs", { method:"POST", body:JSON.stringify(newP) });
+      setPrograms(p => [...p, newP]);
+    } catch(e) { alert("Save failed: " + e.message); }
+  }, [programs]);
+
+  const updateProgram = useCallback(async (id, updates) => {
+    try {
+      await sbFetch(`uct_programs?id=eq.${id}`, { method:"PATCH", body:JSON.stringify(updates) });
+      setPrograms(p => p.map(x => x.id===id ? {...x,...updates} : x));
+    } catch(e) { alert("Update failed: " + e.message); }
+  }, []);
+
+  const deleteProgram = useCallback(async (id) => {
+    try {
+      await sbFetch(`uct_programs?id=eq.${id}`, { method:"DELETE" });
+      setPrograms(p => p.filter(x => x.id!==id));
+    } catch(e) { alert("Delete failed: " + e.message); }
+  }, []);
+
+  const toggleProgramActive = useCallback(async (id) => {
+    const prog = programs.find(p => p.id===id);
+    if (prog) await updateProgram(id, { is_active: prog.is_active==="YES" ? "NO" : "YES" });
+  }, [programs, updateProgram]);
+
+  // ── Export to Excel (download only, not storage) ──────────
+  const downloadWorkbook = useCallback(() => {
+    const wb = XLSX.utils.book_new();
+    const toSheet = (rows) => XLSX.utils.json_to_sheet(rows.length ? rows : [{}]);
+    XLSX.utils.book_append_sheet(wb, toSheet(records),    "SS Attendance");
+    XLSX.utils.book_append_sheet(wb, toSheet(churchRecs), "Church Attendance");
+    XLSX.utils.book_append_sheet(wb, toSheet(teachers),   "Teachers");
+    XLSX.utils.book_append_sheet(wb, toSheet(classes),    "Classes");
+    XLSX.utils.book_append_sheet(wb, toSheet(programs),   "Programs");
+    XLSX.writeFile(wb, `UCT_Report_${new Date().toISOString().slice(0,10)}.xlsx`);
+  }, [records, churchRecs, teachers, classes, programs]);
 
   return {
-    records, teachers, classes, churchRecs, programs,
+    records, teachers, classes, churchRecs, programs, loading, loadAll,
     addRecord, updateRecord, deleteRecord, approveRecord,
     addTeacher, updateTeacher, deleteTeacher, toggleTeacherActive,
     addChurchRec, updateChurchRec, deleteChurchRec,
     addProgram, updateProgram, deleteProgram, toggleProgramActive,
-    downloadWorkbook, importWorkbook,
+    downloadWorkbook,
   };
 };
+
+
+
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const CLASS_COLORS = ["#004b23","#1565C0","#2ECC71","#9B59B6","#E67E22","#E74C3C","#1ABC9C"];
@@ -2259,75 +2254,80 @@ const AnalyticsPage = ({ db }) => {
 // ─── EXPORT PAGE ──────────────────────────────────────────────────────────────
 const ExportPage = ({ db }) => {
   const { t, card, btnGold } = useThemeStyles();
-  const { records, teachers, downloadWorkbook, importWorkbook } = db;
+  const { records, teachers, classes, churchRecs, programs, downloadWorkbook } = db;
   const fileRef = useRef();
-
-  const handleImport = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    try { await importWorkbook(file); alert("Workbook imported successfully!"); }
-    catch { alert("Import failed — make sure it's a valid UCT workbook."); }
-  };
 
   const exportCSV = () => {
     const headers = ["Date","Class","Teacher","Present","Bibles","First Timers","Visitors","Topic","Status"];
     const rows = records.map(r=>[r.date,r.class_name,r.teacher_name,r.total_closing,r.bibles_closing,r.first_timers,r.visitors,`"${(r.topic||"").replace(/"/g,"")}"`,r.status]);
     const csv = [headers,...rows].map(r=>r.join(",")).join("\n");
-    const a = document.createElement("a"); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"})); a.download="attendance.csv"; a.click();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+    a.download = "attendance.csv"; a.click();
+  };
+
+  const exportChurchCSV = () => {
+    const headers = ["Date","Day","Program","Male Begin","Female Begin","Total Begin","Male Close","Female Close","Total Close","First Timers","Visitors"];
+    const rows = churchRecs.map(r=>[r.date,r.day_of_week,r.program,r.male_beginning,r.female_beginning,r.total_beginning,r.male_closing,r.female_closing,r.total_closing,r.first_timers,r.visitors]);
+    const csv = [headers,...rows].map(r=>r.join(",")).join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+    a.download = "church_attendance.csv"; a.click();
   };
 
   const items = [
-    { title:"Download Full Workbook (.xlsx)", sub:`All sheets: Records, Teachers, Classes · ${records.length} records`, color:t.success, icon:"export", action:downloadWorkbook },
-    { title:"Export Attendance CSV",          sub:"Flat CSV of all attendance records",                                  color:t.info,    icon:"export", action:exportCSV },
-    { title:"Import Workbook",                sub:"Replace current data with a saved workbook file",                     color:t.warn,    icon:"upload", action:()=>fileRef.current.click() },
+    { title:"Full Excel Workbook (.xlsx)", sub:`All data: SS records, Church, Teachers, Classes · ${records.length + churchRecs.length} total rows`, color:t.success, icon:"export", action:downloadWorkbook },
+    { title:"SS Attendance CSV",           sub:`${records.length} Sunday School records`,      color:t.info,    icon:"export", action:exportCSV },
+    { title:"Church Attendance CSV",       sub:`${churchRecs.length} church service records`,  color:"#9B59B6", icon:"export", action:exportChurchCSV },
   ];
 
   return (
     <div>
-      <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display:"none" }} onChange={handleImport} />
       <div style={{ fontSize:23, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif", marginBottom:3 }}>Export Center</div>
       <div style={{ fontSize:13, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:24 }}>
-        Download your master workbook or export specific data
+        Download reports from your Supabase database
       </div>
-      <div style={{ ...card, marginBottom:24, display:"flex", gap:16, alignItems:"center", borderLeft:`3px solid ${t.gold}` }}>
+
+      {/* Info banner */}
+      <div style={{ ...card, marginBottom:24, display:"flex", gap:14, alignItems:"center", borderLeft:`3px solid ${t.gold}` }}>
         <Icon name="info" size={22} color={t.gold} />
         <div>
-          <div style={{ fontSize:13, fontWeight:700, color:t.text, fontFamily:"'Trebuchet MS',sans-serif" }}>About your workbook</div>
+          <div style={{ fontSize:13, fontWeight:700, color:t.text, fontFamily:"'Trebuchet MS',sans-serif" }}>Data is stored in Supabase</div>
           <div style={{ fontSize:12, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginTop:2 }}>
-            Your data is stored in browser memory and exported as a multi-sheet Excel workbook.
-            Download regularly to keep a backup on your device or share with leadership.
+            All records sync across devices automatically. Export anytime to get a local Excel or CSV copy.
           </div>
         </div>
       </div>
+
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))", gap:16, marginBottom:24 }}>
         {items.map(e=>(
-          <div key={e.title} onClick={e.action} style={{ ...card, cursor:"pointer", transition:"border 0.2s", borderTop:`3px solid ${e.color}44` }}
-            onMouseEnter={el=>el.currentTarget.style.borderColor=e.color}
+          <div key={e.title} onClick={e.action} style={{ ...card, cursor:"pointer", borderTop:`3px solid ${e.color}44` }}
+            onMouseEnter={el=>el.currentTarget.style.borderTopColor=e.color}
             onMouseLeave={el=>el.currentTarget.style.borderTopColor=e.color+"44"}>
             <div style={{ width:48, height:48, background:e.color+"18", borderRadius:12, display:"flex", alignItems:"center", justifyContent:"center", marginBottom:14 }}>
               <Icon name={e.icon} size={22} color={e.color} />
             </div>
             <div style={{ fontSize:15, fontWeight:700, color:t.text, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:4 }}>{e.title}</div>
             <div style={{ fontSize:12, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:14 }}>{e.sub}</div>
-            <span style={{ display:"inline-block", padding:"3px 10px", borderRadius:20, fontSize:11, fontWeight:700, fontFamily:"'Trebuchet MS',sans-serif", background:e.color+"18", color:e.color, border:`1px solid ${e.color}33` }}>Click to proceed</span>
+            <Badge label="Click to Download" color={e.color} />
           </div>
         ))}
       </div>
-      {/* Workbook sheet preview */}
+
+      {/* Live data summary */}
       <div style={card}>
-        <div style={{ fontSize:14, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif", marginBottom:14 }}>Workbook Structure</div>
+        <div style={{ fontSize:14, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif", marginBottom:14 }}>Database Summary</div>
         <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
           {[
-            { sheet:"Attendance Records", rows:records.length,      color:t.gold },
-            { sheet:"Church Attendance",  rows:db.churchRecs.length, color:"#E67E22" },
-            { sheet:"Teachers",           rows:teachers.length,      color:t.info },
-            { sheet:"Classes",            rows:db.classes.length,    color:t.success },
-            { sheet:"Church Programs",    rows:db.programs.length,   color:"#9B59B6" },
-            { sheet:"Meta",               rows:1,                    color:t.textMuted },
+            { label:"SS Records",      count:records.length,    color:t.gold },
+            { label:"Church Records",  count:churchRecs.length, color:"#E67E22" },
+            { label:"Teachers",        count:teachers.length,   color:t.info },
+            { label:"Classes",         count:classes.length,    color:t.success },
+            { label:"Programs",        count:programs.length,   color:"#9B59B6" },
           ].map(s=>(
-            <div key={s.sheet} style={{ padding:"10px 16px", borderRadius:10, border:`1px solid ${s.color}33`, background:s.color+"0D" }}>
-              <div style={{ fontSize:13, fontWeight:700, color:s.color, fontFamily:"'Trebuchet MS',sans-serif" }}>{s.sheet}</div>
-              <div style={{ fontSize:11, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginTop:2 }}>{s.rows} rows</div>
+            <div key={s.label} style={{ padding:"10px 16px", borderRadius:10, border:`1px solid ${s.color}33`, background:s.color+"0D" }}>
+              <div style={{ fontSize:13, fontWeight:700, color:s.color, fontFamily:"'Trebuchet MS',sans-serif" }}>{s.label}</div>
+              <div style={{ fontSize:22, color:s.color, fontWeight:700, fontFamily:"'Georgia',serif" }}>{s.count}</div>
             </div>
           ))}
         </div>
@@ -3492,8 +3492,8 @@ export default function App() {
   const [collapsed, setCollapsed]   = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [toasts, setToasts]         = useState([]);
-  const db     = useExcelDB();
-  const users  = useUsers();   // ← separate, Supabase-ready user system
+  const db     = useSupabaseDB();
+  const users  = useUsers();
   const mobile = useIsMobile();
 
   useEffect(() => { injectGlobalCSS(); }, []);
@@ -3558,6 +3558,30 @@ export default function App() {
       <LoginPage onLogin={handleLogin} />
     </ThemeCtx.Provider>
   );
+
+  // Show loading screen while Supabase fetches data
+  if (db.loading) {
+    const t = T[dark?"dark":"light"];
+    return (
+      <ThemeCtx.Provider value={{ dark, toggle:()=>setDark(d=>!d) }}>
+        <div style={{ minHeight:"100vh", background:t.bg, display:"flex", flexDirection:"column",
+          alignItems:"center", justifyContent:"center", gap:20, fontFamily:"'Trebuchet MS',sans-serif" }}>
+          <div style={{ width:56, height:56, borderRadius:"50%", background:"#004b23",
+            display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <Icon name="cross" size={26} color="#FFFFFF" />
+          </div>
+          <div style={{ fontSize:16, color:t.gold, fontWeight:700 }}>Loading data…</div>
+          <div style={{ fontSize:13, color:t.textMuted }}>Connecting to Supabase database</div>
+          <div style={{ width:200, height:4, background:t.border, borderRadius:4, overflow:"hidden" }}>
+            <div style={{ height:"100%", background:"#004b23", borderRadius:4,
+              animation:"loadbar 1.4s ease-in-out infinite",
+              width:"60%" }} />
+          </div>
+          <style>{`@keyframes loadbar{0%{transform:translateX(-100%)}100%{transform:translateX(240%)}}`}</style>
+        </div>
+      </ThemeCtx.Provider>
+    );
+  }
 
   return (
     <ThemeCtx.Provider value={{ dark, toggle:()=>setDark(d=>!d) }}>
