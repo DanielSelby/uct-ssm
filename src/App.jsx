@@ -1271,10 +1271,27 @@ const Insight = ({ text, color, icon="info" }) => {
 // ─── DASHBOARD PAGE ───────────────────────────────────────────────────────────
 const DashboardPage = ({ db }) => {
   const { t, card, tooltip, sel } = useThemeStyles();
-  const { records, teachers, classes, churchRecs, programs } = db;
+  const { records, teachers, classes, churchRecs, programs, loadAll } = db;
   const active = teachers.filter(x=>x.is_active==="YES").length;
 
   const [filters, setFilters] = useState({});
+  const [lastRefresh, setLastRefresh] = useState(new Date());
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Auto-refresh every 30 seconds to catch new submissions without logout
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadAll().then ? loadAll().then(()=>setLastRefresh(new Date())) : (loadAll(), setLastRefresh(new Date()));
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [loadAll]);
+
+  const handleManualRefresh = async () => {
+    setRefreshing(true);
+    await loadAll();
+    setLastRefresh(new Date());
+    setRefreshing(false);
+  };
 
   // All unique months across both datasets
   const allMonths = [...new Set([
@@ -1291,22 +1308,25 @@ const DashboardPage = ({ db }) => {
     return true;
   });
 
-  const fRec  = applyRange(records);
+  const fRec    = applyRange(records);
   const fChurch = applyRange(churchRecs);
 
-  // KPIs
-  const ssTotal   = fRec.reduce((s,r)=>s+(Number(r.total_closing)||0),0);
-  const chTotal   = fChurch.reduce((s,r)=>s+(Number(r.total_closing)||0),0);
-  const bibles    = fRec.reduce((s,r)=>s+(Number(r.bibles_closing)||0),0);
-  const bibleRate = ssTotal > 0 ? Math.round(bibles/ssTotal*100) : 0;
-  const totalFT   = fChurch.reduce((s,r)=>s+(Number(r.first_timers)||0),0) + fRec.reduce((s,r)=>s+(Number(r.first_timers)||0),0);
+  // KPIs — both beginning and closing
+  const ssBeginTotal = fRec.reduce((s,r)=>s+(Number(r.total_beginning)||0),0);
+  const ssTotal      = fRec.reduce((s,r)=>s+(Number(r.total_closing)||0),0);
+  const chBeginTotal = fChurch.reduce((s,r)=>s+(Number(r.total_beginning)||0),0);
+  const chTotal      = fChurch.reduce((s,r)=>s+(Number(r.total_closing)||0),0);
+  const biblesBegin  = fRec.reduce((s,r)=>s+(Number(r.bibles_beginning)||0),0);
+  const bibles       = fRec.reduce((s,r)=>s+(Number(r.bibles_closing)||0),0);
+  const bibleRate    = ssTotal > 0 ? Math.round(bibles/ssTotal*100) : 0;
+  const totalFT      = fChurch.reduce((s,r)=>s+(Number(r.first_timers)||0),0) + fRec.reduce((s,r)=>s+(Number(r.first_timers)||0),0);
   const retentionRate = chTotal > 0 ? Math.round(ssTotal/chTotal*100) : 0;
-  const pending = records.filter(r=>r.status==="pending").length;
+  const pending       = records.filter(r=>r.status==="pending").length;
 
   // SS vs Church comparison by date
   const compData = buildComparison(fRec, fChurch, {});
 
-  // Weekly trend (SS + Church combined)
+  // Weekly trend
   const weekMap = {};
   fRec.forEach(r => {
     if (!r.date) return;
@@ -1330,15 +1350,10 @@ const DashboardPage = ({ db }) => {
     color: CLASS_COLORS[i%CLASS_COLORS.length],
   })).filter(x=>x.value>0);
 
-  // Generate storytelling insight
-  const topClass = [...classes].sort((a,b)=>
-    fRec.filter(r=>r.class_name===b.name).reduce((s,r)=>s+(Number(r.total_closing)||0),0) -
-    fRec.filter(r=>r.class_name===a.name).reduce((s,r)=>s+(Number(r.total_closing)||0),0)
-  )[0];
   const retentionStory = retentionRate > 0
-    ? retentionRate >= 80 ? `✝ Strong conversion: ${retentionRate}% of Sunday service attendees are enrolled in Sunday School.`
-    : retentionRate >= 50 ? `📈 Moderate engagement: ${retentionRate}% of Sunday service attendees attend Sunday School. There is room to grow.`
-    : `⚠ Low SS engagement: Only ${retentionRate}% of Sunday service attendees are in Sunday School. Consider outreach.`
+    ? retentionRate >= 80 ? `✝ Strong: ${retentionRate}% of Sunday service attendees are in Sunday School.`
+    : retentionRate >= 50 ? `📈 Moderate: ${retentionRate}% of Sunday service attendees attend Sunday School.`
+    : `⚠ Only ${retentionRate}% of Sunday attendees join Sunday School. Consider outreach.`
     : null;
 
   const ChartCard = ({ title, sub, children, span=1 }) => (
@@ -1353,7 +1368,7 @@ const DashboardPage = ({ db }) => {
 
   return (
     <div>
-      {/* Header + Filters */}
+      {/* Header */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:16, flexWrap:"wrap", gap:12 }}>
         <div>
           <div style={{ fontSize:23, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif", marginBottom:3 }}>Overview Dashboard</div>
@@ -1362,6 +1377,19 @@ const DashboardPage = ({ db }) => {
             {(filters.from||filters.to||filters.month) ? " · Filtered" : " · All time"}
           </div>
         </div>
+        {/* Refresh button */}
+        <button onClick={handleManualRefresh} disabled={refreshing}
+          style={{ display:"flex", alignItems:"center", gap:7, padding:"9px 18px", borderRadius:9,
+            border:`1px solid ${t.gold}44`, background:t.gold+"11", color:t.gold,
+            fontFamily:"'Trebuchet MS',sans-serif", fontSize:13, cursor:"pointer" }}>
+          <span style={{ fontSize:16, lineHeight:1, display:"inline-block",
+            animation: refreshing ? "spin 0.7s linear infinite" : "none" }}>↻</span>
+          {refreshing ? "Refreshing…" : "Refresh"}
+          <span style={{ fontSize:10, color:t.textMuted }}>
+            · {lastRefresh.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}
+          </span>
+        </button>
+        <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
       </div>
 
       {/* Filter Bar */}
@@ -1380,15 +1408,29 @@ const DashboardPage = ({ db }) => {
         </div>
       )}
 
-      {/* KPIs */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(145px,1fr))", gap:14, marginBottom:24 }}>
-        <KpiCard label="SS Total (Closing)"     value={ssTotal}    sub="Sunday School" icon="attendance" color={t.gold} />
-        <KpiCard label="Church Total (Closing)" value={chTotal}    sub="Main service"  icon="cross"      color={t.info} />
-        <KpiCard label="SS Retention Rate"      value={`${retentionRate}%`} sub="SS ÷ Church closing" icon="analytics" color={retentionRate>=80?t.success:retentionRate>=50?t.warn:t.danger} />
-        <KpiCard label="Bibles Brought"         value={bibles}     sub={`${bibleRate}% of SS`} icon="bible"      color="#9B59B6" />
-        <KpiCard label="First Timers"           value={totalFT}    sub="SS + Church"   icon="plus"       color="#E67E22" />
-        <KpiCard label="Active Teachers"        value={active}     sub={`of ${teachers.length}`} icon="teachers" color={t.success} />
-        <KpiCard label="Pending Reviews"        value={pending}    sub="Needs action"  icon="info"       color={pending>0?t.warn:t.textMuted} />
+      {/* KPIs — Row 1: SS */}
+      <div style={{ fontSize:11, fontWeight:700, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1.2, marginBottom:10 }}>
+        Sunday School
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:12, marginBottom:16 }}>
+        <KpiCard label="SS Begin (Total)"   value={ssBeginTotal} sub="At opening"        icon="attendance" color={t.info} />
+        <KpiCard label="SS Closing (Total)" value={ssTotal}      sub="At close"          icon="attendance" color={t.gold} />
+        <KpiCard label="Bibles at Begin"    value={biblesBegin}  sub="Brought at start"  icon="bible"      color="#9B59B6" />
+        <KpiCard label="Bibles at Closing"  value={bibles}       sub={`${bibleRate}% rate`} icon="bible"   color="#7B3FBE" />
+        <KpiCard label="First Timers"       value={fRec.reduce((s,r)=>s+(Number(r.first_timers)||0),0)} sub="SS only" icon="plus" color="#E67E22" />
+        <KpiCard label="Pending Reviews"    value={pending}      sub="Needs approval"    icon="info"       color={pending>0?t.warn:t.textMuted} />
+      </div>
+
+      {/* KPIs — Row 2: Church */}
+      <div style={{ fontSize:11, fontWeight:700, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1.2, marginBottom:10 }}>
+        Church Service
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:12, marginBottom:24 }}>
+        <KpiCard label="Church Begin"       value={chBeginTotal} sub="At opening"         icon="cross"      color={t.info} />
+        <KpiCard label="Church Closing"     value={chTotal}      sub="At close"           icon="cross"      color="#1A5DC8" />
+        <KpiCard label="SS Retention"       value={`${retentionRate}%`} sub="SS÷Church"  icon="analytics"  color={retentionRate>=80?t.success:retentionRate>=50?t.warn:t.danger} />
+        <KpiCard label="First Timers"       value={fChurch.reduce((s,r)=>s+(Number(r.first_timers)||0),0)} sub="Church only" icon="plus" color="#E67E22" />
+        <KpiCard label="Active Teachers"    value={active}       sub={`of ${teachers.length}`} icon="teachers" color={t.success} />
       </div>
 
       {/* Row 1: SS vs Church side-by-side comparison by date */}
@@ -1734,7 +1776,7 @@ const AttendancePage = ({ db, user }) => {
   return (
     <div>
       <div style={{ fontSize:23, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif", marginBottom:3 }}>Attendance Records</div>
-      <div style={{ fontSize:13, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:20 }}>{records.length} records in workbook</div>
+      <div style={{ fontSize:13, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:20 }}>{records.length} records in database</div>
       <div style={{ ...card, marginBottom:16, display:"flex", gap:12, flexWrap:"wrap", alignItems:"center" }}>
         <input style={{ ...inp, maxWidth:220 }} placeholder="Search topic or teacher…" value={filter.search} onChange={e=>setFilter(f=>({...f,search:e.target.value}))} />
         <select style={sel} value={filter.cls} onChange={e=>setFilter(f=>({...f,cls:e.target.value}))}>
@@ -1747,12 +1789,16 @@ const AttendancePage = ({ db, user }) => {
           <option value="pending">Pending</option>
         </select>
         <button onClick={()=>setFilter({cls:"",status:"",search:""})} style={{ padding:"8px 14px", borderRadius:9, border:`1px solid ${t.border}`, background:"transparent", color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", cursor:"pointer", fontSize:13 }}>Clear</button>
+        {/* Refresh button — pulls latest from Supabase without logging out */}
+        <button onClick={()=>db.loadAll()} style={{ padding:"8px 14px", borderRadius:9, border:`1px solid ${t.gold}44`, background:t.gold+"11", color:t.gold, fontFamily:"'Trebuchet MS',sans-serif", cursor:"pointer", fontSize:13, display:"flex", alignItems:"center", gap:6 }}>
+          ↻ Refresh
+        </button>
         <span style={{ fontSize:12, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginLeft:"auto" }}>{filtered.length} shown</span>
       </div>
-      <div style={{ ...card, padding:0, overflow:"hidden" }}>
-        <table style={{ width:"100%", borderCollapse:"collapse" }}>
+      <div style={{ ...card, padding:0, overflowX:"auto" }}>
+        <table style={{ width:"100%", borderCollapse:"collapse", minWidth:900 }}>
           <thead><tr style={{ background:t.surfaceAlt }}>
-            {["Date","Class","Teacher","Present","Bibles","First T.","Topic","Status","Actions"].map(h=><th key={h} style={th}>{h}</th>)}
+            {["Date","Class","Teacher","Begin","Closing","Bible Begin","Bible Close","First T.","Topic","Status","Actions"].map(h=><th key={h} style={th}>{h}</th>)}
           </tr></thead>
           <tbody>
             {[...filtered].reverse().map(r=>{
@@ -1762,10 +1808,22 @@ const AttendancePage = ({ db, user }) => {
                   <td style={td}>{fmtDate(r.date)}</td>
                   <td style={td}>{r.class_name}</td>
                   <td style={{ ...td, color:t.textMuted }}>{r.teacher_name}</td>
-                  <td style={td}>{r.total_closing}</td>
-                  <td style={td}>{r.bibles_closing}</td>
-                  <td style={td}>{r.first_timers}</td>
-                  <td style={{ ...td, maxWidth:140, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", color:t.textMuted }}>{r.topic}</td>
+                  {/* Present Begin / Closing */}
+                  <td style={td}>
+                    <span style={{ fontWeight:600, color:t.info }}>{r.total_beginning||0}</span>
+                  </td>
+                  <td style={td}>
+                    <span style={{ fontWeight:600, color:t.gold }}>{r.total_closing||0}</span>
+                  </td>
+                  {/* Bible Begin / Closing */}
+                  <td style={td}>
+                    <span style={{ color:t.info }}>{r.bibles_beginning||0}</span>
+                  </td>
+                  <td style={td}>
+                    <span style={{ color:t.gold }}>{r.bibles_closing||0}</span>
+                  </td>
+                  <td style={td}>{r.first_timers||0}</td>
+                  <td style={{ ...td, maxWidth:130, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", color:t.textMuted }}>{r.topic}</td>
                   <td style={td}><Badge label={si.label} color={si.color}/></td>
                   <td style={td}>
                     <div style={{ display:"flex", gap:5 }}>
@@ -1777,7 +1835,7 @@ const AttendancePage = ({ db, user }) => {
                 </tr>
               );
             })}
-            {!filtered.length && <tr><td colSpan={9} style={{ ...td, textAlign:"center", padding:48, color:t.textMuted }}>No records found</td></tr>}
+            {!filtered.length && <tr><td colSpan={11} style={{ ...td, textAlign:"center", padding:48, color:t.textMuted }}>No records found</td></tr>}
           </tbody>
         </table>
       </div>
@@ -1885,12 +1943,15 @@ const AnalyticsPage = ({ db }) => {
   })).filter(m => m.rate !== null);
 
   // ── Aggregate KPIs ────────────────────────────────────────
-  const ssTotal  = fRec.reduce((s,r)=>s+(Number(r.total_closing)||0),0);
-  const chTotal  = fChurch.reduce((s,r)=>s+(Number(r.total_closing)||0),0);
+  const ssBeginTotal = fRec.reduce((s,r)=>s+(Number(r.total_beginning)||0),0);
+  const ssTotal      = fRec.reduce((s,r)=>s+(Number(r.total_closing)||0),0);
+  const chBeginTotal = fChurch.reduce((s,r)=>s+(Number(r.total_beginning)||0),0);
+  const chTotal      = fChurch.reduce((s,r)=>s+(Number(r.total_closing)||0),0);
   const avgRetention = retentionMonthly.length ? Math.round(retentionMonthly.reduce((s,m)=>s+m.rate,0)/retentionMonthly.length) : 0;
-  const bibleTotal = fRec.reduce((s,r)=>s+(Number(r.bibles_closing)||0),0);
-  const bibleRate  = ssTotal > 0 ? Math.round(bibleTotal/ssTotal*100) : 0;
-  const ftTotal    = fRec.reduce((s,r)=>s+(Number(r.first_timers)||0),0) + fChurch.reduce((s,r)=>s+(Number(r.first_timers)||0),0);
+  const bibleBeginTotal = fRec.reduce((s,r)=>s+(Number(r.bibles_beginning)||0),0);
+  const bibleTotal   = fRec.reduce((s,r)=>s+(Number(r.bibles_closing)||0),0);
+  const bibleRate    = ssTotal > 0 ? Math.round(bibleTotal/ssTotal*100) : 0;
+  const ftTotal      = fRec.reduce((s,r)=>s+(Number(r.first_timers)||0),0) + fChurch.reduce((s,r)=>s+(Number(r.first_timers)||0),0);
 
   // ── Insight generator ─────────────────────────────────────
   const insights = [];
@@ -1901,7 +1962,7 @@ const AnalyticsPage = ({ db }) => {
   }
   if (bibleRate >= 75) insights.push({ text:`Strong Bible culture: ${bibleRate}% of SS members bring their Bibles.`, color:t.success });
   else if (bibleRate > 0) insights.push({ text:`Bible participation at ${bibleRate}%. Encourage members to bring Bibles each week.`, color:t.warn });
-  const topMonth = monthlyData.sort((a,b)=>b.chClose-a.chClose)[0];
+  const topMonth = [...monthlyData].sort((a,b)=>b.chClose-a.chClose)[0];
   if (topMonth?.chClose > 0) insights.push({ text:`Best attended service: ${topMonth.label} with ${topMonth.chClose} at church closing.`, color:t.info });
 
   const ChartCard = ({ title, sub, children, span=1 }) => (
@@ -1946,14 +2007,24 @@ const AnalyticsPage = ({ db }) => {
           programs={programs} classes={classes} showClass={tab==="ss"} showProgram={tab==="church"} />
       </div>
 
-      {/* KPI Summary row */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:14, marginBottom:24 }}>
-        <KpiCard label="SS Total"        value={ssTotal}           sub="Closing count"   icon="attendance" color={t.gold} />
-        <KpiCard label="Church Total"    value={chTotal}           sub="Closing count"   icon="cross"      color={t.info} />
+      {/* KPI Summary — SS */}
+      <div style={{ fontSize:11, fontWeight:700, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1.2, marginBottom:10 }}>Sunday School</div>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(135px,1fr))", gap:12, marginBottom:16 }}>
+        <KpiCard label="SS Begin"        value={ssBeginTotal}      sub="At opening"       icon="attendance" color={t.info} />
+        <KpiCard label="SS Closing"      value={ssTotal}           sub="At close"         icon="attendance" color={t.gold} />
+        <KpiCard label="Bible Begin"     value={bibleBeginTotal}   sub="Brought at start" icon="bible"      color="#9B59B6" />
+        <KpiCard label="Bible Closing"   value={bibleTotal}        sub={`${bibleRate}% rate`} icon="bible" color="#7B3FBE" />
+        <KpiCard label="First Timers"    value={fRec.reduce((s,r)=>s+(Number(r.first_timers)||0),0)} sub="SS" icon="plus" color="#E67E22" />
+      </div>
+
+      {/* KPI Summary — Church */}
+      <div style={{ fontSize:11, fontWeight:700, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1.2, marginBottom:10 }}>Church Service</div>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(135px,1fr))", gap:12, marginBottom:24 }}>
+        <KpiCard label="Church Begin"    value={chBeginTotal}      sub="At opening"       icon="cross"      color={t.info} />
+        <KpiCard label="Church Closing"  value={chTotal}           sub="At close"         icon="cross"      color="#1A5DC8" />
         <KpiCard label="Avg Retention"   value={`${avgRetention}%`} sub="SS÷Church avg"  icon="analytics"  color={avgRetention>=80?t.success:avgRetention>=60?t.warn:t.danger} />
-        <KpiCard label="Bible Rate"      value={`${bibleRate}%`}   sub="SS participation" icon="bible"    color="#9B59B6" />
-        <KpiCard label="First Timers"    value={ftTotal}           sub="Combined"        icon="plus"       color="#E67E22" />
-        <KpiCard label="Months of Data"  value={allMonths.length}  sub="On record"       icon="settings"   color={t.success} />
+        <KpiCard label="First Timers"    value={fChurch.reduce((s,r)=>s+(Number(r.first_timers)||0),0)} sub="Church" icon="plus" color="#E67E22" />
+        <KpiCard label="Months of Data"  value={allMonths.length}  sub="On record"        icon="settings"   color={t.success} />
       </div>
 
       {/* Story insights */}
