@@ -3541,6 +3541,372 @@ const RolesPage = () => {
   );
 };
 
+// ─── SS REPORT PAGE ───────────────────────────────────────────────────────────
+const SSReportPage = ({ db }) => {
+  const { t, card, btnGold, btnOutline, sel, inp } = useThemeStyles();
+  const { records, classes, loadAll } = db;
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Filters
+  const [filterDate, setFilterDate]   = useState(new Date().toISOString().slice(0,10));
+  const [filterClass, setFilterClass] = useState("");
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadAll();
+    setRefreshing(false);
+  };
+
+  // Get all unique service dates sorted descending
+  const allDates = [...new Set(records.map(r=>r.date).filter(Boolean))].sort().reverse();
+
+  // Current session = records on filterDate (or latest date if none selected matches)
+  const currentDate = filterDate && records.some(r=>r.date===filterDate)
+    ? filterDate
+    : allDates[0] || "";
+
+  // Previous session = most recent date BEFORE currentDate
+  const prevDate = allDates.find(d => d < currentDate) || "";
+
+  const currentRecs = records.filter(r => r.date===currentDate && (!filterClass || r.class_name===filterClass));
+  const prevRecs    = records.filter(r => r.date===prevDate    && (!filterClass || r.class_name===filterClass));
+
+  // Build per-class comparison rows
+  const activeClasses = filterClass
+    ? classes.filter(c => c.name===filterClass)
+    : classes.filter(c => c.is_active==="YES");
+
+  const rows = activeClasses.map(cls => {
+    const cur  = currentRecs.find(r => r.class_name===cls.name);
+    const prev = prevRecs.find(r   => r.class_name===cls.name);
+
+    const ssBegin    = Number(cur?.total_beginning)||0;
+    const ssClose    = Number(cur?.total_closing)||0;
+    const bibBegin   = Number(cur?.bibles_beginning)||0;
+    const bibClose   = Number(cur?.bibles_closing)||0;
+    const male       = Number(cur?.male_present)||0;
+    const female     = Number(cur?.female_present)||0;
+    const firstT     = Number(cur?.first_timers)||0;
+    const visitors   = Number(cur?.visitors)||0;
+
+    const pSSBegin   = Number(prev?.total_beginning)||0;
+    const pSSClose   = Number(prev?.total_closing)||0;
+    const pBibBegin  = Number(prev?.bibles_beginning)||0;
+    const pBibClose  = Number(prev?.bibles_closing)||0;
+
+    const diff = (cur, prv) => {
+      if (!prv && !cur) return null;
+      const d = cur - prv;
+      const pct = prv > 0 ? Math.round((d/prv)*100) : null;
+      return { d, pct, up: d >= 0 };
+    };
+
+    return {
+      cls: cls.name,
+      ssBegin, ssClose, bibBegin, bibClose,
+      male, female, firstT, visitors,
+      hasCurrent: !!cur,
+      dSSBegin:  diff(ssBegin,  pSSBegin),
+      dSSClose:  diff(ssClose,  pSSClose),
+      dBibBegin: diff(bibBegin, pBibBegin),
+      dBibClose: diff(bibClose, pBibClose),
+      prevDate,
+    };
+  }).filter(r => r.hasCurrent || records.some(r2=>r2.class_name===r.cls));
+
+  // Totals row
+  const tot = (key) => rows.reduce((s,r)=>s+(r[key]||0),0);
+
+  // Export this report to Excel
+  const exportReport = () => {
+    const XLSX_mod = window.XLSX || (typeof XLSX !== "undefined" ? XLSX : null);
+    if (!XLSX_mod) { alert("XLSX not available"); return; }
+    const data = rows.map(r => ({
+      "Class":            r.cls,
+      "SS Begin":         r.ssBegin,
+      "SS Close":         r.ssClose,
+      "Bible Begin":      r.bibBegin,
+      "Bible Close":      r.bibClose,
+      "Male":             r.male,
+      "Female":           r.female,
+      "First Timers":     r.firstT,
+      "Visitors":         r.visitors,
+      "Prev SS Begin":    r.dSSBegin  ? r.ssBegin  - r.dSSBegin.d  : "",
+      "Prev SS Close":    r.dSSClose  ? r.ssClose  - r.dSSClose.d  : "",
+      "Prev Bible Begin": r.dBibBegin ? r.bibBegin - r.dBibBegin.d : "",
+      "Prev Bible Close": r.dBibClose ? r.bibClose - r.dBibClose.d : "",
+      "SS Begin Diff":    r.dSSBegin?.d  ?? "",
+      "SS Close Diff":    r.dSSClose?.d  ?? "",
+      "Date":             currentDate,
+      "Prev Date":        prevDate,
+    }));
+    const wb = XLSX_mod.utils.book_new();
+    const ws = XLSX_mod.utils.json_to_sheet(data);
+    ws["!cols"] = Object.keys(data[0]||{}).map(()=>({wch:16}));
+    XLSX_mod.utils.book_append_sheet(wb, ws, "SS Report");
+    XLSX_mod.writeFile(wb, `SS_Report_${currentDate}.xlsx`);
+  };
+
+  // Diff cell component
+  const DiffCell = ({ diff, style={} }) => {
+    if (!diff) return <td style={{ ...style, color:t.textFaint, fontSize:11 }}>—</td>;
+    const color = diff.up ? t.success : t.danger;
+    const arrow = diff.up ? "▲" : "▼";
+    return (
+      <td style={{ ...style, fontFamily:"'Trebuchet MS',sans-serif", fontSize:12 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+          <span style={{ color, fontSize:13 }}>{arrow}</span>
+          <span style={{ color, fontWeight:700 }}>{Math.abs(diff.d)}</span>
+          {diff.pct !== null &&
+            <span style={{ color, fontSize:10 }}>/ {diff.pct > 0 ? "+" : ""}{diff.pct}%</span>}
+        </div>
+      </td>
+    );
+  };
+
+  const thS = { padding:"9px 12px", textAlign:"left", fontSize:10, fontWeight:700,
+    fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1,
+    borderBottom:`2px solid ${t.border}`, whiteSpace:"nowrap" };
+  const tdS = { padding:"10px 12px", fontFamily:"'Trebuchet MS',sans-serif", fontSize:13,
+    borderBottom:`1px solid ${t.border}18`, verticalAlign:"middle" };
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:20, flexWrap:"wrap", gap:12 }}>
+        <div>
+          <div style={{ fontSize:23, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif", marginBottom:3 }}>
+            SS Comparison Report
+          </div>
+          <div style={{ fontSize:13, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}>
+            Current session vs previous session · auto-updates when new reports are submitted
+          </div>
+        </div>
+        <div style={{ display:"flex", gap:8 }}>
+          <button onClick={handleRefresh} disabled={refreshing}
+            style={{ display:"flex", alignItems:"center", gap:6, padding:"9px 16px", borderRadius:9,
+              border:`1px solid ${t.gold}44`, background:t.gold+"11", color:t.gold,
+              fontFamily:"'Trebuchet MS',sans-serif", fontSize:13, cursor:"pointer" }}>
+            <span style={{ fontSize:16, animation:refreshing?"spin 0.7s linear infinite":"none", display:"inline-block" }}>↻</span>
+            {refreshing ? "Refreshing…" : "Refresh"}
+          </button>
+          <button onClick={exportReport}
+            style={{ display:"flex", alignItems:"center", gap:6, padding:"9px 16px", borderRadius:9,
+              border:`1px solid ${t.success}44`, background:t.success+"11", color:t.success,
+              fontFamily:"'Trebuchet MS',sans-serif", fontSize:13, cursor:"pointer" }}>
+            <Icon name="export" size={14} color={t.success} /> Export Excel
+          </button>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div style={{ ...card, marginBottom:20, display:"flex", gap:14, flexWrap:"wrap", alignItems:"flex-end" }}>
+        <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+          <label style={{ fontSize:10, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1 }}>
+            Current Date (Service)
+          </label>
+          <select style={{ ...sel }} value={currentDate} onChange={e=>setFilterDate(e.target.value)}>
+            {allDates.map(d=><option key={d} value={d}>{fmtDate(d)}</option>)}
+            {!allDates.length && <option value="">No records yet</option>}
+          </select>
+        </div>
+        <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+          <label style={{ fontSize:10, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1 }}>
+            Class Filter
+          </label>
+          <select style={{ ...sel }} value={filterClass} onChange={e=>setFilterClass(e.target.value)}>
+            <option value="">All Classes</option>
+            {classes.map(c=><option key={c.name} value={c.name}>{c.name}</option>)}
+          </select>
+        </div>
+        <div style={{ fontSize:12, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", paddingBottom:2 }}>
+          Comparing <strong style={{ color:t.gold }}>{currentDate ? fmtDate(currentDate) : "—"}</strong>
+          {" "}vs previous <strong style={{ color:t.info }}>{prevDate ? fmtDate(prevDate) : "—"}</strong>
+        </div>
+      </div>
+
+      {/* Summary KPIs */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))", gap:12, marginBottom:20 }}>
+        <KpiCard label="SS Begin"     value={tot("ssBegin")}  sub="Current session" icon="attendance" color={t.info} />
+        <KpiCard label="SS Closing"   value={tot("ssClose")}  sub="Current session" icon="attendance" color={t.gold} />
+        <KpiCard label="Bible Begin"  value={tot("bibBegin")} sub="Current session" icon="bible"      color="#9B59B6" />
+        <KpiCard label="Bible Close"  value={tot("bibClose")} sub="Current session" icon="bible"      color="#7B3FBE" />
+        <KpiCard label="First Timers" value={tot("firstT")}   sub="Current session" icon="plus"       color="#E67E22" />
+        <KpiCard label="Visitors"     value={tot("visitors")} sub="Current session" icon="eye"        color={t.success} />
+      </div>
+
+      {/* Main Report Table */}
+      <div style={{ ...card, padding:0, overflowX:"auto" }}>
+        {/* Table header groups */}
+        <table style={{ width:"100%", borderCollapse:"collapse", minWidth:900 }}>
+          <thead>
+            {/* Group header */}
+            <tr style={{ background:"#004b23" }}>
+              <th style={{ ...thS, color:"#FFFFFF", borderBottom:"none", padding:"8px 12px" }}></th>
+              <th colSpan={4} style={{ ...thS, color:"#FFFFFF", textAlign:"center", borderBottom:"none",
+                borderRight:`1px solid rgba(255,255,255,0.2)`, background:"#004b23" }}>
+                📅 Current Date — {currentDate ? fmtDate(currentDate) : "No data"}
+              </th>
+              <th colSpan={4} style={{ ...thS, color:"#FFD700", textAlign:"center", borderBottom:"none",
+                background:"#2a6b3c" }}>
+                🕐 vs Previous — {prevDate ? fmtDate(prevDate) : "No previous"}
+              </th>
+              <th colSpan={2} style={{ ...thS, color:"#FFFFFF", textAlign:"center", borderBottom:"none",
+                background:"#1565C0" }}>
+                Other
+              </th>
+            </tr>
+            {/* Column headers */}
+            <tr style={{ background:t.surfaceAlt }}>
+              <th style={{ ...thS, color:t.gold }}>Class</th>
+              <th style={{ ...thS, color:t.info }}>SS Begin</th>
+              <th style={{ ...thS, color:t.gold }}>SS Close</th>
+              <th style={{ ...thS, color:"#9B59B6" }}>Bible Begin</th>
+              <th style={{ ...thS, color:"#7B3FBE", borderRight:`2px solid ${t.border}` }}>Bible Close</th>
+              <th style={{ ...thS, color:t.info }}>Prev.SS Begin</th>
+              <th style={{ ...thS, color:t.gold }}>Prev.SS Close</th>
+              <th style={{ ...thS, color:"#9B59B6" }}>Prev.Bible Begin</th>
+              <th style={{ ...thS, color:"#7B3FBE", borderRight:`2px solid ${t.border}` }}>Prev.Bible Close</th>
+              <th style={{ ...thS, color:"#E67E22" }}>Male / Female</th>
+              <th style={{ ...thS, color:t.success }}>1st T / Visitors</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={r.cls}
+                style={{ background: i%2===0 ? "transparent" : t.surfaceAlt+"66" }}
+                onMouseEnter={e=>e.currentTarget.style.background=t.surfaceHover}
+                onMouseLeave={e=>e.currentTarget.style.background=i%2===0?"transparent":t.surfaceAlt+"66"}>
+
+                {/* Class name */}
+                <td style={{ ...tdS, fontWeight:700, color:t.gold, whiteSpace:"nowrap" }}>
+                  {r.cls.split(" ")[0]}
+                  {!r.hasCurrent && <span style={{ fontSize:10, color:t.textMuted, display:"block" }}>no submission</span>}
+                </td>
+
+                {/* Current */}
+                <td style={{ ...tdS, color:t.info, fontWeight:700 }}>{r.hasCurrent ? r.ssBegin : "—"}</td>
+                <td style={{ ...tdS, color:t.gold, fontWeight:700 }}>{r.hasCurrent ? r.ssClose : "—"}</td>
+                <td style={{ ...tdS, color:"#9B59B6", fontWeight:700 }}>{r.hasCurrent ? r.bibBegin : "—"}</td>
+                <td style={{ ...tdS, color:"#7B3FBE", fontWeight:700, borderRight:`2px solid ${t.border}` }}>{r.hasCurrent ? r.bibClose : "—"}</td>
+
+                {/* Diff columns */}
+                <DiffCell diff={r.dSSBegin}  style={tdS} />
+                <DiffCell diff={r.dSSClose}  style={tdS} />
+                <DiffCell diff={r.dBibBegin} style={tdS} />
+                <DiffCell diff={r.dBibClose} style={{ ...tdS, borderRight:`2px solid ${t.border}` }} />
+
+                {/* Male/Female */}
+                <td style={{ ...tdS }}>
+                  <span style={{ color:t.info }}>{r.male}M</span>
+                  <span style={{ color:t.textFaint, margin:"0 4px" }}>·</span>
+                  <span style={{ color:"#E67E22" }}>{r.female}F</span>
+                </td>
+
+                {/* First timers / Visitors */}
+                <td style={{ ...tdS }}>
+                  <span style={{ color:"#E67E22", fontWeight:700 }}>{r.firstT}</span>
+                  <span style={{ color:t.textFaint, margin:"0 4px" }}>/</span>
+                  <span style={{ color:t.success }}>{r.visitors}</span>
+                </td>
+              </tr>
+            ))}
+
+            {/* Totals row */}
+            {rows.length > 1 && (() => {
+              // Aggregate prev values for totals diff
+              const pTotSSBegin  = prevRecs.reduce((s,r)=>s+(Number(r.total_beginning)||0),0);
+              const pTotSSClose  = prevRecs.reduce((s,r)=>s+(Number(r.total_closing)||0),0);
+              const pTotBibBegin = prevRecs.reduce((s,r)=>s+(Number(r.bibles_beginning)||0),0);
+              const pTotBibClose = prevRecs.reduce((s,r)=>s+(Number(r.bibles_closing)||0),0);
+              const mkDiff = (cur, prv) => {
+                if (!prv && !cur) return null;
+                const d = cur - prv;
+                const pct = prv > 0 ? Math.round((d/prv)*100) : null;
+                return { d, pct, up: d >= 0 };
+              };
+              const tSSBegin  = tot("ssBegin");
+              const tSSClose  = tot("ssClose");
+              const tBibBegin = tot("bibBegin");
+              const tBibClose = tot("bibClose");
+              const diffs = [
+                mkDiff(tSSBegin,  pTotSSBegin),
+                mkDiff(tSSClose,  pTotSSClose),
+                mkDiff(tBibBegin, pTotBibBegin),
+                mkDiff(tBibClose, pTotBibClose),
+              ];
+              const TotDiffCell = ({ diff, extra={} }) => {
+                if (!diff) return <td style={{ ...tdS, color:t.textFaint, fontSize:11, fontWeight:700, ...extra }}>—</td>;
+                const color = diff.up ? t.success : t.danger;
+                const arrow = diff.up ? "▲" : "▼";
+                return (
+                  <td style={{ ...tdS, fontWeight:700, ...extra }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+                      <span style={{ color, fontSize:14 }}>{arrow}</span>
+                      <span style={{ color, fontWeight:800 }}>{Math.abs(diff.d)}</span>
+                      {diff.pct !== null &&
+                        <span style={{ color, fontSize:10 }}>/ {diff.d >= 0 ? "+" : ""}{diff.pct}%</span>}
+                    </div>
+                  </td>
+                );
+              };
+              return (
+                <tr style={{ background:"#004b23"+"22", borderTop:`3px solid #004b23` }}>
+                  <td style={{ ...tdS, fontWeight:800, color:"#004b23", fontSize:12, textTransform:"uppercase", letterSpacing:0.8 }}>
+                    TOTAL
+                  </td>
+                  <td style={{ ...tdS, fontWeight:800, color:t.info }}>{tSSBegin}</td>
+                  <td style={{ ...tdS, fontWeight:800, color:t.gold }}>{tSSClose}</td>
+                  <td style={{ ...tdS, fontWeight:800, color:"#9B59B6" }}>{tBibBegin}</td>
+                  <td style={{ ...tdS, fontWeight:800, color:"#7B3FBE", borderRight:`2px solid ${t.border}` }}>{tBibClose}</td>
+                  <TotDiffCell diff={diffs[0]} />
+                  <TotDiffCell diff={diffs[1]} />
+                  <TotDiffCell diff={diffs[2]} />
+                  <TotDiffCell diff={diffs[3]} extra={{ borderRight:`2px solid ${t.border}` }} />
+                  <td style={{ ...tdS, color:t.info, fontWeight:700 }}>
+                    {tot("male")}M · <span style={{ color:"#E67E22" }}>{tot("female")}F</span>
+                  </td>
+                  <td style={{ ...tdS }}>
+                    <span style={{ color:"#E67E22", fontWeight:800 }}>{tot("firstT")}</span>
+                    <span style={{ color:t.textFaint, margin:"0 4px" }}>/</span>
+                    <span style={{ color:t.success, fontWeight:700 }}>{tot("visitors")}</span>
+                  </td>
+                </tr>
+              );
+            })()}
+
+            {!rows.length && (
+              <tr>
+                <td colSpan={11} style={{ ...tdS, textAlign:"center", padding:52, color:t.textMuted }}>
+                  No records found for {currentDate ? fmtDate(currentDate) : "selected date"}.
+                  Submit SS reports to see them here.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Legend */}
+      <div style={{ ...card, marginTop:16, display:"flex", gap:20, flexWrap:"wrap" }}>
+        <div style={{ fontSize:11, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}>
+          <strong style={{ color:t.text }}>Reading the report:</strong>
+        </div>
+        {[
+          { label:"▲ Green = increase vs previous", color:t.success },
+          { label:"▼ Red = decrease vs previous",   color:t.danger },
+          { label:"— = no previous data",           color:t.textMuted },
+          { label:"Number / % = change amount and percentage", color:t.textMuted },
+        ].map(item=>(
+          <span key={item.label} style={{ fontSize:11, color:item.color, fontFamily:"'Trebuchet MS',sans-serif" }}>
+            {item.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 // ─── SIDEBAR ──────────────────────────────────────────────────────────────────
 const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => {
   const { dark, toggle } = useTheme();
@@ -3551,6 +3917,7 @@ const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => 
   const allAdminNav = [
     {id:"dashboard",  label:"Dashboard",      icon:"dashboard",  perm:"dashboard"},
     {id:"attendance", label:"SS Records",     icon:"attendance", perm:"attendance"},
+    {id:"ssreport",   label:"SS Report",      icon:"analytics",  perm:"attendance"},
     {id:"church",     label:"Church Attend.", icon:"cross",      perm:"church"},
     {id:"analytics",  label:"Analytics",      icon:"analytics",  perm:"analytics"},
     {id:"teachers",   label:"Teachers",       icon:"teachers",   perm:"teachers"},
@@ -3563,6 +3930,7 @@ const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => 
   ];
   const allTeacherNav = [
     {id:"submit",     label:"Submit Report",     icon:"submit",     perm:"submit"},
+    {id:"ssreport",   label:"SS Report",         icon:"analytics",  perm:"attendance"},
     {id:"church",     label:"Church Attendance", icon:"cross",      perm:"church"},
     {id:"attendance", label:"My Records",        icon:"attendance", perm:"attendance"},
     {id:"analytics",  label:"Analytics",         icon:"analytics",  perm:"analytics"},
@@ -3818,6 +4186,7 @@ const MobileDrawer = ({ open, onClose, page, setPage, user, onLogout, db }) => {
   const allNav = isAdmin ? [
     {id:"dashboard",  label:"Dashboard",      icon:"dashboard"},
     {id:"attendance", label:"SS Records",     icon:"attendance"},
+    {id:"ssreport",   label:"SS Report",      icon:"analytics"},
     {id:"church",     label:"Church Attend.", icon:"cross"},
     {id:"analytics",  label:"Analytics",      icon:"analytics"},
     {id:"teachers",   label:"Teachers",       icon:"teachers"},
@@ -3829,6 +4198,7 @@ const MobileDrawer = ({ open, onClose, page, setPage, user, onLogout, db }) => {
     {id:"export",     label:"Export",         icon:"export"},
   ] : [
     {id:"submit",     label:"Submit Report",  icon:"submit",    perm:"submit"},
+    {id:"ssreport",   label:"SS Report",      icon:"analytics", perm:"attendance"},
     {id:"church",     label:"Church Attend.", icon:"cross",     perm:"church"},
     {id:"attendance", label:"My Records",     icon:"attendance",perm:"attendance"},
     {id:"analytics",  label:"Analytics",      icon:"analytics", perm:"analytics"},
@@ -3968,6 +4338,7 @@ export default function App() {
     branding:  user?.role==="admin" ? <BrandingPage /> : <AccessDenied />,
     export:    guard("export",     <ExportPage db={db} />),
     submit:    guard("submit",     <SubmitPage db={db} user={user} onSuccess={()=>toast("Report saved!","success")} />),
+    ssreport:  guard("attendance", <SSReportPage db={db} />),
   };
 
   const t = T[dark?"dark":"light"];
