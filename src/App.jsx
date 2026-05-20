@@ -6,7 +6,8 @@ import {
 } from "recharts";
 
 // ─── THEME ────────────────────────────────────────────────────────────────────
-const ThemeCtx = createContext({ dark: false, toggle: () => {} });
+// 3-mode cycle: light → navy → dark
+const ThemeCtx = createContext({ mode: "light", toggle: () => {} });
 const useTheme = () => useContext(ThemeCtx);
 
 // Primary brand: #004b23 (deep forest green) + white
@@ -15,24 +16,27 @@ const GREEN_MID  = "#005c2b";
 const GREEN_LIGHT= "#006e34";
 const GREEN_PALE = "#e8f5ee";
 
+// Active / selected highlight across all themes
+const ACTIVE_COLOR = "#ff6700";
+
 const T = {
   // ── Light: white content area, green sidebar ─────────────
   light: {
-    bg:          "#F2F7F4",          // very pale green-white page bg
-    surface:     "#FFFFFF",          // pure white cards
-    surfaceAlt:  "#EAF3ED",          // pale green tint for alt rows
-    surfaceHover:"#D6EBDE",          // hover state
-    sidebar:     "#004b23",          // ← THE PANE colour
+    bg:          "#F2F7F4",
+    surface:     "#FFFFFF",
+    surfaceAlt:  "#EAF3ED",
+    surfaceHover:"#D6EBDE",
+    sidebar:     "#004b23",
     sidebarText: "#FFFFFF",
     sidebarMuted:"rgba(255,255,255,0.55)",
     sidebarBorder:"rgba(255,255,255,0.12)",
-    sidebarActive:"rgba(255,255,255,0.15)",
+    sidebarActive:"rgba(255,102,0,0.18)",   // orange tint
     border:      "rgba(0,75,35,0.14)",
     borderStrong:"rgba(0,75,35,0.38)",
-    text:        "#002A14",          // very dark green text
-    textMuted:   "#3A6B4E",          // muted green
+    text:        "#002A14",
+    textMuted:   "#3A6B4E",
     textFaint:   "#A8C8B4",
-    gold:        "#004b23",          // primary brand green
+    gold:        "#004b23",
     goldLight:   "#006e34",
     goldDark:    "#002e16",
     success:     "#0A7A45",
@@ -43,6 +47,36 @@ const T = {
     btnFrom:     "#004b23",
     btnTo:       "#006e34",
     btnText:     "#FFFFFF",
+    topbar:      "#004b23",
+  },
+  // ── Navy: midnight blue sidebar, cream/sage page bg ───────
+  navy: {
+    bg:          "#eef4ed",
+    surface:     "#FFFFFF",
+    surfaceAlt:  "#e4ede3",
+    surfaceHover:"#d5e8d4",
+    sidebar:     "#0b2545",
+    sidebarText: "#FFFFFF",
+    sidebarMuted:"rgba(255,255,255,0.50)",
+    sidebarBorder:"rgba(255,255,255,0.10)",
+    sidebarActive:"rgba(255,102,0,0.20)",
+    border:      "rgba(11,37,69,0.14)",
+    borderStrong:"rgba(11,37,69,0.38)",
+    text:        "#0b2545",
+    textMuted:   "#3a5a80",
+    textFaint:   "#a8c0d8",
+    gold:        "#0b2545",
+    goldLight:   "#1a4080",
+    goldDark:    "#07172e",
+    success:     "#0A7A45",
+    danger:      "#C0392B",
+    info:        "#1565C0",
+    warn:        "#C87A0A",
+    navy:        "#0b2545",
+    btnFrom:     "#0b2545",
+    btnTo:       "#1a4080",
+    btnText:     "#FFFFFF",
+    topbar:      "#0b2545",
   },
   // ── Dark: deep green + white text ─────────────────────────
   dark: {
@@ -50,17 +84,17 @@ const T = {
     surface:     "#012a14",
     surfaceAlt:  "#013d1e",
     surfaceHover:"#01531f",
-    sidebar:     "#004b23",          // same green pane in dark
+    sidebar:     "#004b23",
     sidebarText: "#FFFFFF",
     sidebarMuted:"rgba(255,255,255,0.50)",
     sidebarBorder:"rgba(255,255,255,0.10)",
-    sidebarActive:"rgba(255,255,255,0.14)",
+    sidebarActive:"rgba(255,102,0,0.18)",
     border:      "rgba(0,200,80,0.15)",
     borderStrong:"rgba(0,200,80,0.38)",
     text:        "#E8F5EE",
     textMuted:   "#7AB898",
     textFaint:   "#1A4028",
-    gold:        "#4CD98A",          // bright green accent in dark
+    gold:        "#4CD98A",
     goldLight:   "#80EDB0",
     goldDark:    "#00913A",
     success:     "#2ECC71",
@@ -71,8 +105,12 @@ const T = {
     btnFrom:     "#004b23",
     btnTo:       "#00913A",
     btnText:     "#FFFFFF",
+    topbar:      "#004b23",
   },
 };
+
+// Convenience: is the mode "dark" for dark-specific branches
+const isDark = (mode) => mode === "dark";
 
 // ─── RESPONSIVE HOOK ─────────────────────────────────────────────────────────
 const useIsMobile = () => {
@@ -810,9 +848,13 @@ const uid = () => Math.random().toString(36).slice(2,9);
 
 // ─── ICONS ────────────────────────────────────────────────────────────────────
 const PATHS = {
-  dashboard:"M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6",
+  // Dashboard: 4-square grid (overview/home feel)
+  dashboard:"M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z",
   attendance:"M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4",
-  analytics:"M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z",
+  // Analytics: rising trend line with a circle dot at peak
+  analytics:"M3 17l4-8 4 4 4-6 4 4M22 12a1 1 0 11-2 0 1 1 0 012 0z",
+  // SSReport: table/grid report icon
+  ssreport:"M3 10h18M3 14h18M10 3v18M6 3h12a1 1 0 011 1v16a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1z",
   teachers:"M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z",
   classes:"M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4",
   export:"M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
@@ -830,12 +872,118 @@ const PATHS = {
   pause:"M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z",
   play:"M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
   info:"M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
+  // Church / cross icon kept for nav
+  settings:"M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z",
+  users:"M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z",
+  // Trend / chart with up-arrow for KPI cards
+  trend:"M13 7h8m0 0v8m0-8l-8 8-4-4-6 6",
+  // Bell for notifications
+  bell:"M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9",
 };
+
 const Icon = ({ name, size=18, color="currentColor" }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
     {(PATHS[name]||"").split("M").filter(Boolean).map((d,i)=><path key={i} d={"M"+d}/>)}
   </svg>
 );
+
+// ─── ANIMATED BIBLE ───────────────────────────────────────────────────────────
+// Rendered inline in the sidebar header / loading screen
+const AnimatedBible = ({ size = 48 }) => {
+  const styleId = "uct-bible-anim";
+  useEffect(() => {
+    if (document.getElementById(styleId)) return;
+    const s = document.createElement("style");
+    s.id = styleId;
+    s.textContent = `
+      @keyframes biblePageLeft  { 0%,100%{transform:rotateY(0deg)}   50%{transform:rotateY(-28deg)} }
+      @keyframes biblePageRight { 0%,100%{transform:rotateY(0deg)}   50%{transform:rotateY(28deg)} }
+      @keyframes bibleGlow      { 0%,100%{opacity:0.55} 50%{opacity:1} }
+      @keyframes bibleFloat     { 0%,100%{transform:translateY(0px)} 50%{transform:translateY(-4px)} }
+      @keyframes bibleSpine     { 0%,100%{opacity:0.7} 50%{opacity:1} }
+      .bible-wrap   { animation: bibleFloat 2.8s ease-in-out infinite; display:inline-block; }
+      .bible-left   { transform-origin: right center; animation: biblePageLeft  2.8s ease-in-out infinite; }
+      .bible-right  { transform-origin: left center;  animation: biblePageRight 2.8s ease-in-out infinite; }
+      .bible-glow   { animation: bibleGlow 2.8s ease-in-out infinite; }
+      .bible-spine  { animation: bibleSpine 2.8s ease-in-out infinite; }
+    `;
+    document.head.appendChild(s);
+  }, []);
+
+  const w = size, h = size * 0.75;
+  const bookW = w * 0.44, bookH = h * 0.82;
+  const spineW = w * 0.07;
+  const cx = w / 2, cy = h / 2;
+
+  return (
+    <div className="bible-wrap" style={{ width:w, height:h, position:"relative", display:"inline-flex", alignItems:"center", justifyContent:"center" }}>
+      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ overflow:"visible" }}>
+        <defs>
+          <linearGradient id="bgl" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#d4a843" />
+            <stop offset="100%" stopColor="#a8832a" />
+          </linearGradient>
+          <linearGradient id="bgr" x1="1" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#c49b38" />
+            <stop offset="100%" stopColor="#8c6b1e" />
+          </linearGradient>
+          <linearGradient id="bgs" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#7a5a14" />
+            <stop offset="100%" stopColor="#b8942e" />
+          </linearGradient>
+          <filter id="bglow">
+            <feGaussianBlur stdDeviation="2" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+
+        {/* Glow beneath */}
+        <ellipse className="bible-glow" cx={cx} cy={h*0.93} rx={bookW*0.7} ry={h*0.06}
+          fill="rgba(212,168,67,0.35)" />
+
+        {/* LEFT page */}
+        <g className="bible-left">
+          <rect x={cx - spineW/2 - bookW} y={cy - bookH/2}
+            width={bookW} height={bookH} rx={size*0.025}
+            fill="url(#bgl)" stroke="#8c6b1e" strokeWidth={size*0.018} />
+          {/* Page lines */}
+          {[0.28,0.42,0.56,0.70].map((f,i) => (
+            <line key={i}
+              x1={cx - spineW/2 - bookW + bookW*0.12} y1={cy - bookH/2 + bookH*f}
+              x2={cx - spineW/2 - bookW*0.12}         y2={cy - bookH/2 + bookH*f}
+              stroke="rgba(255,255,255,0.35)" strokeWidth={size*0.018} strokeLinecap="round"/>
+          ))}
+          {/* Cross symbol on left */}
+          <line x1={cx - spineW/2 - bookW*0.56} y1={cy - bookH*0.22}
+                x2={cx - spineW/2 - bookW*0.56} y2={cy + bookH*0.14}
+                stroke="rgba(255,255,255,0.55)" strokeWidth={size*0.033} strokeLinecap="round"/>
+          <line x1={cx - spineW/2 - bookW*0.72} y1={cy - bookH*0.08}
+                x2={cx - spineW/2 - bookW*0.40} y2={cy - bookH*0.08}
+                stroke="rgba(255,255,255,0.55)" strokeWidth={size*0.033} strokeLinecap="round"/>
+        </g>
+
+        {/* RIGHT page */}
+        <g className="bible-right">
+          <rect x={cx + spineW/2} y={cy - bookH/2}
+            width={bookW} height={bookH} rx={size*0.025}
+            fill="url(#bgr)" stroke="#8c6b1e" strokeWidth={size*0.018} />
+          {[0.28,0.42,0.56,0.70].map((f,i) => (
+            <line key={i}
+              x1={cx + spineW/2 + bookW*0.12} y1={cy - bookH/2 + bookH*f}
+              x2={cx + spineW/2 + bookW*0.88} y2={cy - bookH/2 + bookH*f}
+              stroke="rgba(255,255,255,0.28)" strokeWidth={size*0.018} strokeLinecap="round"/>
+          ))}
+        </g>
+
+        {/* Spine */}
+        <rect className="bible-spine"
+          x={cx - spineW/2} y={cy - bookH/2}
+          width={spineW} height={bookH}
+          fill="url(#bgs)" />
+      </svg>
+    </div>
+  );
+};
 
 // ─── SHARED UI ────────────────────────────────────────────────────────────────
 const Badge = ({ label, color }) => (
@@ -857,11 +1005,12 @@ const Avatar = ({ name, size=40, color="#004b23" }) => {
 };
 
 const useThemeStyles = () => {
-  const { dark } = useTheme();
-  const t = T[dark?"dark":"light"];
+  const { mode } = useTheme();
+  const t = T[mode] || T.light;
+  const dark = mode === "dark";
   const btnGrad = `linear-gradient(135deg,${t.btnFrom},${t.btnTo})`;
   return {
-    t,
+    t, dark,
     card:   { background:t.surface,    border:`1px solid ${t.border}`,       borderRadius:14, padding:20 },
     cardAlt:{ background:t.surfaceAlt, border:`1px solid ${t.border}`,       borderRadius:14, padding:20 },
     inp:    { background:dark?"rgba(255,255,255,0.06)":t.surfaceAlt, border:`1px solid ${t.border}`, borderRadius:9, padding:"10px 14px", color:t.text, fontFamily:"'Trebuchet MS',sans-serif", fontSize:13, width:"100%", boxSizing:"border-box", outline:"none" },
@@ -880,8 +1029,8 @@ const useThemeStyles = () => {
 const ToastContainer = ({ toasts, dismiss }) => (
   <div style={{ position:"fixed", top:20, right:20, zIndex:9999, display:"flex", flexDirection:"column", gap:10 }}>
     {toasts.map(({ id, msg, type }) => {
-      const { dark } = useTheme();
-      const t = T[dark?"dark":"light"];
+      const { mode, dark } = useTheme();
+      const t = T[mode]||T.light;
       const colors = { success:t.success, danger:t.danger, info:t.gold, warn:t.warn };
       const c = colors[type]||t.gold;
       return (
@@ -904,8 +1053,8 @@ const ToastContainer = ({ toasts, dismiss }) => (
 
 // ─── MODAL ────────────────────────────────────────────────────────────────────
 const Modal = ({ title, onClose, children, width=560 }) => {
-  const { dark } = useTheme();
-  const t = T[dark?"dark":"light"];
+  const { mode, dark } = useTheme();
+  const t = T[mode]||T.light;
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
       <div style={{ background:t.surface, border:`1px solid ${t.border}`, borderRadius:16, width:"100%", maxWidth:width,
@@ -3909,15 +4058,15 @@ const SSReportPage = ({ db }) => {
 
 // ─── SIDEBAR ──────────────────────────────────────────────────────────────────
 const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => {
-  const { dark, toggle } = useTheme();
-  const t = T[dark?"dark":"light"];
+  const { mode, dark, toggle } = useTheme();
+  const t = T[mode]||T.light;
   const perms = user?.permissions || [];
   const can = (key) => user?.role==="admin" || perms.includes(key);
 
   const allAdminNav = [
     {id:"dashboard",  label:"Dashboard",      icon:"dashboard",  perm:"dashboard"},
     {id:"attendance", label:"SS Records",     icon:"attendance", perm:"attendance"},
-    {id:"ssreport",   label:"SS Report",      icon:"analytics",  perm:"attendance"},
+    {id:"ssreport",   label:"SS Report",      icon:"ssreport",   perm:"attendance"},
     {id:"church",     label:"Church Attend.", icon:"cross",      perm:"church"},
     {id:"analytics",  label:"Analytics",      icon:"analytics",  perm:"analytics"},
     {id:"teachers",   label:"Teachers",       icon:"teachers",   perm:"teachers"},
@@ -3947,21 +4096,27 @@ const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => 
 
   const navItem = (active) => ({
     display:"flex", alignItems:"center", gap:10, padding:"10px 18px", cursor:"pointer",
-    borderLeft: active ? `3px solid rgba(255,255,255,0.9)` : "3px solid transparent",
+    borderLeft: active ? `3px solid ${ACTIVE_COLOR}` : "3px solid transparent",
     background: active ? t.sidebarActive : "transparent",
     color: active ? "#FFFFFF" : t.sidebarMuted,
     fontSize:13, fontFamily:"'Trebuchet MS',sans-serif", transition:"all 0.15s", whiteSpace:"nowrap",
   });
+
+  const modeLabel = mode==="light" ? "☀ Light" : mode==="navy" ? "🌊 Navy" : "🌙 Dark";
+
   return (
     <div style={{ width:collapsed?60:230, background:t.sidebar, borderRight:`1px solid ${t.sidebarBorder}`,
       display:"flex", flexDirection:"column", flexShrink:0, transition:"width 0.22s", overflow:"hidden", minHeight:"100vh" }}>
-      <div style={{ padding:collapsed?"18px 12px":"22px 18px 18px", borderBottom:`1px solid ${t.sidebarBorder}` }}>
-        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <ChurchLogo size={collapsed?34:36} />
+      {/* Header with animated bible */}
+      <div style={{ padding:collapsed?"18px 8px":"18px 18px 14px", borderBottom:`1px solid ${t.sidebarBorder}`,
+        display:"flex", flexDirection:"column", alignItems:"center", gap:6 }}>
+        {!collapsed && <AnimatedBible size={56} />}
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          {collapsed && <ChurchLogo size={32} />}
           {!collapsed && (
-            <div>
-              <div style={{ fontSize:9.5, fontWeight:700, color:"#FFFFFF", fontFamily:"'Trebuchet MS',sans-serif", letterSpacing:1.2, lineHeight:1.4 }}>{CHURCH_NAME.toUpperCase()}</div>
-              <div style={{ fontSize:8.5, color:"rgba(255,255,255,0.55)", fontFamily:"'Trebuchet MS',sans-serif", letterSpacing:0.5 }}>SSM SYSTEM</div>
+            <div style={{ textAlign:"center" }}>
+              <div style={{ fontSize:9.5, fontWeight:700, color:"#FFFFFF", fontFamily:"'Trebuchet MS',sans-serif", letterSpacing:1.2, lineHeight:1.5 }}>{CHURCH_NAME.toUpperCase()}</div>
+              <div style={{ fontSize:8, color:"rgba(255,255,255,0.5)", fontFamily:"'Trebuchet MS',sans-serif", letterSpacing:0.5 }}>SSM SYSTEM</div>
             </div>
           )}
         </div>
@@ -3971,8 +4126,8 @@ const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => 
           <div key={n.id} style={navItem(page===n.id)} onClick={()=>setPage(n.id)} title={collapsed?n.label:""}
             onMouseEnter={e=>{ if(page!==n.id) e.currentTarget.style.background="rgba(255,255,255,0.08)"; }}
             onMouseLeave={e=>{ if(page!==n.id) e.currentTarget.style.background="transparent"; }}>
-            <Icon name={n.icon} size={17} color={page===n.id?"#FFFFFF":t.sidebarMuted} />
-            {!collapsed && <span>{n.label}</span>}
+            <Icon name={n.icon} size={17} color={page===n.id ? ACTIVE_COLOR : t.sidebarMuted} />
+            {!collapsed && <span style={{ color: page===n.id ? "#FFFFFF" : t.sidebarMuted }}>{n.label}</span>}
           </div>
         ))}
       </nav>
@@ -3985,9 +4140,13 @@ const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => 
             </div>
           </div>
         )}
-        <div style={{ display:"flex", gap:6, justifyContent:collapsed?"center":"flex-start" }}>
-          <button title="Toggle theme" onClick={toggle} style={{ padding:"7px 8px", borderRadius:7, border:"1px solid rgba(255,255,255,0.2)", background:"transparent", cursor:"pointer" }}>
-            <Icon name={dark?"sun":"moon"} size={14} color="rgba(255,255,255,0.7)" />
+        <div style={{ display:"flex", gap:6, justifyContent:collapsed?"center":"flex-start", flexWrap:"wrap" }}>
+          <button title={`Theme: ${modeLabel}`} onClick={toggle}
+            style={{ padding:"6px 8px", borderRadius:7, border:`1px solid ${ACTIVE_COLOR}55`, background:`${ACTIVE_COLOR}18`, cursor:"pointer",
+              display:"flex", alignItems:"center", gap:4, fontSize:10, color:"rgba(255,255,255,0.85)",
+              fontFamily:"'Trebuchet MS',sans-serif" }}>
+            <Icon name={mode==="dark"?"sun":"moon"} size={13} color={ACTIVE_COLOR} />
+            {!collapsed && modeLabel}
           </button>
           <button title="Logout" onClick={onLogout} style={{ padding:"7px 8px", borderRadius:7, border:"1px solid rgba(255,255,255,0.2)", background:"transparent", cursor:"pointer" }}>
             <Icon name="logout" size={14} color="rgba(255,255,255,0.7)" />
@@ -4003,8 +4162,8 @@ const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => 
 
 // ─── LOGIN PAGE ───────────────────────────────────────────────────────────────
 const LoginPage = ({ onLogin }) => {
-  const { dark, toggle } = useTheme();
-  const t = T[dark?"dark":"light"];
+  const { mode, dark, toggle } = useTheme();
+  const t = T[mode]||T.light;
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw]     = useState(false);
@@ -4130,6 +4289,8 @@ const BrandingPage = () => {
 
 // ─── MOBILE BOTTOM NAV ────────────────────────────────────────────────────────
 const BottomNav = ({ page, setPage, user, onMenuOpen }) => {
+  const { mode } = useTheme();
+  const t = T[mode]||T.light;
   const perms   = user?.permissions || [];
   const isAdmin = user?.role === "admin";
   const quickTabs = (isAdmin ? [
@@ -4146,20 +4307,20 @@ const BottomNav = ({ page, setPage, user, onMenuOpen }) => {
 
   return (
     <div style={{ position:"fixed", bottom:0, left:0, right:0, zIndex:200,
-      background:"#004b23", borderTop:"1px solid rgba(255,255,255,0.15)",
+      background:t.sidebar, borderTop:`1px solid ${t.sidebarBorder}`,
       display:"flex", alignItems:"center",
       paddingBottom:"env(safe-area-inset-bottom,0px)",
-      boxShadow:"0 -3px 16px rgba(0,75,35,0.35)" }}>
+      boxShadow:`0 -3px 16px ${t.sidebar}88` }}>
       {quickTabs.map(tab => {
         const active = page === tab.id;
         return (
           <button key={tab.id} onClick={()=>setPage(tab.id)} style={{
             flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
             padding:"10px 2px 8px", border:"none", background:"transparent", cursor:"pointer",
-            borderTop: active ? "2px solid #FFFFFF" : "2px solid transparent",
+            borderTop: active ? `2px solid ${ACTIVE_COLOR}` : "2px solid transparent",
           }}>
-            <Icon name={tab.icon} size={21} color={active?"#FFFFFF":"rgba(255,255,255,0.45)"} />
-            <span style={{ fontSize:9, color:active?"#FFFFFF":"rgba(255,255,255,0.45)",
+            <Icon name={tab.icon} size={21} color={active ? ACTIVE_COLOR : "rgba(255,255,255,0.45)"} />
+            <span style={{ fontSize:9, color: active ? ACTIVE_COLOR : "rgba(255,255,255,0.45)",
               fontFamily:"'Trebuchet MS',sans-serif", marginTop:3, fontWeight:active?700:400 }}>{tab.label}</span>
           </button>
         );
@@ -4177,8 +4338,8 @@ const BottomNav = ({ page, setPage, user, onMenuOpen }) => {
 
 // ─── MOBILE DRAWER ────────────────────────────────────────────────────────────
 const MobileDrawer = ({ open, onClose, page, setPage, user, onLogout, db }) => {
-  const { dark, toggle } = useTheme();
-  const t = T[dark?"dark":"light"];
+  const { mode, dark, toggle } = useTheme();
+  const t = T[mode]||T.light;
   const perms   = user?.permissions || [];
   const isAdmin = user?.role === "admin";
   const can = (key) => isAdmin || perms.includes(key);
@@ -4210,13 +4371,13 @@ const MobileDrawer = ({ open, onClose, page, setPage, user, onLogout, db }) => {
     <>
       <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:300 }} />
       <div style={{ position:"fixed", left:0, top:0, bottom:0, width:280, zIndex:400,
-        background:"#004b23", display:"flex", flexDirection:"column",
+        background:t.sidebar, display:"flex", flexDirection:"column",
         boxShadow:"6px 0 32px rgba(0,0,0,0.4)" }}>
-        {/* Header */}
-        <div style={{ padding:"20px 18px 16px", borderBottom:"1px solid rgba(255,255,255,0.12)",
+        {/* Header with animated bible */}
+        <div style={{ padding:"16px 18px 12px", borderBottom:`1px solid ${t.sidebarBorder}`,
           display:"flex", justifyContent:"space-between", alignItems:"center" }}>
           <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-            <ChurchLogo size={36} />
+            <AnimatedBible size={42} />
             <div>
               <div style={{ fontSize:10, fontWeight:700, color:"#FFFFFF", fontFamily:"'Trebuchet MS',sans-serif", letterSpacing:1.2 }}>{CHURCH_NAME.toUpperCase()}</div>
               <div style={{ fontSize:8.5, color:"rgba(255,255,255,0.5)", fontFamily:"'Trebuchet MS',sans-serif" }}>SSM SYSTEM</div>
@@ -4227,7 +4388,7 @@ const MobileDrawer = ({ open, onClose, page, setPage, user, onLogout, db }) => {
           </button>
         </div>
         {/* User */}
-        <div style={{ padding:"13px 18px", borderBottom:"1px solid rgba(255,255,255,0.10)", display:"flex", alignItems:"center", gap:10 }}>
+        <div style={{ padding:"13px 18px", borderBottom:`1px solid ${t.sidebarBorder}`, display:"flex", alignItems:"center", gap:10 }}>
           <Avatar name={user?.name} size={36} color="rgba(255,255,255,0.22)" />
           <div>
             <div style={{ fontSize:13, fontWeight:600, color:"#FFFFFF", fontFamily:"'Trebuchet MS',sans-serif" }}>{user?.name}</div>
@@ -4243,20 +4404,21 @@ const MobileDrawer = ({ open, onClose, page, setPage, user, onLogout, db }) => {
             return (
               <div key={n.id} onClick={()=>{ setPage(n.id); onClose(); }}
                 style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 18px", cursor:"pointer",
-                  background: active ? "rgba(255,255,255,0.14)" : "transparent",
-                  borderLeft: active ? "3px solid #FFFFFF" : "3px solid transparent",
-                  color: active ? "#FFFFFF" : "rgba(255,255,255,0.6)",
+                  background: active ? t.sidebarActive : "transparent",
+                  borderLeft: active ? `3px solid ${ACTIVE_COLOR}` : "3px solid transparent",
+                  color: active ? "#FFFFFF" : t.sidebarMuted,
                   fontFamily:"'Trebuchet MS',sans-serif", fontSize:14 }}>
-                <Icon name={n.icon} size={18} color={active?"#FFFFFF":"rgba(255,255,255,0.5)"} />
+                <Icon name={n.icon} size={18} color={active ? ACTIVE_COLOR : "rgba(255,255,255,0.5)"} />
                 {n.label}
               </div>
             );
           })}
         </nav>
         {/* Footer */}
-        <div style={{ padding:"13px 18px", borderTop:"1px solid rgba(255,255,255,0.12)", display:"flex", gap:8 }}>
-          <button onClick={toggle} style={{ flex:1, padding:"9px 0", borderRadius:8, border:"1px solid rgba(255,255,255,0.2)", background:"transparent", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6, color:"rgba(255,255,255,0.75)", fontFamily:"'Trebuchet MS',sans-serif", fontSize:12 }}>
-            <Icon name={dark?"sun":"moon"} size={14} color="rgba(255,255,255,0.75)" />{dark?"Light":"Dark"}
+        <div style={{ padding:"13px 18px", borderTop:`1px solid ${t.sidebarBorder}`, display:"flex", gap:8 }}>
+          <button onClick={toggle} style={{ flex:1, padding:"9px 0", borderRadius:8, border:`1px solid ${ACTIVE_COLOR}55`, background:`${ACTIVE_COLOR}18`, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6, color:"rgba(255,255,255,0.9)", fontFamily:"'Trebuchet MS',sans-serif", fontSize:11 }}>
+            <Icon name={mode==="dark"?"sun":"moon"} size={13} color={ACTIVE_COLOR} />
+            {mode==="light"?"☀ Light":mode==="navy"?"🌊 Navy":"🌙 Dark"}
           </button>
           {can("export") && (
             <button onClick={()=>{ db.downloadWorkbook(); onClose(); }} style={{ flex:1, padding:"9px 0", borderRadius:8, border:"1px solid rgba(255,255,255,0.2)", background:"transparent", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6, color:"rgba(255,255,255,0.75)", fontFamily:"'Trebuchet MS',sans-serif", fontSize:12 }}>
@@ -4274,7 +4436,11 @@ const MobileDrawer = ({ open, onClose, page, setPage, user, onLogout, db }) => {
 
 // ─── ROOT APP ─────────────────────────────────────────────────────────────────
 export default function App() {
-  const [dark, setDark]             = useState(false);
+  const MODES = ["light","navy","dark"];
+  const [modeIdx, setModeIdx]         = useState(0);
+  const mode = MODES[modeIdx];
+  const dark = mode === "dark";
+  const cycleTheme = () => setModeIdx(i => (i+1) % MODES.length);
   const [user, setUser]             = useState(null);
   const [page, setPage]             = useState("dashboard");
   const [collapsed, setCollapsed]   = useState(false);
@@ -4309,7 +4475,7 @@ export default function App() {
   }, [user]);
 
   const AccessDenied = () => {
-    const t = T[dark?"dark":"light"];
+    const t = T[mode]||T.light;
     return (
       <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", minHeight:300, gap:16, padding:20 }}>
         <div style={{ width:64, height:64, borderRadius:"50%", background:t.danger+"14", display:"flex", alignItems:"center", justifyContent:"center" }}>
@@ -4341,29 +4507,26 @@ export default function App() {
     ssreport:  guard("attendance", <SSReportPage db={db} />),
   };
 
-  const t = T[dark?"dark":"light"];
+  const t = T[mode]||T.light;
 
   if (!user) return (
-    <ThemeCtx.Provider value={{ dark, toggle:()=>setDark(d=>!d) }}>
+    <ThemeCtx.Provider value={{ mode, dark, toggle: cycleTheme }}>
       <LoginPage onLogin={handleLogin} />
     </ThemeCtx.Provider>
   );
 
   // Show loading screen while Supabase fetches data
   if (db.loading) {
-    const t = T[dark?"dark":"light"];
+    const t = T[mode]||T.light;
     return (
-      <ThemeCtx.Provider value={{ dark, toggle:()=>setDark(d=>!d) }}>
+      <ThemeCtx.Provider value={{ mode, dark, toggle: cycleTheme }}>
         <div style={{ minHeight:"100vh", background:t.bg, display:"flex", flexDirection:"column",
           alignItems:"center", justifyContent:"center", gap:20, fontFamily:"'Trebuchet MS',sans-serif" }}>
-          <div style={{ width:56, height:56, borderRadius:"50%", background:"#004b23",
-            display:"flex", alignItems:"center", justifyContent:"center" }}>
-            <Icon name="cross" size={26} color="#FFFFFF" />
-          </div>
+          <AnimatedBible size={72} />
           <div style={{ fontSize:16, color:t.gold, fontWeight:700 }}>Loading data…</div>
           <div style={{ fontSize:13, color:t.textMuted }}>Connecting to Supabase database</div>
           <div style={{ width:200, height:4, background:t.border, borderRadius:4, overflow:"hidden" }}>
-            <div style={{ height:"100%", background:"#004b23", borderRadius:4,
+            <div style={{ height:"100%", background:t.topbar, borderRadius:4,
               animation:"loadbar 1.4s ease-in-out infinite",
               width:"60%" }} />
           </div>
@@ -4374,7 +4537,7 @@ export default function App() {
   }
 
   return (
-    <ThemeCtx.Provider value={{ dark, toggle:()=>setDark(d=>!d) }}>
+    <ThemeCtx.Provider value={{ mode, dark, toggle: cycleTheme }}>
       <div style={{ fontFamily:"'Trebuchet MS',sans-serif", background:t.bg, minHeight:"100vh",
         display:"flex", color:t.text, transition:"background 0.25s", position:"relative" }}>
 
@@ -4397,11 +4560,11 @@ export default function App() {
           overflowX:"hidden", minHeight:"100vh",
           paddingBottom: mobile ? 68 : 0 }}>
 
-          {/* Topbar — green band */}
-          <div style={{ background:"#004b23", padding: mobile ? "11px 14px" : "11px 24px",
+          {/* Topbar — themed band */}
+          <div style={{ background: t.topbar, padding: mobile ? "11px 14px" : "11px 24px",
             display:"flex", alignItems:"center", justifyContent:"space-between",
             flexShrink:0, position:"sticky", top:0, zIndex:100,
-            boxShadow:"0 2px 12px rgba(0,75,35,0.3)" }}>
+            boxShadow:`0 2px 12px ${t.topbar}55` }}>
 
             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
               {mobile && (
@@ -4428,9 +4591,13 @@ export default function App() {
                   </span>
                 </div>
               )}
-              <button onClick={()=>setDark(d=>!d)}
-                style={{ padding:"6px 8px", borderRadius:7, border:"1px solid rgba(255,255,255,0.22)", background:"transparent", cursor:"pointer" }}>
-                <Icon name={dark?"sun":"moon"} size={14} color="rgba(255,255,255,0.85)" />
+              {/* 3-mode theme toggle */}
+              <button onClick={cycleTheme} title={`Theme: ${mode}`}
+                style={{ padding:"6px 10px", borderRadius:7, border:`1px solid ${ACTIVE_COLOR}77`,
+                  background:`${ACTIVE_COLOR}22`, cursor:"pointer", display:"flex", alignItems:"center", gap:5,
+                  color:"rgba(255,255,255,0.9)", fontFamily:"'Trebuchet MS',sans-serif", fontSize:11 }}>
+                <Icon name={mode==="dark"?"sun":mode==="navy"?"moon":"moon"} size={13} color={ACTIVE_COLOR} />
+                {!mobile && (mode==="light"?"☀ Light":mode==="navy"?"🌊 Navy":"🌙 Dark")}
               </button>
               {!mobile && can("export") && (
                 <button onClick={db.downloadWorkbook}
