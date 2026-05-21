@@ -3920,27 +3920,27 @@ const SSReportPage = ({ db }) => {
       {/* Main Report Table */}
       <div style={{ ...card, padding:0, overflowX:"auto" }}>
         {/* Table header groups */}
-        <table style={{ width:"100%", borderCollapse:"collapse", minWidth:900 }}>
+        <table style={{ width:"100%", borderCollapse:"collapse", minWidth:1050 }}>
           <thead>
-            {/* Group header */}
-            <tr style={{ background:"#004b23" }}>
-              <th style={{ ...thS, color:"#FFFFFF", borderBottom:"none", padding:"8px 12px" }}></th>
+            {/* Group header — colours follow the active theme */}
+            <tr style={{ background:t.sidebar }}>
+              <th style={{ ...thS, color:"#FFFFFF", borderBottom:"none", padding:"8px 12px", background:t.sidebar }}></th>
               <th colSpan={4} style={{ ...thS, color:"#FFFFFF", textAlign:"center", borderBottom:"none",
-                borderRight:`1px solid rgba(255,255,255,0.2)`, background:"#004b23" }}>
+                borderRight:`1px solid rgba(255,255,255,0.2)`, background:t.sidebar }}>
                 📅 Current Date — {currentDate ? fmtDate(currentDate) : "No data"}
               </th>
               <th colSpan={4} style={{ ...thS, color:"#FFD700", textAlign:"center", borderBottom:"none",
-                background:"#2a6b3c" }}>
+                background:t.goldDark }}>
                 🕐 vs Previous — {prevDate ? fmtDate(prevDate) : "No previous"}
               </th>
               <th colSpan={2} style={{ ...thS, color:"#FFFFFF", textAlign:"center", borderBottom:"none",
-                background:"#1565C0" }}>
+                background:t.info }}>
                 Other
               </th>
             </tr>
             {/* Column headers */}
             <tr style={{ background:t.surfaceAlt }}>
-              <th style={{ ...thS, color:t.gold }}>Class</th>
+              <th style={{ ...thS, color:t.gold, minWidth:160 }}>Class</th>
               <th style={{ ...thS, color:t.info }}>SS Begin</th>
               <th style={{ ...thS, color:t.gold }}>SS Close</th>
               <th style={{ ...thS, color:"#9B59B6" }}>Bible Begin</th>
@@ -3960,9 +3960,9 @@ const SSReportPage = ({ db }) => {
                 onMouseEnter={e=>e.currentTarget.style.background=t.surfaceHover}
                 onMouseLeave={e=>e.currentTarget.style.background=i%2===0?"transparent":t.surfaceAlt+"66"}>
 
-                {/* Class name */}
-                <td style={{ ...tdS, fontWeight:700, color:t.gold, whiteSpace:"nowrap" }}>
-                  {r.cls.split(" ")[0]}
+                {/* Class name — full name, never truncated */}
+                <td style={{ ...tdS, fontWeight:700, color:t.gold, whiteSpace:"nowrap", minWidth:160 }}>
+                  {r.cls}
                   {!r.hasCurrent && <span style={{ fontSize:10, color:t.textMuted, display:"block" }}>no submission</span>}
                 </td>
 
@@ -4033,8 +4033,8 @@ const SSReportPage = ({ db }) => {
                 );
               };
               return (
-                <tr style={{ background:"#004b23"+"22", borderTop:`3px solid #004b23` }}>
-                  <td style={{ ...tdS, fontWeight:800, color:"#004b23", fontSize:12, textTransform:"uppercase", letterSpacing:0.8 }}>
+                <tr style={{ background:t.sidebar+"22", borderTop:`3px solid ${t.sidebar}` }}>
+                  <td style={{ ...tdS, fontWeight:800, color:t.sidebar, fontSize:12, textTransform:"uppercase", letterSpacing:0.8 }}>
                     TOTAL
                   </td>
                   <td style={{ ...tdS, fontWeight:800, color:t.info }}>{tSSBegin}</td>
