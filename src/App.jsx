@@ -1871,17 +1871,50 @@ const AttendancePage = ({ db, user }) => {
   const { t, card, btnGhost, th, td } = useThemeStyles();
   const { records, classes, approveRecord, deleteRecord } = db;
   const [detail, setDetail] = useState(null);
-  const [filter, setFilter] = useState({ cls:"", status:"", search:"" });
-
-  const filtered = records.filter(r =>
-    (!filter.cls    || r.class_name===filter.cls) &&
-    (!filter.status || r.status===filter.status) &&
-    (!filter.search || r.topic?.toLowerCase().includes(filter.search.toLowerCase()) ||
-                       r.teacher_name?.toLowerCase().includes(filter.search.toLowerCase()))
-  );
+  const [filter, setFilter] = useState({
+    cls: "", status: "", search: "", teacher: "",
+    dateFrom: "", dateTo: "", month: "",
+  });
+  const [sortDir, setSortDir] = useState("desc"); // "desc" newest first, "asc" oldest first
 
   const sel = { background:t.surfaceAlt, border:`1px solid ${t.border}`, borderRadius:9, padding:"8px 12px", color:t.text, fontFamily:"'Trebuchet MS',sans-serif", fontSize:13, outline:"none" };
-  const inp = { ...sel, background:"rgba(255,255,255,0.04)" };
+  const inp = { ...sel };
+
+  // Derived filter options
+  const allDates    = [...new Set(records.map(r=>r.date).filter(Boolean))].sort().reverse();
+  const allMonths   = [...new Set(records.map(r=>(r.date||"").slice(0,7)).filter(Boolean))].sort().reverse();
+  const allTeachers = [...new Set(records.map(r=>r.teacher_name).filter(Boolean))].sort();
+
+  const filtered = records.filter(r => {
+    if (filter.cls     && r.class_name   !== filter.cls)     return false;
+    if (filter.status  && r.status       !== filter.status)  return false;
+    if (filter.teacher && r.teacher_name !== filter.teacher) return false;
+    if (filter.month   && !(r.date||"").startsWith(filter.month)) return false;
+    if (filter.dateFrom && r.date < filter.dateFrom)         return false;
+    if (filter.dateTo   && r.date > filter.dateTo)           return false;
+    if (filter.search) {
+      const q = filter.search.toLowerCase();
+      if (!r.topic?.toLowerCase().includes(q) &&
+          !r.teacher_name?.toLowerCase().includes(q) &&
+          !r.class_name?.toLowerCase().includes(q))          return false;
+    }
+    return true;
+  });
+
+  const sorted = [...filtered].sort((a,b) => sortDir==="asc"
+    ? (a.date||"").localeCompare(b.date||"")
+    : (b.date||"").localeCompare(a.date||""));
+
+  const hasActiveFilter = Object.values(filter).some(v=>v!=="");
+
+  // Summary stats for the filtered set
+  const stats = sorted.reduce((acc, r) => ({
+    begin:   acc.begin   + (Number(r.total_beginning)||0),
+    close:   acc.close   + (Number(r.total_closing)||0),
+    bibles:  acc.bibles  + (Number(r.bibles_closing)||0),
+    firstT:  acc.firstT  + (Number(r.first_timers)||0),
+    visitors:acc.visitors+ (Number(r.visitors)||0),
+  }), { begin:0, close:0, bibles:0, firstT:0, visitors:0 });
 
   if (detail) {
     const r = detail;
@@ -1924,53 +1957,123 @@ const AttendancePage = ({ db, user }) => {
 
   return (
     <div>
-      <div style={{ fontSize:23, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif", marginBottom:3 }}>Attendance Records</div>
-      <div style={{ fontSize:13, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:20 }}>{records.length} records in database</div>
-      <div style={{ ...card, marginBottom:16, display:"flex", gap:12, flexWrap:"wrap", alignItems:"center" }}>
-        <input style={{ ...inp, maxWidth:220 }} placeholder="Search topic or teacher…" value={filter.search} onChange={e=>setFilter(f=>({...f,search:e.target.value}))} />
-        <select style={sel} value={filter.cls} onChange={e=>setFilter(f=>({...f,cls:e.target.value}))}>
-          <option value="">All Classes</option>
-          {db.classes.map(c=><option key={c.name}>{c.name}</option>)}
-        </select>
-        <select style={sel} value={filter.status} onChange={e=>setFilter(f=>({...f,status:e.target.value}))}>
-          <option value="">All Status</option>
-          <option value="approved">Approved</option>
-          <option value="pending">Pending</option>
-        </select>
-        <button onClick={()=>setFilter({cls:"",status:"",search:""})} style={{ padding:"8px 14px", borderRadius:9, border:`1px solid ${t.border}`, background:"transparent", color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", cursor:"pointer", fontSize:13 }}>Clear</button>
-        {/* Refresh button — pulls latest from Supabase without logging out */}
-        <button onClick={()=>db.loadAll()} style={{ padding:"8px 14px", borderRadius:9, border:`1px solid ${t.gold}44`, background:t.gold+"11", color:t.gold, fontFamily:"'Trebuchet MS',sans-serif", cursor:"pointer", fontSize:13, display:"flex", alignItems:"center", gap:6 }}>
-          ↻ Refresh
-        </button>
-        <span style={{ fontSize:12, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginLeft:"auto" }}>{filtered.length} shown</span>
+      {/* Page title */}
+      <div style={{ fontSize:23, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif", marginBottom:3 }}>SS Records</div>
+      <div style={{ fontSize:13, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:18 }}>
+        {records.length} total records · {sorted.length} shown
       </div>
+
+      {/* ── Filter bar ─────────────────────────────────────────────────────── */}
+      <div style={{ ...card, marginBottom:14, display:"flex", flexDirection:"column", gap:12 }}>
+
+        {/* Row 1: search + class + teacher + status */}
+        <div style={{ display:"flex", gap:10, flexWrap:"wrap", alignItems:"center" }}>
+          <input style={{ ...inp, minWidth:200, flex:1 }} placeholder="🔍  Search topic, teacher or class…"
+            value={filter.search} onChange={e=>setFilter(f=>({...f,search:e.target.value}))} />
+
+          <select style={{ ...sel, minWidth:150 }} value={filter.cls} onChange={e=>setFilter(f=>({...f,cls:e.target.value}))}>
+            <option value="">All Classes</option>
+            {[...new Set(records.map(r=>r.class_name).filter(Boolean))].sort().map(c=><option key={c}>{c}</option>)}
+          </select>
+
+          {user?.role==="admin" && (
+            <select style={{ ...sel, minWidth:150 }} value={filter.teacher} onChange={e=>setFilter(f=>({...f,teacher:e.target.value}))}>
+              <option value="">All Teachers</option>
+              {allTeachers.map(t2=><option key={t2}>{t2}</option>)}
+            </select>
+          )}
+
+          <select style={{ ...sel }} value={filter.status} onChange={e=>setFilter(f=>({...f,status:e.target.value}))}>
+            <option value="">All Status</option>
+            <option value="approved">✅ Approved</option>
+            <option value="pending">🕐 Pending</option>
+          </select>
+        </div>
+
+        {/* Row 2: date filters */}
+        <div style={{ display:"flex", gap:10, flexWrap:"wrap", alignItems:"center" }}>
+          {/* Quick month picker */}
+          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+            <span style={{ fontSize:11, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", whiteSpace:"nowrap" }}>Month</span>
+            <select style={{ ...sel }} value={filter.month} onChange={e=>setFilter(f=>({...f,month:e.target.value,dateFrom:"",dateTo:""}))}>
+              <option value="">All</option>
+              {allMonths.map(m=>{
+                const [yr,mo]=m.split("-");
+                const label=new Date(yr,mo-1).toLocaleString("default",{month:"short",year:"numeric"});
+                return <option key={m} value={m}>{label}</option>;
+              })}
+            </select>
+          </div>
+
+          {/* Date range */}
+          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+            <span style={{ fontSize:11, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", whiteSpace:"nowrap" }}>From</span>
+            <input type="date" style={{ ...inp, width:148 }} value={filter.dateFrom}
+              onChange={e=>setFilter(f=>({...f,dateFrom:e.target.value,month:""}))} />
+          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+            <span style={{ fontSize:11, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", whiteSpace:"nowrap" }}>To</span>
+            <input type="date" style={{ ...inp, width:148 }} value={filter.dateTo}
+              onChange={e=>setFilter(f=>({...f,dateTo:e.target.value,month:""}))} />
+          </div>
+
+          {/* Sort direction */}
+          <button onClick={()=>setSortDir(d=>d==="desc"?"asc":"desc")}
+            style={{ ...sel, cursor:"pointer", border:`1px solid ${t.border}`, display:"flex", alignItems:"center", gap:5, whiteSpace:"nowrap" }}>
+            {sortDir==="desc" ? "↓ Newest first" : "↑ Oldest first"}
+          </button>
+
+          {/* Action buttons */}
+          <button onClick={()=>db.loadAll()} style={{ padding:"8px 14px", borderRadius:9, border:`1px solid ${t.gold}44`, background:t.gold+"11", color:t.gold, fontFamily:"'Trebuchet MS',sans-serif", cursor:"pointer", fontSize:13, display:"flex", alignItems:"center", gap:5 }}>
+            ↻ Refresh
+          </button>
+
+          {hasActiveFilter && (
+            <button onClick={()=>setFilter({cls:"",status:"",search:"",teacher:"",dateFrom:"",dateTo:"",month:""})}
+              style={{ padding:"8px 14px", borderRadius:9, border:`1px solid ${t.danger}44`, background:t.danger+"11", color:t.danger, fontFamily:"'Trebuchet MS',sans-serif", cursor:"pointer", fontSize:13 }}>
+              ✕ Clear filters
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ── Summary stats strip ────────────────────────────────────────────── */}
+      {sorted.length > 0 && (
+        <div style={{ display:"flex", gap:10, marginBottom:14, flexWrap:"wrap" }}>
+          {[
+            { label:"Records",   value:sorted.length,  color:t.gold },
+            { label:"Avg Begin", value:sorted.length ? Math.round(stats.begin/sorted.length) : 0, color:t.info },
+            { label:"Avg Close", value:sorted.length ? Math.round(stats.close/sorted.length) : 0, color:t.success },
+            { label:"Total Bibles", value:stats.bibles, color:"#9B59B6" },
+            { label:"First Timers", value:stats.firstT, color:"#E67E22" },
+            { label:"Visitors",     value:stats.visitors,color:t.info },
+          ].map(s => (
+            <div key={s.label} style={{ ...card, padding:"10px 16px", display:"flex", flexDirection:"column", gap:2, minWidth:100, flex:1 }}>
+              <div style={{ fontSize:10, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1 }}>{s.label}</div>
+              <div style={{ fontSize:20, fontWeight:800, color:s.color, fontFamily:"'Georgia',serif" }}>{s.value}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Table ──────────────────────────────────────────────────────────── */}
       <div style={{ ...card, padding:0, overflowX:"auto" }}>
         <table style={{ width:"100%", borderCollapse:"collapse", minWidth:900 }}>
           <thead><tr style={{ background:t.surfaceAlt }}>
             {["Date","Class","Teacher","Begin","Closing","Bible Begin","Bible Close","First T.","Topic","Status","Actions"].map(h=><th key={h} style={th}>{h}</th>)}
           </tr></thead>
           <tbody>
-            {[...filtered].reverse().map(r=>{
+            {sorted.map(r=>{
               const si = statusInfo(r.status);
               return (
                 <tr key={r.id} onMouseEnter={e=>e.currentTarget.style.background=t.surfaceHover} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                   <td style={td}>{fmtDate(r.date)}</td>
                   <td style={td}>{r.class_name}</td>
                   <td style={{ ...td, color:t.textMuted }}>{r.teacher_name}</td>
-                  {/* Present Begin / Closing */}
-                  <td style={td}>
-                    <span style={{ fontWeight:600, color:t.info }}>{r.total_beginning||0}</span>
-                  </td>
-                  <td style={td}>
-                    <span style={{ fontWeight:600, color:t.gold }}>{r.total_closing||0}</span>
-                  </td>
-                  {/* Bible Begin / Closing */}
-                  <td style={td}>
-                    <span style={{ color:t.info }}>{r.bibles_beginning||0}</span>
-                  </td>
-                  <td style={td}>
-                    <span style={{ color:t.gold }}>{r.bibles_closing||0}</span>
-                  </td>
+                  <td style={td}><span style={{ fontWeight:600, color:t.info }}>{r.total_beginning||0}</span></td>
+                  <td style={td}><span style={{ fontWeight:600, color:t.gold }}>{r.total_closing||0}</span></td>
+                  <td style={td}><span style={{ color:t.info }}>{r.bibles_beginning||0}</span></td>
+                  <td style={td}><span style={{ color:t.gold }}>{r.bibles_closing||0}</span></td>
                   <td style={td}>{r.first_timers||0}</td>
                   <td style={{ ...td, maxWidth:130, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", color:t.textMuted }}>{r.topic}</td>
                   <td style={td}><Badge label={si.label} color={si.color}/></td>
@@ -1984,7 +2087,9 @@ const AttendancePage = ({ db, user }) => {
                 </tr>
               );
             })}
-            {!filtered.length && <tr><td colSpan={11} style={{ ...td, textAlign:"center", padding:48, color:t.textMuted }}>No records found</td></tr>}
+            {!sorted.length && <tr><td colSpan={11} style={{ ...td, textAlign:"center", padding:48, color:t.textMuted }}>
+              {hasActiveFilter ? "No records match the current filters." : "No records yet."}
+            </td></tr>}
           </tbody>
         </table>
       </div>
