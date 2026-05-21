@@ -4371,25 +4371,35 @@ Give clear, pastoral, ministry-focused insights. Use emojis sparingly. Be concis
 
     try {
       const systemPrompt = buildContext();
-      const history = messages.slice(-10); // last 10 for context window
+      const history = messages.slice(-10);
       const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
+        },
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
           max_tokens: 1000,
           system: systemPrompt,
           messages: [
-            ...history.map(m=>({ role:m.role, content:m.content })),
-            { role:"user", content:userMsg }
+            ...history.map(m => ({ role: m.role, content: m.content })),
+            { role: "user", content: userMsg },
           ],
         }),
       });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err?.error?.message || `HTTP ${response.status}`);
+      }
+
       const data = await response.json();
-      const reply = data.content?.map(b=>b.text||"").join("") || "Sorry, I couldn't get a response.";
-      setMessages(m => [...m, { role:"assistant", content:reply }]);
-    } catch(e) {
-      setMessages(m => [...m, { role:"assistant", content:"⚠️ Connection error. Please try again." }]);
+      const reply = data.content?.map(b => b.text || "").join("") || "Sorry, I couldn't get a response.";
+      setMessages(m => [...m, { role: "assistant", content: reply }]);
+    } catch (e) {
+      setMessages(m => [...m, { role: "assistant", content: `⚠️ Error: ${e.message || "Connection failed. Please try again."}` }]);
     }
     setLoading(false);
   };
