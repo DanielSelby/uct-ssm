@@ -3696,6 +3696,25 @@ const SSReportPage = ({ db }) => {
   const { records, classes, loadAll } = db;
   const [refreshing, setRefreshing] = useState(false);
 
+  // ── Canonical class display order ─────────────────────────────────────────
+  // Any class name containing one of these tokens (case-insensitive) is
+  // matched; unrecognised classes fall to the bottom in submission order.
+  const CLASS_ORDER = [
+    "children",
+    "teen",
+    "new convert",
+    "prophet",
+    "church age",
+    "c.o.d",
+    "joint",
+  ];
+
+  const classRank = (name = "") => {
+    const lower = name.toLowerCase();
+    const idx   = CLASS_ORDER.findIndex(token => lower.includes(token));
+    return idx === -1 ? CLASS_ORDER.length : idx;   // unknown → end
+  };
+
   // Filters
   const [filterDate, setFilterDate]   = useState(new Date().toISOString().slice(0,10));
   const [filterClass, setFilterClass] = useState("");
@@ -3720,38 +3739,48 @@ const SSReportPage = ({ db }) => {
   const currentRecs = records.filter(r => r.date===currentDate && (!filterClass || r.class_name===filterClass));
   const prevRecs    = records.filter(r => r.date===prevDate    && (!filterClass || r.class_name===filterClass));
 
-  // Build per-class comparison rows
-  const activeClasses = filterClass
-    ? classes.filter(c => c.name===filterClass)
-    : classes.filter(c => c.is_active==="YES");
+  // Build per-class comparison rows — include any class that has EVER had a
+  // record (not just classes in the `classes` table), so data submitted by
+  // any teacher always appears.
+  const submittedClassNames = [...new Set(records.map(r => r.class_name).filter(Boolean))];
 
-  const rows = activeClasses.map(cls => {
-    const cur  = currentRecs.find(r => r.class_name===cls.name);
-    const prev = prevRecs.find(r   => r.class_name===cls.name);
+  const allClassNames = filterClass
+    ? [filterClass]
+    : (() => {
+        const fromClasses = classes.filter(c => c.is_active === "YES").map(c => c.name);
+        // merge: start with canonical list, then add any DB classes, then any
+        // submitted names not yet in either — preserving canonical rank
+        const merged = [...new Set([...fromClasses, ...submittedClassNames])];
+        return merged;
+      })();
 
-    const ssBegin    = Number(cur?.total_beginning)||0;
-    const ssClose    = Number(cur?.total_closing)||0;
-    const bibBegin   = Number(cur?.bibles_beginning)||0;
-    const bibClose   = Number(cur?.bibles_closing)||0;
-    const male       = Number(cur?.male_present)||0;
-    const female     = Number(cur?.female_present)||0;
-    const firstT     = Number(cur?.first_timers)||0;
-    const visitors   = Number(cur?.visitors)||0;
+  const rows = allClassNames.map(clsName => {
+    const cur  = currentRecs.find(r => r.class_name === clsName);
+    const prev = prevRecs.find(r   => r.class_name === clsName);
 
-    const pSSBegin   = Number(prev?.total_beginning)||0;
-    const pSSClose   = Number(prev?.total_closing)||0;
-    const pBibBegin  = Number(prev?.bibles_beginning)||0;
-    const pBibClose  = Number(prev?.bibles_closing)||0;
+    const ssBegin  = Number(cur?.total_beginning) || 0;
+    const ssClose  = Number(cur?.total_closing)   || 0;
+    const bibBegin = Number(cur?.bibles_beginning) || 0;
+    const bibClose = Number(cur?.bibles_closing)   || 0;
+    const male     = Number(cur?.male_present)     || 0;
+    const female   = Number(cur?.female_present)   || 0;
+    const firstT   = Number(cur?.first_timers)     || 0;
+    const visitors = Number(cur?.visitors)         || 0;
+
+    const pSSBegin  = Number(prev?.total_beginning) || 0;
+    const pSSClose  = Number(prev?.total_closing)   || 0;
+    const pBibBegin = Number(prev?.bibles_beginning) || 0;
+    const pBibClose = Number(prev?.bibles_closing)  || 0;
 
     const diff = (cur, prv) => {
       if (!prv && !cur) return null;
-      const d = cur - prv;
-      const pct = prv > 0 ? Math.round((d/prv)*100) : null;
+      const d   = cur - prv;
+      const pct = prv > 0 ? Math.round((d / prv) * 100) : null;
       return { d, pct, up: d >= 0 };
     };
 
     return {
-      cls: cls.name,
+      cls: clsName,
       ssBegin, ssClose, bibBegin, bibClose,
       male, female, firstT, visitors,
       hasCurrent: !!cur,
@@ -3761,7 +3790,11 @@ const SSReportPage = ({ db }) => {
       dBibClose: diff(bibClose, pBibClose),
       prevDate,
     };
-  }).filter(r => r.hasCurrent || records.some(r2=>r2.class_name===r.cls));
+  })
+    // Only show rows that have data (current or any historical)
+    .filter(r => r.hasCurrent || records.some(r2 => r2.class_name === r.cls))
+    // ── Sort by canonical class order ─────────────────────────────────────
+    .sort((a, b) => classRank(a.cls) - classRank(b.cls));
 
   // Totals row
   const tot = (key) => rows.reduce((s,r)=>s+(r[key]||0),0);
