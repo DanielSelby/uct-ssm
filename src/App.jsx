@@ -107,10 +107,97 @@ const T = {
     btnText:     "#FFFFFF",
     topbar:      "#004b23",
   },
+  // ── Dark Blue: deep navy bg + blue sidebar ─────────────────
+  darkBlue: {
+    bg:          "#060d1a",
+    surface:     "#0d1b2e",
+    surfaceAlt:  "#112240",
+    surfaceHover:"#1a3560",
+    sidebar:     "#0b2545",
+    sidebarText: "#FFFFFF",
+    sidebarMuted:"rgba(255,255,255,0.50)",
+    sidebarBorder:"rgba(255,255,255,0.10)",
+    sidebarActive:"rgba(255,102,0,0.20)",
+    border:      "rgba(100,160,255,0.15)",
+    borderStrong:"rgba(100,160,255,0.35)",
+    text:        "#ccd6f6",
+    textMuted:   "#7a9ac9",
+    textFaint:   "#1a3560",
+    gold:        "#64b5f6",
+    goldLight:   "#90caf9",
+    goldDark:    "#1565c0",
+    success:     "#4dd0a1",
+    danger:      "#ef5350",
+    info:        "#82b1ff",
+    warn:        "#ffb74d",
+    navy:        "#060d1a",
+    btnFrom:     "#0b2545",
+    btnTo:       "#1a4080",
+    btnText:     "#FFFFFF",
+    topbar:      "#0b2545",
+  },
+  // ── Orange: warm amber sidebar, light cream page ───────────
+  orange: {
+    bg:          "#fff8f0",
+    surface:     "#FFFFFF",
+    surfaceAlt:  "#fff0e0",
+    surfaceHover:"#ffe4c4",
+    sidebar:     "#cc5803",
+    sidebarText: "#FFFFFF",
+    sidebarMuted:"rgba(255,255,255,0.55)",
+    sidebarBorder:"rgba(255,255,255,0.14)",
+    sidebarActive:"rgba(255,255,255,0.18)",
+    border:      "rgba(204,88,3,0.16)",
+    borderStrong:"rgba(204,88,3,0.40)",
+    text:        "#4a1a00",
+    textMuted:   "#8a4010",
+    textFaint:   "#e8b890",
+    gold:        "#cc5803",
+    goldLight:   "#e87020",
+    goldDark:    "#8a3a00",
+    success:     "#2e7d32",
+    danger:      "#c0392b",
+    info:        "#1565c0",
+    warn:        "#cc5803",
+    navy:        "#4a1a00",
+    btnFrom:     "#cc5803",
+    btnTo:       "#e87020",
+    btnText:     "#FFFFFF",
+    topbar:      "#cc5803",
+  },
+  // ── Dark Orange: deep brown-black bg + orange sidebar ──────
+  darkOrange: {
+    bg:          "#1a0a00",
+    surface:     "#2a1200",
+    surfaceAlt:  "#3d1c00",
+    surfaceHover:"#552700",
+    sidebar:     "#cc5803",
+    sidebarText: "#FFFFFF",
+    sidebarMuted:"rgba(255,255,255,0.50)",
+    sidebarBorder:"rgba(255,255,255,0.10)",
+    sidebarActive:"rgba(255,255,255,0.16)",
+    border:      "rgba(255,140,60,0.18)",
+    borderStrong:"rgba(255,140,60,0.40)",
+    text:        "#ffe8cc",
+    textMuted:   "#d4956a",
+    textFaint:   "#5a2e00",
+    gold:        "#ffaa55",
+    goldLight:   "#ffc880",
+    goldDark:    "#cc5803",
+    success:     "#66bb6a",
+    danger:      "#ef5350",
+    info:        "#64b5f6",
+    warn:        "#ffa726",
+    navy:        "#1a0a00",
+    btnFrom:     "#cc5803",
+    btnTo:       "#e87020",
+    btnText:     "#FFFFFF",
+    topbar:      "#cc5803",
+  },
 };
 
 // Convenience: is the mode "dark" for dark-specific branches
-const isDark = (mode) => mode === "dark";
+const isDark = (mode) => mode === "dark" || mode === "darkBlue" || mode === "darkOrange";
 
 // ─── RESPONSIVE HOOK ─────────────────────────────────────────────────────────
 const useIsMobile = () => {
@@ -872,6 +959,8 @@ const PATHS = {
   pause:"M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z",
   play:"M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
   info:"M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
+  ai:"M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z",
+  sparkle:"M5 3l1.5 4.5L11 9l-4.5 1.5L5 15l-1.5-4.5L-1 9l4.5-1.5L5 3zm12 8l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z",
   // Church / cross icon kept for nav
   settings:"M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z",
   users:"M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z",
@@ -1007,7 +1096,7 @@ const Avatar = ({ name, size=40, color="#004b23" }) => {
 const useThemeStyles = () => {
   const { mode } = useTheme();
   const t = T[mode] || T.light;
-  const dark = mode === "dark";
+  const dark = isDark(mode);
   const btnGrad = `linear-gradient(135deg,${t.btnFrom},${t.btnTo})`;
   return {
     t, dark,
@@ -4194,6 +4283,311 @@ const SSReportPage = ({ db }) => {
   );
 };
 
+// ─── AI ASSISTANT PAGE ────────────────────────────────────────────────────────
+const AIAssistantPage = ({ db, user }) => {
+  const { t, card } = useThemeStyles();
+  const { mode } = useTheme();
+  const { records, classes, churchRecs } = db;
+
+  const [messages, setMessages] = useState([
+    { role:"assistant", content:"Hello! I'm your Sunday School AI Assistant ✨\n\nI have full access to your attendance records, class data, and church reports. Ask me anything — summaries, trends, comparisons, recommendations, or anything else about your ministry data." }
+  ]);
+  const [input, setInput]       = useState("");
+  const [loading, setLoading]   = useState(false);
+  const [activeTab, setActiveTab] = useState("chat"); // chat | insights
+  const bottomRef = useRef(null);
+
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior:"smooth" }); }, [messages]);
+
+  // Build a compact but rich data context for Claude
+  const buildContext = () => {
+    const totalRec   = records.length;
+    const allDates   = [...new Set(records.map(r=>r.date).filter(Boolean))].sort();
+    const latestDate = allDates[allDates.length-1] || "none";
+    const prevDate   = allDates[allDates.length-2] || "none";
+
+    // Per-class summary
+    const classSummary = classes.filter(c=>c.is_active==="YES").map(cls => {
+      const recs = records.filter(r=>r.class_name===cls.name);
+      const latest = recs.filter(r=>r.date===latestDate);
+      const prev   = recs.filter(r=>r.date===prevDate);
+      const avgClose = recs.length ? Math.round(recs.reduce((s,r)=>s+(Number(r.total_closing)||0),0)/recs.length) : 0;
+      return {
+        class: cls.name,
+        totalSubmissions: recs.length,
+        latestClose: latest.reduce((s,r)=>s+(Number(r.total_closing)||0),0),
+        prevClose:   prev.reduce((s,r)=>s+(Number(r.total_closing)||0),0),
+        avgClose,
+        totalFirstTimers: recs.reduce((s,r)=>s+(Number(r.first_timers)||0),0),
+        totalVisitors:    recs.reduce((s,r)=>s+(Number(r.visitors)||0),0),
+      };
+    });
+
+    // Monthly trend
+    const monthMap = {};
+    records.forEach(r => {
+      const m = (r.date||"").slice(0,7); if(!m) return;
+      if(!monthMap[m]) monthMap[m]={month:m,ssTotal:0,bibles:0,firstT:0,sessions:0};
+      monthMap[m].ssTotal  += Number(r.total_closing)||0;
+      monthMap[m].bibles   += Number(r.bibles_closing)||0;
+      monthMap[m].firstT   += Number(r.first_timers)||0;
+      monthMap[m].sessions++;
+    });
+    const monthly = Object.values(monthMap).sort((a,b)=>a.month>b.month?1:-1).slice(-6);
+
+    const churchTotal = churchRecs.reduce((s,r)=>s+(Number(r.total_closing)||0),0);
+    const ssTotal     = records.reduce((s,r)=>s+(Number(r.total_closing)||0),0);
+
+    return `You are an AI assistant for ${user?.name||"an admin"} at a church Sunday School management system.
+Current user role: ${user?.role||"admin"}
+Today: ${new Date().toDateString()}
+
+=== ATTENDANCE DATA SUMMARY ===
+Total SS records in database: ${totalRec}
+Latest session date: ${latestDate}
+Previous session date: ${prevDate}
+Total church attendance records: ${churchRecs.length}
+
+=== PER-CLASS SUMMARY (latest vs previous) ===
+${JSON.stringify(classSummary, null, 2)}
+
+=== LAST 6 MONTHS TREND ===
+${JSON.stringify(monthly, null, 2)}
+
+=== TOTALS ===
+Total SS closing attendance (all time): ${ssTotal}
+Total Church closing attendance (all time): ${churchTotal}
+Active classes: ${classes.filter(c=>c.is_active==="YES").map(c=>c.name).join(", ")}
+
+Give clear, pastoral, ministry-focused insights. Use emojis sparingly. Be concise but thorough. Reference specific numbers from the data when relevant.`;
+  };
+
+  const sendMessage = async () => {
+    if (!input.trim() || loading) return;
+    const userMsg = input.trim();
+    setInput("");
+    setMessages(m => [...m, { role:"user", content:userMsg }]);
+    setLoading(true);
+
+    try {
+      const systemPrompt = buildContext();
+      const history = messages.slice(-10); // last 10 for context window
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1000,
+          system: systemPrompt,
+          messages: [
+            ...history.map(m=>({ role:m.role, content:m.content })),
+            { role:"user", content:userMsg }
+          ],
+        }),
+      });
+      const data = await response.json();
+      const reply = data.content?.map(b=>b.text||"").join("") || "Sorry, I couldn't get a response.";
+      setMessages(m => [...m, { role:"assistant", content:reply }]);
+    } catch(e) {
+      setMessages(m => [...m, { role:"assistant", content:"⚠️ Connection error. Please try again." }]);
+    }
+    setLoading(false);
+  };
+
+  // Quick insight prompts
+  const QUICK_PROMPTS = [
+    { icon:"📊", label:"Attendance trend", prompt:"Summarise the attendance trend over the last few months. Which classes are growing and which are declining?" },
+    { icon:"🏆", label:"Top performing class", prompt:"Which class has the best attendance and engagement? Give me a brief analysis." },
+    { icon:"📖", label:"Bible participation", prompt:"How is Bible participation across the classes? Any concerns or highlights?" },
+    { icon:"👋", label:"First timers report", prompt:"Give me a report on first-time visitors. Which sessions brought the most new people?" },
+    { icon:"⚠️", label:"Areas of concern", prompt:"Are there any attendance drops or concerning trends I should address as a leader?" },
+    { icon:"💡", label:"AI recommendations", prompt:"Based on the data, what 3 specific recommendations do you have to improve Sunday School attendance and engagement?" },
+  ];
+
+  // --- Insights tab: auto-generated key metrics ---
+  const allDates   = [...new Set(records.map(r=>r.date).filter(Boolean))].sort();
+  const latestDate = allDates[allDates.length-1] || "";
+  const prevDate   = allDates[allDates.length-2] || "";
+  const latestRecs = records.filter(r=>r.date===latestDate);
+  const prevRecs   = records.filter(r=>r.date===prevDate);
+  const latestTotal = latestRecs.reduce((s,r)=>s+(Number(r.total_closing)||0),0);
+  const prevTotal   = prevRecs.reduce((s,r)=>s+(Number(r.total_closing)||0),0);
+  const diff = latestTotal - prevTotal;
+  const pct  = prevTotal > 0 ? Math.round((diff/prevTotal)*100) : null;
+
+  const inp = { background: isDark(mode) ? "rgba(255,255,255,0.07)" : t.surfaceAlt,
+    border:`1px solid ${t.border}`, borderRadius:12, padding:"12px 16px",
+    color:t.text, fontFamily:"'Trebuchet MS',sans-serif", fontSize:14,
+    outline:"none", resize:"none", width:"100%", boxSizing:"border-box" };
+
+  const tabBtn = (id, label) => (
+    <button onClick={()=>setActiveTab(id)} style={{
+      padding:"8px 20px", borderRadius:8, border:"none", cursor:"pointer",
+      fontFamily:"'Trebuchet MS',sans-serif", fontSize:13, fontWeight:600,
+      background: activeTab===id ? t.sidebar : "transparent",
+      color: activeTab===id ? "#FFFFFF" : t.textMuted,
+      transition:"all 0.15s",
+    }}>{label}</button>
+  );
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ marginBottom:20, display:"flex", alignItems:"center", gap:14, flexWrap:"wrap" }}>
+        <div style={{ width:46, height:46, borderRadius:12, flexShrink:0,
+          background:`linear-gradient(135deg,${t.sidebar},${t.goldLight||t.sidebar}cc)`,
+          display:"flex", alignItems:"center", justifyContent:"center",
+          boxShadow:`0 4px 18px ${t.sidebar}55` }}>
+          <Icon name="ai" size={24} color="#FFFFFF" />
+        </div>
+        <div>
+          <div style={{ fontSize:22, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif" }}>
+            AI Assistant
+            <span style={{ marginLeft:10, fontSize:11, fontWeight:700, padding:"3px 9px",
+              borderRadius:20, background:ACTIVE_COLOR+"22", color:ACTIVE_COLOR,
+              border:`1px solid ${ACTIVE_COLOR}44`, verticalAlign:"middle" }}>POWERED BY CLAUDE</span>
+          </div>
+          <div style={{ fontSize:13, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}>
+            Ask questions about your attendance data, get insights, and receive ministry recommendations.
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display:"flex", gap:4, marginBottom:16, background:t.surfaceAlt, borderRadius:10, padding:4, width:"fit-content" }}>
+        {tabBtn("chat",     "💬 Chat")}
+        {tabBtn("insights", "📊 Quick Insights")}
+      </div>
+
+      {activeTab === "insights" && (
+        <div>
+          {/* KPI cards */}
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))", gap:14, marginBottom:20 }}>
+            {[
+              { label:"Latest Session Total", value:latestTotal, sub:latestDate, color:t.gold },
+              { label:"vs Previous Session",  value:(diff>=0?"+":"")+diff+(pct!==null?` (${pct}%)`:""), sub:prevDate||"No prev data", color:diff>=0?t.success:t.danger },
+              { label:"Total Records",        value:records.length, sub:"all time", color:t.info },
+              { label:"Active Classes",       value:classes.filter(c=>c.is_active==="YES").length, sub:"classes", color:"#9B59B6" },
+              { label:"All-time First Timers",value:records.reduce((s,r)=>s+(Number(r.first_timers)||0),0), sub:"total", color:ACTIVE_COLOR },
+              { label:"Total Visitors",       value:records.reduce((s,r)=>s+(Number(r.visitors)||0),0), sub:"all time", color:"#E67E22" },
+            ].map(k=>(
+              <div key={k.label} style={{ ...card, padding:"14px 18px" }}>
+                <div style={{ fontSize:10, color:t.textMuted, textTransform:"uppercase", letterSpacing:1, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:4 }}>{k.label}</div>
+                <div style={{ fontSize:24, fontWeight:800, color:k.color, fontFamily:"'Georgia',serif" }}>{k.value}</div>
+                <div style={{ fontSize:11, color:t.textFaint, fontFamily:"'Trebuchet MS',sans-serif", marginTop:2 }}>{k.sub}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Quick prompt tiles */}
+          <div style={{ fontSize:13, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:12, fontWeight:600 }}>
+            Ask the AI about your data:
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))", gap:12 }}>
+            {QUICK_PROMPTS.map(p=>(
+              <button key={p.label} onClick={()=>{ setActiveTab("chat"); setInput(p.prompt); setTimeout(()=>document.getElementById("ai-input")?.focus(),100); }}
+                style={{ ...card, padding:"14px 18px", textAlign:"left", cursor:"pointer", border:`1px solid ${t.border}`,
+                  display:"flex", alignItems:"flex-start", gap:12,
+                  transition:"all 0.15s", background:t.surface }}>
+                <span style={{ fontSize:22 }}>{p.icon}</span>
+                <div>
+                  <div style={{ fontWeight:700, color:t.text, fontFamily:"'Trebuchet MS',sans-serif", fontSize:13, marginBottom:4 }}>{p.label}</div>
+                  <div style={{ fontSize:11, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", lineHeight:1.5 }}>{p.prompt.slice(0,80)}…</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeTab === "chat" && (
+        <div style={{ display:"flex", flexDirection:"column", gap:0 }}>
+          {/* Chat window */}
+          <div style={{ ...card, padding:0, height:440, overflowY:"auto", display:"flex", flexDirection:"column" }}>
+            <div style={{ flex:1, overflowY:"auto", padding:"18px 20px", display:"flex", flexDirection:"column", gap:14 }}>
+              {messages.map((msg, i) => (
+                <div key={i} style={{ display:"flex", gap:10, alignItems:"flex-start",
+                  flexDirection: msg.role==="user" ? "row-reverse" : "row" }}>
+                  {/* Avatar */}
+                  <div style={{ width:32, height:32, borderRadius:"50%", flexShrink:0,
+                    background: msg.role==="user"
+                      ? `linear-gradient(135deg,${ACTIVE_COLOR},${ACTIVE_COLOR}bb)`
+                      : `linear-gradient(135deg,${t.sidebar},${t.goldLight||t.sidebar}cc)`,
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    fontSize:14, fontWeight:700, color:"#FFFFFF",
+                    fontFamily:"'Trebuchet MS',sans-serif" }}>
+                    {msg.role==="user" ? (user?.name?.[0]||"U") : "✦"}
+                  </div>
+                  {/* Bubble */}
+                  <div style={{
+                    maxWidth:"75%", padding:"11px 16px", borderRadius:
+                      msg.role==="user" ? "18px 4px 18px 18px" : "4px 18px 18px 18px",
+                    background: msg.role==="user"
+                      ? `linear-gradient(135deg,${t.sidebar},${t.goldLight||t.sidebar}dd)`
+                      : isDark(mode) ? "rgba(255,255,255,0.07)" : t.surfaceAlt,
+                    color: msg.role==="user" ? "#FFFFFF" : t.text,
+                    fontFamily:"'Trebuchet MS',sans-serif", fontSize:13.5, lineHeight:1.65,
+                    whiteSpace:"pre-wrap", border: msg.role==="assistant" ? `1px solid ${t.border}` : "none",
+                  }}>
+                    {msg.content}
+                  </div>
+                </div>
+              ))}
+              {loading && (
+                <div style={{ display:"flex", gap:10, alignItems:"center" }}>
+                  <div style={{ width:32, height:32, borderRadius:"50%",
+                    background:`linear-gradient(135deg,${t.sidebar},${t.goldLight||t.sidebar}cc)`,
+                    display:"flex", alignItems:"center", justifyContent:"center", color:"#FFF", fontSize:14 }}>✦</div>
+                  <div style={{ padding:"12px 18px", borderRadius:"4px 18px 18px 18px",
+                    background: isDark(mode) ? "rgba(255,255,255,0.07)" : t.surfaceAlt,
+                    border:`1px solid ${t.border}`, display:"flex", gap:6, alignItems:"center" }}>
+                    {[0,1,2].map(i=>(
+                      <div key={i} style={{ width:8, height:8, borderRadius:"50%", background:t.sidebar,
+                        animation:`aiBounce 1.2s ease-in-out ${i*0.2}s infinite` }} />
+                    ))}
+                    <style>{`@keyframes aiBounce{0%,80%,100%{transform:scale(0.6);opacity:0.4}40%{transform:scale(1);opacity:1}}`}</style>
+                  </div>
+                </div>
+              )}
+              <div ref={bottomRef} />
+            </div>
+          </div>
+
+          {/* Input area */}
+          <div style={{ ...card, marginTop:12, display:"flex", gap:10, alignItems:"flex-end" }}>
+            <textarea id="ai-input" rows={2} style={{ ...inp, flex:1, minHeight:52 }}
+              placeholder="Ask about attendance trends, class performance, recommendations…"
+              value={input} onChange={e=>setInput(e.target.value)}
+              onKeyDown={e=>{ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); sendMessage(); } }} />
+            <button onClick={sendMessage} disabled={loading || !input.trim()}
+              style={{ padding:"12px 22px", borderRadius:12, border:"none", cursor:"pointer",
+                background: (loading||!input.trim()) ? t.surfaceAlt : `linear-gradient(135deg,${t.sidebar},${t.goldLight||t.sidebar})`,
+                color: (loading||!input.trim()) ? t.textFaint : "#FFFFFF",
+                fontFamily:"'Trebuchet MS',sans-serif", fontSize:14, fontWeight:700,
+                display:"flex", alignItems:"center", gap:7, transition:"all 0.15s",
+                boxShadow: (!loading&&input.trim()) ? `0 4px 14px ${t.sidebar}55` : "none" }}>
+              <Icon name="ai" size={16} color={(loading||!input.trim()) ? t.textFaint : "#FFFFFF"} />
+              Send
+            </button>
+          </div>
+
+          {/* Quick prompt chips */}
+          <div style={{ marginTop:10, display:"flex", gap:8, flexWrap:"wrap" }}>
+            {QUICK_PROMPTS.map(p=>(
+              <button key={p.label} onClick={()=>{ setInput(p.prompt); document.getElementById("ai-input")?.focus(); }}
+                style={{ padding:"6px 12px", borderRadius:20, border:`1px solid ${t.border}`,
+                  background:"transparent", color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif",
+                  fontSize:12, cursor:"pointer", display:"flex", alignItems:"center", gap:5 }}>
+                {p.icon} {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── SIDEBAR ──────────────────────────────────────────────────────────────────
 const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => {
   const { mode, dark, toggle } = useTheme();
@@ -4207,6 +4601,7 @@ const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => 
     {id:"ssreport",   label:"SS Report",      icon:"ssreport",   perm:"attendance"},
     {id:"church",     label:"Church Attend.", icon:"cross",      perm:"church"},
     {id:"analytics",  label:"Analytics",      icon:"analytics",  perm:"analytics"},
+    {id:"ai",         label:"AI Assistant",   icon:"ai",         perm:"dashboard"},
     {id:"teachers",   label:"Teachers",       icon:"teachers",   perm:"teachers"},
     {id:"classes",    label:"Classes",        icon:"classes",    perm:"classes"},
     {id:"programs",   label:"Programs",       icon:"settings",   perm:"programs"},
@@ -4216,12 +4611,13 @@ const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => 
     {id:"export",     label:"Export",         icon:"export",     perm:"export"},
   ];
   const allTeacherNav = [
-    {id:"submit",     label:"Submit Report",     icon:"submit",     perm:"submit"},
-    {id:"ssreport",   label:"SS Report",         icon:"analytics",  perm:"attendance"},
-    {id:"church",     label:"Church Attendance", icon:"cross",      perm:"church"},
-    {id:"attendance", label:"My Records",        icon:"attendance", perm:"attendance"},
-    {id:"analytics",  label:"Analytics",         icon:"analytics",  perm:"analytics"},
-    {id:"export",     label:"Export",            icon:"export",     perm:"export"},
+    {id:"submit",     label:"Submit Report",  icon:"submit",     perm:"submit"},
+    {id:"ssreport",   label:"SS Report",      icon:"analytics",  perm:"attendance"},
+    {id:"church",     label:"Church Attend.", icon:"cross",      perm:"church"},
+    {id:"attendance", label:"My Records",     icon:"attendance", perm:"attendance"},
+    {id:"analytics",  label:"Analytics",      icon:"analytics",  perm:"analytics"},
+    {id:"ai",         label:"AI Assistant",   icon:"ai",         perm:"attendance"},
+    {id:"export",     label:"Export",         icon:"export",     perm:"export"},
   ];
 
   const isAdmin = user?.role === "admin";
@@ -4240,7 +4636,7 @@ const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => 
     fontSize:13, fontFamily:"'Trebuchet MS',sans-serif", transition:"all 0.15s", whiteSpace:"nowrap",
   });
 
-  const modeLabel = mode==="light" ? "☀ Light" : mode==="navy" ? "🌊 Navy" : "🌙 Dark";
+  const modeLabel = mode==="light"?"☀ Light":mode==="navy"?"🌊 Navy":mode==="dark"?"🌙 Dark":mode==="darkBlue"?"🌊🌙 Dark Blue":mode==="orange"?"🔥 Orange":"🔥🌙 Dark Orange";
 
   return (
     <div style={{ width:collapsed?60:230, background:t.sidebar, borderRight:`1px solid ${t.sidebarBorder}`,
@@ -4283,7 +4679,7 @@ const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => 
             style={{ padding:"6px 8px", borderRadius:7, border:`1px solid ${ACTIVE_COLOR}55`, background:`${ACTIVE_COLOR}18`, cursor:"pointer",
               display:"flex", alignItems:"center", gap:4, fontSize:10, color:"rgba(255,255,255,0.85)",
               fontFamily:"'Trebuchet MS',sans-serif" }}>
-            <Icon name={mode==="dark"?"sun":"moon"} size={13} color={ACTIVE_COLOR} />
+            <Icon name={isDark(mode)?"sun":"moon"} size={13} color={ACTIVE_COLOR} />
             {!collapsed && modeLabel}
           </button>
           <button title="Logout" onClick={onLogout} style={{ padding:"7px 8px", borderRadius:7, border:"1px solid rgba(255,255,255,0.2)", background:"transparent", cursor:"pointer" }}>
@@ -4485,9 +4881,10 @@ const MobileDrawer = ({ open, onClose, page, setPage, user, onLogout, db }) => {
   const allNav = isAdmin ? [
     {id:"dashboard",  label:"Dashboard",      icon:"dashboard"},
     {id:"attendance", label:"SS Records",     icon:"attendance"},
-    {id:"ssreport",   label:"SS Report",      icon:"analytics"},
+    {id:"ssreport",   label:"SS Report",      icon:"ssreport"},
     {id:"church",     label:"Church Attend.", icon:"cross"},
     {id:"analytics",  label:"Analytics",      icon:"analytics"},
+    {id:"ai",         label:"AI Assistant",   icon:"ai"},
     {id:"teachers",   label:"Teachers",       icon:"teachers"},
     {id:"classes",    label:"Classes",        icon:"classes"},
     {id:"programs",   label:"Programs",       icon:"settings"},
@@ -4497,10 +4894,11 @@ const MobileDrawer = ({ open, onClose, page, setPage, user, onLogout, db }) => {
     {id:"export",     label:"Export",         icon:"export"},
   ] : [
     {id:"submit",     label:"Submit Report",  icon:"submit",    perm:"submit"},
-    {id:"ssreport",   label:"SS Report",      icon:"analytics", perm:"attendance"},
+    {id:"ssreport",   label:"SS Report",      icon:"ssreport",  perm:"attendance"},
     {id:"church",     label:"Church Attend.", icon:"cross",     perm:"church"},
     {id:"attendance", label:"My Records",     icon:"attendance",perm:"attendance"},
     {id:"analytics",  label:"Analytics",      icon:"analytics", perm:"analytics"},
+    {id:"ai",         label:"AI Assistant",   icon:"ai",        perm:"attendance"},
     {id:"export",     label:"Export",         icon:"export",    perm:"export"},
   ].filter(n => can(n.perm||n.id));
 
@@ -4555,8 +4953,8 @@ const MobileDrawer = ({ open, onClose, page, setPage, user, onLogout, db }) => {
         {/* Footer */}
         <div style={{ padding:"13px 18px", borderTop:`1px solid ${t.sidebarBorder}`, display:"flex", gap:8 }}>
           <button onClick={toggle} style={{ flex:1, padding:"9px 0", borderRadius:8, border:`1px solid ${ACTIVE_COLOR}55`, background:`${ACTIVE_COLOR}18`, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6, color:"rgba(255,255,255,0.9)", fontFamily:"'Trebuchet MS',sans-serif", fontSize:11 }}>
-            <Icon name={mode==="dark"?"sun":"moon"} size={13} color={ACTIVE_COLOR} />
-            {mode==="light"?"☀ Light":mode==="navy"?"🌊 Navy":"🌙 Dark"}
+            <Icon name={isDark(mode)?"sun":"moon"} size={13} color={ACTIVE_COLOR} />
+            {mode==="light"?"☀ Light":mode==="navy"?"🌊 Navy":mode==="dark"?"🌙 Dark":mode==="darkBlue"?"🌊🌙 Dark Blue":mode==="orange"?"🔥 Orange":"🔥🌙 Dark Orange"}
           </button>
           {can("export") && (
             <button onClick={()=>{ db.downloadWorkbook(); onClose(); }} style={{ flex:1, padding:"9px 0", borderRadius:8, border:"1px solid rgba(255,255,255,0.2)", background:"transparent", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6, color:"rgba(255,255,255,0.75)", fontFamily:"'Trebuchet MS',sans-serif", fontSize:12 }}>
@@ -4574,10 +4972,10 @@ const MobileDrawer = ({ open, onClose, page, setPage, user, onLogout, db }) => {
 
 // ─── ROOT APP ─────────────────────────────────────────────────────────────────
 export default function App() {
-  const MODES = ["light","navy","dark"];
+  const MODES = ["light","navy","dark","darkBlue","orange","darkOrange"];
   const [modeIdx, setModeIdx]         = useState(0);
   const mode = MODES[modeIdx];
-  const dark = mode === "dark";
+  const dark = isDark(mode);
   const cycleTheme = () => setModeIdx(i => (i+1) % MODES.length);
   const [user, setUser]             = useState(null);
   const [page, setPage]             = useState("dashboard");
@@ -4643,6 +5041,7 @@ export default function App() {
     export:    guard("export",     <ExportPage db={db} />),
     submit:    guard("submit",     <SubmitPage db={db} user={user} onSuccess={()=>toast("Report saved!","success")} />),
     ssreport:  guard("attendance", <SSReportPage db={db} />),
+    ai:        <AIAssistantPage db={db} user={user} />,
   };
 
   const t = T[mode]||T.light;
@@ -4734,8 +5133,8 @@ export default function App() {
                 style={{ padding:"6px 10px", borderRadius:7, border:`1px solid ${ACTIVE_COLOR}77`,
                   background:`${ACTIVE_COLOR}22`, cursor:"pointer", display:"flex", alignItems:"center", gap:5,
                   color:"rgba(255,255,255,0.9)", fontFamily:"'Trebuchet MS',sans-serif", fontSize:11 }}>
-                <Icon name={mode==="dark"?"sun":mode==="navy"?"moon":"moon"} size={13} color={ACTIVE_COLOR} />
-                {!mobile && (mode==="light"?"☀ Light":mode==="navy"?"🌊 Navy":"🌙 Dark")}
+                <Icon name={isDark(mode)?"sun":"moon"} size={13} color={ACTIVE_COLOR} />
+                {!mobile && (mode==="light"?"☀ Light":mode==="navy"?"🌊 Navy":mode==="dark"?"🌙 Dark":mode==="darkBlue"?"🌊🌙 Dark Blue":mode==="orange"?"🔥 Orange":"🔥🌙 Dark Orange")}
               </button>
               {!mobile && can("export") && (
                 <button onClick={db.downloadWorkbook}
