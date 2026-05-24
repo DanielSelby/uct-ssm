@@ -4770,10 +4770,10 @@ const AllLessonsModal = ({ lessons, onClose, deleteLesson, startEdit }) => {
 
   const exportFromModal = (rows, label) => {
     if (!rows.length) { alert("No lessons to export."); return; }
-    const headers = ["Date","Class_Name","Teacher_Name","Topic","Bible_References","Memory_Verse","Outline","Key_Points","Assignment","Duration_Mins","Notes","Created_At"];
+    const headers = ["Date","Class_Name","Teacher_Name","Topic","Bible_References","Memory_Verse","Message_Book_Ref","Outline","Key_Points","Assignment","Duration_Mins","Notes","Created_At"];
     const data = rows.map(l => [
       l.date||"", l.class_name||"", l.teacher_name||"", l.topic||"",
-      l.bible_references||"", l.memory_verse||"", l.outline||"",
+      l.bible_references||"", l.memory_verse||"", l.message_book_ref||"", l.outline||"",
       l.key_points||"", l.assignment||"", l.duration_mins||"",
       l.notes||"", l.createdAt ? l.createdAt.slice(0,10) : "",
     ]);
@@ -5095,7 +5095,7 @@ const LessonsPage = ({ db, user }) => {
   const blank = () => ({
     date: new Date().toISOString().slice(0,10),
     class_name: "", teacher_name: user?.name||"",
-    topic: "", bible_references: "", memory_verse: "",
+    topic: "", bible_references: "", memory_verse: "", message_book_ref: "",
     outline: "", key_points: "", assignment: "",
     duration_mins: "", notes: "",
   });
@@ -5148,31 +5148,32 @@ const LessonsPage = ({ db, user }) => {
       ["7. Save the file as .xlsx and click 'Import Excel File' to upload."],
       [""],
       ["COLUMN GUIDE:"],
-      ["Date",           "Date of the lesson (YYYY-MM-DD)"],
-      ["Class_Name",     "Name of the class (e.g. Children (5-9), Teen (10-15))"],
-      ["Teacher_Name",   "Full name of the teacher"],
-      ["Topic",          "Title or topic of the lesson"],
-      ["Bible_References","Scripture references (e.g. Luke 10:25-37)"],
-      ["Memory_Verse",   "The memory verse for the lesson"],
-      ["Outline",        "Full lesson outline / structure"],
-      ["Key_Points",     "Key teaching goals or points"],
-      ["Assignment",     "Homework or assignment given"],
-      ["Duration_Mins",  "Duration of the lesson in minutes (number only)"],
-      ["Notes",          "Any additional notes"],
+      ["Date",              "Date of the lesson (YYYY-MM-DD)"],
+      ["Class_Name",        "Name of the class (e.g. Children (5-9), Teen (10-15))"],
+      ["Teacher_Name",      "Full name of the teacher"],
+      ["Topic",             "Title or topic of the lesson"],
+      ["Bible_References",  "Scripture references (e.g. Luke 10:25-37)"],
+      ["Memory_Verse",      "The memory verse for the lesson"],
+      ["Message_Book_Ref",  "Message book title, chapter or page reference"],
+      ["Outline",           "Full lesson outline / structure"],
+      ["Key_Points",        "Key teaching goals or points"],
+      ["Assignment",        "Homework or assignment given"],
+      ["Duration_Mins",     "Duration of the lesson in minutes (number only)"],
+      ["Notes",             "Any additional notes"],
     ];
     const wsInstr = XLSX.utils.aoa_to_sheet(instr);
     wsInstr["!cols"] = [{ wch:22 },{ wch:60 }];
     XLSX.utils.book_append_sheet(wb, wsInstr, "Instructions");
 
     // ── Lessons data sheet ────────────────────────────────────
-    const headers = ["Date","Class_Name","Teacher_Name","Topic","Bible_References","Memory_Verse","Outline","Key_Points","Assignment","Duration_Mins","Notes"];
+    const headers = ["Date","Class_Name","Teacher_Name","Topic","Bible_References","Memory_Verse","Message_Book_Ref","Outline","Key_Points","Assignment","Duration_Mins","Notes"];
     const sample = [
-      ["2026-05-18","Children (5-9)","Mrs. Asante","The Good Samaritan","Luke 10:25-37","Love your neighbour as yourself","1. Opening Prayer (5 min)\n2. Bible Story (15 min)\n3. Discussion (10 min)\n4. Application (10 min)\n5. Memory Verse & Close (5 min)","• Understand neighbourly love\n• Apply kindness daily","Draw the parable scene in your notebook","45","Went well; children were engaged"],
-      ["2026-05-18","Teen (10-15)","Mr. Boateng","Faith and Works","James 2:14-26","Faith without works is dead","1. Recap last week (5 min)\n2. Read passage (10 min)\n3. Group discussion (15 min)\n4. Practical challenge (10 min)\n5. Prayer (5 min)","• Faith must produce action\n• Identify one act of service this week","List 3 ways to serve someone this week","45",""],
+      ["2026-05-18","Children (5-9)","Mrs. Asante","The Good Samaritan","Luke 10:25-37","Love your neighbour as yourself","Parables of Jesus – Ch.4 p.52","1. Opening Prayer (5 min)\n2. Bible Story (15 min)\n3. Discussion (10 min)\n4. Application (10 min)\n5. Memory Verse & Close (5 min)","• Understand neighbourly love\n• Apply kindness daily","Draw the parable scene in your notebook","45","Went well; children were engaged"],
+      ["2026-05-18","Teen (10-15)","Mr. Boateng","Faith and Works","James 2:14-26","Faith without works is dead","Foundations of Faith – Ch.7 p.88","1. Recap last week (5 min)\n2. Read passage (10 min)\n3. Group discussion (15 min)\n4. Practical challenge (10 min)\n5. Prayer (5 min)","• Faith must produce action\n• Identify one act of service this week","List 3 ways to serve someone this week","45",""],
     ];
     const wsData = XLSX.utils.aoa_to_sheet([headers, ...sample]);
     wsData["!cols"] = headers.map((h,i) => ({
-      wch: [12,18,18,28,20,26,40,28,24,14,24][i]
+      wch: [12,18,18,28,20,26,28,40,28,24,14,24][i]
     }));
     XLSX.utils.book_append_sheet(wb, wsData, "Lessons");
 
@@ -5208,6 +5209,7 @@ const LessonsPage = ({ db, user }) => {
             topic,
             bible_references: r["bible_references"]||r["bible_refs"]||"",
             memory_verse:     r["memory_verse"]||"",
+            message_book_ref: r["message_book_ref"]||r["message_book"]||"",
             outline:          r["outline"]||"",
             key_points:       r["key_points"]||"",
             assignment:       r["assignment"]||"",
@@ -5234,10 +5236,10 @@ const LessonsPage = ({ db, user }) => {
   // ── Export lessons to Excel ───────────────────────────────────
   const exportLessons = (rows, label) => {
     if (!rows.length) { alert("No lessons to export."); return; }
-    const headers = ["Date","Class_Name","Teacher_Name","Topic","Bible_References","Memory_Verse","Outline","Key_Points","Assignment","Duration_Mins","Notes","Created_At"];
+    const headers = ["Date","Class_Name","Teacher_Name","Topic","Bible_References","Memory_Verse","Message_Book_Ref","Outline","Key_Points","Assignment","Duration_Mins","Notes","Created_At"];
     const data = rows.map(l => [
       l.date||"", l.class_name||"", l.teacher_name||"", l.topic||"",
-      l.bible_references||"", l.memory_verse||"", l.outline||"",
+      l.bible_references||"", l.memory_verse||"", l.message_book_ref||"", l.outline||"",
       l.key_points||"", l.assignment||"", l.duration_mins||"",
       l.notes||"", l.createdAt ? l.createdAt.slice(0,10) : "",
     ]);
@@ -5504,6 +5506,7 @@ const LessonsPage = ({ db, user }) => {
             <div style={fw(2)}><label style={lbl}>Topic / Title *</label><input name="topic" style={inp} value={form.topic} onChange={hc} placeholder="e.g. The Good Samaritan" /></div>
             <div style={fw()}><label style={lbl}>Bible References</label><input name="bible_references" style={inp} value={form.bible_references} onChange={hc} placeholder="e.g. Luke 10:25-37" /></div>
             <div style={fw()}><label style={lbl}>Memory Verse</label><input name="memory_verse" style={inp} value={form.memory_verse} onChange={hc} /></div>
+            <div style={fw()}><label style={lbl}>Message Book Reference</label><input name="message_book_ref" style={inp} value={form.message_book_ref||""} onChange={hc} placeholder="e.g. Book title, chapter, page no." /></div>
           </div>
 
           <div style={sec}>Lesson Outline</div>
@@ -5612,6 +5615,7 @@ const LessonsPage = ({ db, user }) => {
                       <span>🎓 {l.teacher_name||"—"}</span>
                       <span>📚 {l.class_name||"—"}</span>
                       {l.bible_references && <span>📖 {l.bible_references}</span>}
+                      {l.message_book_ref && <span>📘 {l.message_book_ref}</span>}
                       {l.duration_mins && <span>⏱ {l.duration_mins} min</span>}
                     </div>
                   </div>
@@ -5648,7 +5652,7 @@ const LessonsPage = ({ db, user }) => {
                           whiteSpace:"pre-wrap", lineHeight:1.7 }}>{l.key_points}</div>
                       </div>
                     )}
-                    {(l.memory_verse||l.assignment||l.notes) && (
+                    {(l.memory_verse||l.message_book_ref||l.assignment||l.notes) && (
                       <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
                         {l.memory_verse && (
                           <div>
@@ -5656,6 +5660,14 @@ const LessonsPage = ({ db, user }) => {
                               letterSpacing:1.2, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:4 }}>📜 Memory Verse</div>
                             <div style={{ fontSize:13, color:t.text, fontFamily:"'Trebuchet MS',sans-serif",
                               fontStyle:"italic", lineHeight:1.6 }}>"{l.memory_verse}"</div>
+                          </div>
+                        )}
+                        {l.message_book_ref && (
+                          <div>
+                            <div style={{ fontSize:11, fontWeight:700, color:t.info, textTransform:"uppercase",
+                              letterSpacing:1.2, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:4 }}>📘 Message Book Reference</div>
+                            <div style={{ fontSize:13, color:t.text, fontFamily:"'Trebuchet MS',sans-serif",
+                              lineHeight:1.6 }}>{l.message_book_ref}</div>
                           </div>
                         )}
                         {l.assignment && (
