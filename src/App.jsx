@@ -4768,6 +4768,41 @@ const AllLessonsModal = ({ lessons, onClose, deleteLesson, startEdit }) => {
   const allTeachers = [...new Set(lessons.map(l=>l.teacher_name).filter(Boolean))].sort();
   const allMonths   = [...new Set(lessons.map(l=>(l.date||"").slice(0,7)).filter(Boolean))].sort().reverse();
 
+  const exportFromModal = (rows, label) => {
+    if (!rows.length) { alert("No lessons to export."); return; }
+    const headers = ["Date","Class_Name","Teacher_Name","Topic","Bible_References","Memory_Verse","Outline","Key_Points","Assignment","Duration_Mins","Notes","Created_At"];
+    const data = rows.map(l => [
+      l.date||"", l.class_name||"", l.teacher_name||"", l.topic||"",
+      l.bible_references||"", l.memory_verse||"", l.outline||"",
+      l.key_points||"", l.assignment||"", l.duration_mins||"",
+      l.notes||"", l.createdAt ? l.createdAt.slice(0,10) : "",
+    ]);
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+    ws["!cols"] = [12,18,18,30,22,28,40,30,26,14,26,14].map(wch=>({wch}));
+    XLSX.utils.book_append_sheet(wb, ws, "Lessons");
+    const classes  = [...new Set(rows.map(r=>r.class_name).filter(Boolean))];
+    const teachers = [...new Set(rows.map(r=>r.teacher_name).filter(Boolean))];
+    const totalMins = rows.reduce((s,r)=>s+(Number(r.duration_mins)||0),0);
+    const summary = [
+      ["UCT Lesson Register Export"],
+      ["Exported on", new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})],
+      ["Filter", label],
+      [""],
+      ["Total Lessons",  rows.length],
+      ["Total Classes",  classes.length],
+      ["Total Teachers", teachers.length],
+      ["Total Duration", totalMins ? `${totalMins} mins` : "—"],
+      [""],
+      ["Classes:", classes.join(", ")||"—"],
+      ["Teachers:", teachers.join(", ")||"—"],
+    ];
+    const wsSummary = XLSX.utils.aoa_to_sheet(summary);
+    wsSummary["!cols"] = [{wch:20},{wch:50}];
+    XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
+    XLSX.writeFile(wb, `UCT_Lessons_${label.replace(/\s+/g,"_")}_${new Date().toISOString().slice(0,10)}.xlsx`);
+  };
+
   const filtered = lessons.filter(l => {
     if (filterClass   && l.class_name   !== filterClass)         return false;
     if (filterTeacher && l.teacher_name !== filterTeacher)       return false;
@@ -4823,12 +4858,22 @@ const AllLessonsModal = ({ lessons, onClose, deleteLesson, startEdit }) => {
               {filtered.length} of {lessons.length} lessons shown
             </div>
           </div>
-          <button onClick={onClose}
-            style={{ background:t.danger+"18", border:`1px solid ${t.danger}44`, borderRadius:9,
-              padding:"8px 14px", cursor:"pointer", color:t.danger, fontFamily:"'Trebuchet MS',sans-serif",
-              fontSize:13, display:"flex", alignItems:"center", gap:6, fontWeight:700 }}>
-            <Icon name="close" size={14} color={t.danger} /> Close
-          </button>
+          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+            <button
+              onClick={()=>exportFromModal(filtered, (filterClass||filterTeacher||filterMonth||filterBible||search) ? `Filtered_(${filtered.length})` : "All_Lessons")}
+              style={{ background:t.success+"18", border:`1px solid ${t.success}44`, borderRadius:9,
+                padding:"8px 14px", cursor:"pointer", color:t.success, fontFamily:"'Trebuchet MS',sans-serif",
+                fontSize:13, display:"flex", alignItems:"center", gap:6, fontWeight:700 }}>
+              <Icon name="export" size={14} color={t.success} />
+              Export {(filterClass||filterTeacher||filterMonth||filterBible||search) ? `Filtered (${filtered.length})` : `All (${lessons.length})`}
+            </button>
+            <button onClick={onClose}
+              style={{ background:t.danger+"18", border:`1px solid ${t.danger}44`, borderRadius:9,
+                padding:"8px 14px", cursor:"pointer", color:t.danger, fontFamily:"'Trebuchet MS',sans-serif",
+                fontSize:13, display:"flex", alignItems:"center", gap:6, fontWeight:700 }}>
+              <Icon name="close" size={14} color={t.danger} /> Close
+            </button>
+          </div>
         </div>
 
         {/* Filters bar */}
@@ -5184,6 +5229,49 @@ const LessonsPage = ({ db, user }) => {
     e.target.value = "";
   };
 
+  const [showExportMenu, setShowExportMenu] = useState(false);
+
+  // ── Export lessons to Excel ───────────────────────────────────
+  const exportLessons = (rows, label) => {
+    if (!rows.length) { alert("No lessons to export."); return; }
+    const headers = ["Date","Class_Name","Teacher_Name","Topic","Bible_References","Memory_Verse","Outline","Key_Points","Assignment","Duration_Mins","Notes","Created_At"];
+    const data = rows.map(l => [
+      l.date||"", l.class_name||"", l.teacher_name||"", l.topic||"",
+      l.bible_references||"", l.memory_verse||"", l.outline||"",
+      l.key_points||"", l.assignment||"", l.duration_mins||"",
+      l.notes||"", l.createdAt ? l.createdAt.slice(0,10) : "",
+    ]);
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+    ws["!cols"] = [12,18,18,30,22,28,40,30,26,14,26,14].map(wch=>({wch}));
+    // Freeze header row
+    ws["!freeze"] = { xSplit:0, ySplit:1 };
+    XLSX.utils.book_append_sheet(wb, ws, "Lessons");
+    // Summary sheet
+    const classes  = [...new Set(rows.map(r=>r.class_name).filter(Boolean))];
+    const teachers = [...new Set(rows.map(r=>r.teacher_name).filter(Boolean))];
+    const totalMins = rows.reduce((s,r)=>s+(Number(r.duration_mins)||0),0);
+    const summary = [
+      ["UCT Lesson Register Export"],
+      ["Exported on", new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})],
+      ["Filter applied", label],
+      [""],
+      ["Total Lessons",  rows.length],
+      ["Total Classes",  classes.length],
+      ["Total Teachers", teachers.length],
+      ["Total Duration", totalMins ? `${totalMins} mins` : "—"],
+      [""],
+      ["Classes included:", classes.join(", ")||"—"],
+      ["Teachers included:", teachers.join(", ")||"—"],
+    ];
+    const wsSummary = XLSX.utils.aoa_to_sheet(summary);
+    wsSummary["!cols"] = [{wch:20},{wch:50}];
+    XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
+    const fileName = `UCT_Lessons_${label.replace(/\s+/g,"_")}_${new Date().toISOString().slice(0,10)}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+    setShowExportMenu(false);
+  };
+
   const allMonths = [...new Set(lessons.map(l=>(l.date||"").slice(0,7)).filter(Boolean))].sort().reverse();
 
   const filtered = lessons.filter(l => {
@@ -5228,13 +5316,71 @@ const LessonsPage = ({ db, user }) => {
             {lessons.length} lessons recorded · {filtered.length} shown
           </div>
         </div>
-        <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+        <div style={{ display:"flex", gap:10, flexWrap:"wrap", alignItems:"center" }}>
           <button onClick={()=>setShowAllLessons(true)}
             style={{ ...btnOutline, display:"flex", alignItems:"center", gap:6,
               border:`1px solid ${t.info}66`, color:t.info, background:t.info+"11" }}>
             <Icon name="eye" size={14} color={t.info} />
-            View All Lessons ({lessons.length})
+            View All ({lessons.length})
           </button>
+
+          {/* Export dropdown */}
+          <div style={{ position:"relative" }}>
+            {showExportMenu && (
+              <div onClick={()=>setShowExportMenu(false)}
+                style={{ position:"fixed", inset:0, zIndex:199 }} />
+            )}
+            <button onClick={()=>setShowExportMenu(v=>!v)}
+              style={{ ...btnOutline, display:"flex", alignItems:"center", gap:6,
+                border:`1px solid ${t.success}66`, color:t.success, background:t.success+"11" }}>
+              <Icon name="export" size={14} color={t.success} />
+              Export ▾
+            </button>
+            {showExportMenu && (
+              <div style={{ position:"absolute", right:0, top:"calc(100% + 6px)", zIndex:200,
+                background:t.surface, border:`1px solid ${t.border}`, borderRadius:10,
+                boxShadow:`0 8px 28px rgba(0,0,0,0.18)`, minWidth:230, overflow:"hidden" }}>
+                <div style={{ padding:"8px 14px 6px", fontSize:10, fontWeight:700,
+                  color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif",
+                  textTransform:"uppercase", letterSpacing:1.2, borderBottom:`1px solid ${t.border}` }}>
+                  Export Lessons to Excel
+                </div>
+                <button onClick={()=>exportLessons(lessons,"All_Lessons")}
+                  style={{ width:"100%", padding:"11px 16px", display:"flex", alignItems:"center", gap:10,
+                    background:"transparent", border:"none", cursor:"pointer", textAlign:"left",
+                    borderBottom:`1px solid ${t.border}` }}
+                  onMouseEnter={e=>e.currentTarget.style.background=t.surfaceAlt}
+                  onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                  <Icon name="export" size={15} color={t.success} />
+                  <div>
+                    <div style={{ fontSize:13, fontWeight:700, color:t.text, fontFamily:"'Trebuchet MS',sans-serif" }}>
+                      Export All Lessons
+                    </div>
+                    <div style={{ fontSize:11, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}>
+                      All {lessons.length} lessons
+                    </div>
+                  </div>
+                </button>
+                <button onClick={()=>exportLessons(filtered, filterClass||filterTeacher||filterMonth||search ? `Filtered_(${filtered.length})` : "All_Lessons")}
+                  style={{ width:"100%", padding:"11px 16px", display:"flex", alignItems:"center", gap:10,
+                    background:"transparent", border:"none", cursor:"pointer", textAlign:"left" }}
+                  onMouseEnter={e=>e.currentTarget.style.background=t.surfaceAlt}
+                  onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                  <Icon name="analytics" size={15} color={t.gold} />
+                  <div>
+                    <div style={{ fontSize:13, fontWeight:700, color:t.text, fontFamily:"'Trebuchet MS',sans-serif" }}>
+                      Export Filtered View
+                    </div>
+                    <div style={{ fontSize:11, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}>
+                      {filtered.length} lesson{filtered.length!==1?"s":""} currently shown
+                      {(filterClass||filterTeacher||filterMonth||search) ? " (filters active)" : " (no filters)"}
+                    </div>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
+
           <button onClick={()=>{ setShowImport(v=>!v); setShowForm(false); }}
             style={{ ...btnOutline, display:"flex", alignItems:"center", gap:6 }}>
             <Icon name="upload" size={14} color={t.gold} /> Bulk Import
