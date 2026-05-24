@@ -1674,8 +1674,8 @@ const DashboardPage = ({ db }) => {
         Sunday School
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:12, marginBottom:16 }}>
-        <KpiCard label="SS - SS - Attend. Begin"   value={ssBeginTotal} sub="At opening"        icon="attendance" color={t.info} />
-        <KpiCard label="SS - SS - Attend. Close" value={ssTotal}      sub="At close"          icon="attendance" color={t.gold} />
+        <KpiCard label="SS - Attend. Begin"   value={ssBeginTotal} sub="At opening"        icon="attendance" color={t.info} />
+        <KpiCard label="SS - Attend. Close" value={ssTotal}      sub="At close"          icon="attendance" color={t.gold} />
         <KpiCard label="Bibles at Begin"    value={biblesBegin}  sub="Brought at start"  icon="bible"      color="#9B59B6" />
         <KpiCard label="Bibles at Closing"  value={bibles}       sub={`${bibleRate}% rate`} icon="bible"   color="#7B3FBE" />
         <KpiCard label="First Timers"       value={fRec.reduce((s,r)=>s+(Number(r.first_timers)||0),0)} sub="SS only" icon="plus" color="#E67E22" />
