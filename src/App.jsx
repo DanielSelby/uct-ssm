@@ -1674,8 +1674,8 @@ const DashboardPage = ({ db }) => {
         Sunday School
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:12, marginBottom:16 }}>
-        <KpiCard label="Attend. Begin (Total)"   value={ssBeginTotal} sub="At opening"        icon="attendance" color={t.info} />
-        <KpiCard label="Attend. Close (Total)" value={ssTotal}      sub="At close"          icon="attendance" color={t.gold} />
+        <KpiCard label="SS - SS - Attend. Begin"   value={ssBeginTotal} sub="At opening"        icon="attendance" color={t.info} />
+        <KpiCard label="SS - SS - Attend. Close" value={ssTotal}      sub="At close"          icon="attendance" color={t.gold} />
         <KpiCard label="Bibles at Begin"    value={biblesBegin}  sub="Brought at start"  icon="bible"      color="#9B59B6" />
         <KpiCard label="Bibles at Closing"  value={bibles}       sub={`${bibleRate}% rate`} icon="bible"   color="#7B3FBE" />
         <KpiCard label="First Timers"       value={fRec.reduce((s,r)=>s+(Number(r.first_timers)||0),0)} sub="SS only" icon="plus" color="#E67E22" />
@@ -1706,7 +1706,7 @@ const DashboardPage = ({ db }) => {
                 <YAxis stroke={t.textMuted} fontSize={11} />
                 <Tooltip {...tooltip} />
                 <Legend wrapperStyle={{ fontSize:11, color:t.textMuted }} />
-                <Bar dataKey="ssClose"  name="Attend. Close"     fill={t.gold}    radius={[3,3,0,0]} />
+                <Bar dataKey="ssClose"  name="SS - Attend. Close"     fill={t.gold}    radius={[3,3,0,0]} />
                 <Bar dataKey="chClose"  name="Church Closing" fill={t.info}    radius={[3,3,0,0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -1723,7 +1723,7 @@ const DashboardPage = ({ db }) => {
                 <YAxis stroke={t.textMuted} fontSize={11} />
                 <Tooltip {...tooltip} />
                 <Legend wrapperStyle={{ fontSize:11, color:t.textMuted }} />
-                <Bar dataKey="ssBegin"  name="Attend. Begin"     fill={t.goldDark||"#9A7A2C"} radius={[3,3,0,0]} />
+                <Bar dataKey="ssBegin"  name="SS - Attend. Begin"     fill={t.goldDark||"#9A7A2C"} radius={[3,3,0,0]} />
                 <Bar dataKey="chBegin"  name="Church Beginning" fill="#4A9EDB88"   radius={[3,3,0,0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -2488,8 +2488,8 @@ const AnalyticsPage = ({ db }) => {
       {/* KPI Summary — SS */}
       <div style={{ fontSize:11, fontWeight:700, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1.2, marginBottom:10 }}>Sunday School</div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(135px,1fr))", gap:12, marginBottom:16 }}>
-        <KpiCard label="Attend. Begin"        value={ssBeginTotal}      sub="At opening"       icon="attendance" color={t.info} />
-        <KpiCard label="Attend. Close"      value={ssTotal}           sub="At close"         icon="attendance" color={t.gold} />
+        <KpiCard label="SS - Attend. Begin"        value={ssBeginTotal}      sub="At opening"       icon="attendance" color={t.info} />
+        <KpiCard label="SS - Attend. Close"      value={ssTotal}           sub="At close"         icon="attendance" color={t.gold} />
         <KpiCard label="Bible Begin"     value={bibleBeginTotal}   sub="Brought at start" icon="bible"      color="#9B59B6" />
         <KpiCard label="Bible Closing"   value={bibleTotal}        sub={`${bibleRate}% rate`} icon="bible" color="#7B3FBE" />
         <KpiCard label="First Timers"    value={fRec.reduce((s,r)=>s+(Number(r.first_timers)||0),0)} sub="SS" icon="plus" color="#E67E22" />
@@ -2537,7 +2537,7 @@ const AnalyticsPage = ({ db }) => {
                   <YAxis stroke={t.textMuted} fontSize={11} />
                   <Tooltip {...tooltip} />
                   <Legend wrapperStyle={{ fontSize:11, color:t.textMuted }} />
-                  <Bar dataKey="ssClose"  name="Attend. Close"     fill={t.gold}  radius={[3,3,0,0]} />
+                  <Bar dataKey="ssClose"  name="SS - Attend. Close"     fill={t.gold}  radius={[3,3,0,0]} />
                   <Bar dataKey="chClose"  name="Church Closing" fill={t.info}  radius={[3,3,0,0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -2554,7 +2554,7 @@ const AnalyticsPage = ({ db }) => {
                   <YAxis stroke={t.textMuted} fontSize={11} />
                   <Tooltip {...tooltip} />
                   <Legend wrapperStyle={{ fontSize:11, color:t.textMuted }} />
-                  <Bar dataKey="ssBegin"  name="Attend. Begin"     fill="#9A7A2C" radius={[3,3,0,0]} />
+                  <Bar dataKey="ssBegin"  name="SS - Attend. Begin"     fill="#9A7A2C" radius={[3,3,0,0]} />
                   <Bar dataKey="chBegin"  name="Church Beginning" fill="#4A9EDB88" radius={[3,3,0,0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -2571,9 +2571,9 @@ const AnalyticsPage = ({ db }) => {
                   <YAxis stroke={t.textMuted} fontSize={11} />
                   <Tooltip {...tooltip} />
                   <Legend wrapperStyle={{ fontSize:11, color:t.textMuted }} />
-                  <Line type="monotone" dataKey="ssClose"  stroke={t.gold}    strokeWidth={2.5} dot={{ fill:t.gold, r:3 }} name="Attend. Close" />
+                  <Line type="monotone" dataKey="ssClose"  stroke={t.gold}    strokeWidth={2.5} dot={{ fill:t.gold, r:3 }} name="SS - Attend. Close" />
                   <Line type="monotone" dataKey="chClose"  stroke={t.info}    strokeWidth={2.5} dot={{ fill:t.info, r:3 }} name="Church Closing" />
-                  <Line type="monotone" dataKey="ssBegin"  stroke={t.gold}    strokeWidth={1.5} dot={false} strokeDasharray="4 2" name="Attend. Begin" />
+                  <Line type="monotone" dataKey="ssBegin"  stroke={t.gold}    strokeWidth={1.5} dot={false} strokeDasharray="4 2" name="SS - Attend. Begin" />
                   <Line type="monotone" dataKey="chBegin"  stroke={t.info}    strokeWidth={1.5} dot={false} strokeDasharray="4 2" name="Church Beginning" />
                 </LineChart>
               </ResponsiveContainer>
@@ -2614,7 +2614,7 @@ const AnalyticsPage = ({ db }) => {
                   <XAxis dataKey="label" stroke={t.textMuted} fontSize={10} />
                   <YAxis stroke={t.textMuted} fontSize={11} />
                   <Tooltip {...tooltip} />
-                  <Bar dataKey="ssClose" fill={t.gold} radius={[4,4,0,0]} name="Attend. Close">
+                  <Bar dataKey="ssClose" fill={t.gold} radius={[4,4,0,0]} name="SS - Attend. Close">
                     {monthlyData.map((_,i)=><Cell key={i} fill={CLASS_COLORS[i%CLASS_COLORS.length]}/>)}
                   </Bar>
                 </BarChart>
@@ -2655,7 +2655,7 @@ const AnalyticsPage = ({ db }) => {
             ) : noData(220)}
           </ChartCard>
 
-          <ChartCard title="Attend. Begin vs Close" sub="How many started vs ended each month — drop-off indicator">
+          <ChartCard title="SS - SS - Attend. Begin vs SS - SS - Attend. Close" sub="How many started vs ended each month — drop-off indicator">
             {monthlyData.length > 0 ? (
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={monthlyData} barCategoryGap="30%">
@@ -2664,8 +2664,8 @@ const AnalyticsPage = ({ db }) => {
                   <YAxis stroke={t.textMuted} fontSize={11} />
                   <Tooltip {...tooltip} />
                   <Legend wrapperStyle={{ fontSize:11, color:t.textMuted }} />
-                  <Bar dataKey="ssBegin" name="Attend. Begin" fill={t.gold+"88"} radius={[3,3,0,0]} />
-                  <Bar dataKey="ssClose" name="Attend. Close"   fill={t.gold}     radius={[3,3,0,0]} />
+                  <Bar dataKey="ssBegin" name="SS - Attend. Begin" fill={t.gold+"88"} radius={[3,3,0,0]} />
+                  <Bar dataKey="ssClose" name="SS - Attend. Close"   fill={t.gold}     radius={[3,3,0,0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : noData(220)}
@@ -4208,20 +4208,20 @@ const SSReportPage = ({ db }) => {
     if (!XLSX_mod) { alert("XLSX not available"); return; }
     const data = rows.map(r => ({
       "Class":            r.cls,
-      "Attend. Begin":         r.ssBegin,
-      "Attend. Close":         r.ssClose,
+      "SS - Attend. Begin":         r.ssBegin,
+      "SS - Attend. Close":         r.ssClose,
       "Bible Begin":      r.bibBegin,
       "Bible Close":      r.bibClose,
       "Male":             r.male,
       "Female":           r.female,
       "First Timers":     r.firstT,
       "Visitors":         r.visitors,
-      "Prev Attend. Begin":    r.dSSBegin  ? r.ssBegin  - r.dSSBegin.d  : "",
-      "Prev Attend. Close":    r.dSSClose  ? r.ssClose  - r.dSSClose.d  : "",
+      "Prev SS - SS - Attend. Begin":    r.dSSBegin  ? r.ssBegin  - r.dSSBegin.d  : "",
+      "Prev SS - SS - Attend. Close":    r.dSSClose  ? r.ssClose  - r.dSSClose.d  : "",
       "Prev Bible Begin": r.dBibBegin ? r.bibBegin - r.dBibBegin.d : "",
       "Prev Bible Close": r.dBibClose ? r.bibClose - r.dBibClose.d : "",
-      "Attend. Begin Diff":    r.dSSBegin?.d  ?? "",
-      "Attend. Close Diff":    r.dSSClose?.d  ?? "",
+      "SS - SS - Attend. Begin Diff":    r.dSSBegin?.d  ?? "",
+      "SS - SS - Attend. Close Diff":    r.dSSClose?.d  ?? "",
       "Date":             currentDate,
       "Prev Date":        prevDate,
     }));
@@ -4312,8 +4312,8 @@ const SSReportPage = ({ db }) => {
 
       {/* Summary KPIs */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))", gap:12, marginBottom:20 }}>
-        <KpiCard label="Attend. Begin"     value={tot("ssBegin")}  sub="Current session" icon="attendance" color={t.info} />
-        <KpiCard label="Attend. Close"   value={tot("ssClose")}  sub="Current session" icon="attendance" color={t.gold} />
+        <KpiCard label="SS - Attend. Begin"     value={tot("ssBegin")}  sub="Current session" icon="attendance" color={t.info} />
+        <KpiCard label="SS - Attend. Close"   value={tot("ssClose")}  sub="Current session" icon="attendance" color={t.gold} />
         <KpiCard label="Bible Begin"  value={tot("bibBegin")} sub="Current session" icon="bible"      color="#9B59B6" />
         <KpiCard label="Bible Close"  value={tot("bibClose")} sub="Current session" icon="bible"      color="#7B3FBE" />
         <KpiCard label="First Timers" value={tot("firstT")}   sub="Current session" icon="plus"       color="#E67E22" />
@@ -4344,12 +4344,12 @@ const SSReportPage = ({ db }) => {
             {/* Column headers */}
             <tr style={{ background:t.surfaceAlt }}>
               <th style={{ ...thS, color:t.gold, minWidth:160 }}>Class</th>
-              <th style={{ ...thS, color:t.info }}>Attend. Begin</th>
-              <th style={{ ...thS, color:t.gold }}>Attend. Close</th>
+              <th style={{ ...thS, color:t.info }}>SS - Attend. Begin</th>
+              <th style={{ ...thS, color:t.gold }}>SS - Attend. Close</th>
               <th style={{ ...thS, color:"#9B59B6" }}>Bible Begin</th>
               <th style={{ ...thS, color:"#7B3FBE", borderRight:`2px solid ${t.border}` }}>Bible Close</th>
-              <th style={{ ...thS, color:t.info }}>Prev. Attend. Begin</th>
-              <th style={{ ...thS, color:t.gold }}>Prev. Attend. Close</th>
+              <th style={{ ...thS, color:t.info }}>Prev. SS - Attend. Begin</th>
+              <th style={{ ...thS, color:t.gold }}>Prev. SS - Attend. Close</th>
               <th style={{ ...thS, color:"#9B59B6" }}>Prev.Bible Begin</th>
               <th style={{ ...thS, color:"#7B3FBE", borderRight:`2px solid ${t.border}` }}>Prev.Bible Close</th>
               <th style={{ ...thS, color:"#E67E22" }}>Male / Female</th>
