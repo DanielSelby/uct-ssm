@@ -1843,8 +1843,9 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
 
   const isEditMode    = !!editProp;
   const isAdmin       = user?.role === "admin";
-  const lockedClass   = !isAdmin && user?.assigned_class ? user.assigned_class : "";
-  const lockedTeacher = !isAdmin ? (user?.name || "") : "";
+  const isTeacher     = user?.role === "teacher";
+  const lockedClass   = isTeacher && user?.assigned_class ? user.assigned_class : "";
+  const lockedTeacher = isTeacher ? (user?.name || "") : "";
 
   const makeBlank = () => ({
     date: new Date().toISOString().slice(0,10), day_of_week:"Sunday",
@@ -2054,7 +2055,8 @@ const AttendancePage = ({ db, user, onEditRecord }) => {
   const [detail, setDetail] = useState(null);
 
   const isAdmin      = user?.role === "admin";
-  const lockedClass  = !isAdmin && user?.assigned_class ? user.assigned_class : "";
+  const isTeacher    = user?.role === "teacher";
+  const lockedClass  = isTeacher && user?.assigned_class ? user.assigned_class : "";
 
   const [filter, setFilter] = useState({
     cls: lockedClass, status: "", search: "", teacher: "",
@@ -5168,8 +5170,9 @@ const LessonsPage = ({ db, user }) => {
   const activeTeachers = teachers.filter(x => x.is_active === "YES");
 
   const isAdmin        = user?.role === "admin";
-  const lockedClass    = !isAdmin && user?.assigned_class ? user.assigned_class : "";
-  const lockedTeacher  = !isAdmin ? (user?.name || "") : "";
+  const isTeacher      = user?.role === "teacher";
+  const lockedClass    = isTeacher && user?.assigned_class ? user.assigned_class : "";
+  const lockedTeacher  = isTeacher ? (user?.name || "") : "";
 
   const blank = () => ({
     date: new Date().toISOString().slice(0,10),
