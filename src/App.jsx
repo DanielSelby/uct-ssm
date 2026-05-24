@@ -955,6 +955,8 @@ const PATHS = {
   sun:"M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z",
   moon:"M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z",
   bible:"M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253",
+  book:"M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253",
+  lesson:"M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01",
   upload:"M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12",
   pause:"M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z",
   play:"M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
@@ -1166,12 +1168,12 @@ const KpiCard = ({ label, value, sub, icon, color }) => {
   const c = color||t.gold;
   return (
     <div style={{ background:t.surfaceAlt, border:`1px solid ${t.border}`, borderRadius:14,
-      padding:"18px 20px", borderTop:`2px solid ${c}44` }}>
+      padding:"18px 20px", borderTop:`3px solid ${c}` }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
         <div>
-          <div style={{ fontSize:10, textTransform:"uppercase", letterSpacing:1.4, color:t.textMuted,
-            fontFamily:"'Trebuchet MS',sans-serif", marginBottom:8 }}>{label}</div>
-          <div style={{ fontSize:28, fontWeight:700, color:c, fontFamily:"'Georgia',serif", lineHeight:1 }}>{value}</div>
+          <div style={{ fontSize:14, fontWeight:800, color:t.text,
+            fontFamily:"'Trebuchet MS',sans-serif", marginBottom:8, lineHeight:1.3 }}>{label}</div>
+          <div style={{ fontSize:30, fontWeight:900, color:c, fontFamily:"'Georgia',serif", lineHeight:1 }}>{value}</div>
           {sub && <div style={{ fontSize:11, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginTop:5 }}>{sub}</div>}
         </div>
         <div style={{ width:42, height:42, borderRadius:12, background:c+"18",
@@ -4736,6 +4738,359 @@ Give clear, pastoral, ministry-focused insights. Use emojis sparingly. Be concis
   );
 };
 
+// ─── LESSONS PAGE ─────────────────────────────────────────────────────────────
+const useLessonsStore = () => {
+  const KEY = "uct_lessons_v1";
+  const load = () => { try { return JSON.parse(localStorage.getItem(KEY)||"[]"); } catch { return []; } };
+  const [lessons, setLessons] = useState(load);
+  const save = (arr) => { localStorage.setItem(KEY, JSON.stringify(arr)); setLessons(arr); };
+  const addLesson    = (l)  => save([{ ...l, id: uid(), createdAt: new Date().toISOString() }, ...lessons]);
+  const updateLesson = (id, upd) => save(lessons.map(l => l.id===id ? { ...l, ...upd } : l));
+  const deleteLesson = (id) => save(lessons.filter(l => l.id!==id));
+  return { lessons, addLesson, updateLesson, deleteLesson };
+};
+
+const LessonsPage = ({ db, user }) => {
+  const { t, card, inp, sel, lbl, btnGold, btnOutline, btnGhost, th, td } = useThemeStyles();
+  const { lessons, addLesson, updateLesson, deleteLesson } = useLessonsStore();
+  const { teachers, classes } = db;
+  const activeTeachers = teachers.filter(x => x.is_active === "YES");
+
+  const blank = () => ({
+    date: new Date().toISOString().slice(0,10),
+    class_name: "", teacher_name: user?.name||"",
+    topic: "", bible_references: "", memory_verse: "",
+    outline: "", key_points: "", assignment: "",
+    duration_mins: "", notes: "",
+  });
+
+  const [form, setForm]         = useState(blank);
+  const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId]     = useState(null);
+  const [search, setSearch]     = useState("");
+  const [filterClass, setFilterClass] = useState("");
+  const [filterTeacher, setFilterTeacher] = useState("");
+  const [filterMonth, setFilterMonth]   = useState("");
+  const [expandedId, setExpandedId]     = useState(null);
+  const [importText, setImportText]     = useState("");
+  const [showImport, setShowImport]     = useState(false);
+
+  const hc = (e) => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+
+  const handleSubmit = () => {
+    if (!form.topic.trim())   { alert("Topic is required."); return; }
+    if (!form.class_name)     { alert("Class is required."); return; }
+    if (!form.teacher_name)   { alert("Teacher is required."); return; }
+    if (editId) { updateLesson(editId, form); setEditId(null); }
+    else        { addLesson(form); }
+    setForm(blank()); setShowForm(false);
+  };
+
+  const startEdit = (l) => {
+    setForm({ ...blank(), ...l });
+    setEditId(l.id);
+    setShowForm(true);
+    window.scrollTo({ top:0, behavior:"smooth" });
+  };
+
+  // Bulk import from CSV-style text
+  const handleImport = () => {
+    const lines = importText.trim().split("\n").filter(Boolean);
+    let count = 0;
+    lines.forEach(line => {
+      // Expect: date, class, teacher, topic (comma-separated minimum)
+      const parts = line.split(",").map(s=>s.trim());
+      if (parts.length >= 4) {
+        addLesson({ date:parts[0]||"", class_name:parts[1]||"", teacher_name:parts[2]||"",
+          topic:parts[3]||"", bible_references:parts[4]||"", memory_verse:parts[5]||"",
+          outline:parts[6]||"", key_points:parts[7]||"", assignment:parts[8]||"",
+          duration_mins:parts[9]||"", notes:parts[10]||"" });
+        count++;
+      }
+    });
+    alert(`Imported ${count} lesson${count!==1?"s":""}.`);
+    setImportText(""); setShowImport(false);
+  };
+
+  const allMonths = [...new Set(lessons.map(l=>(l.date||"").slice(0,7)).filter(Boolean))].sort().reverse();
+
+  const filtered = lessons.filter(l => {
+    if (filterClass   && l.class_name   !== filterClass)   return false;
+    if (filterTeacher && l.teacher_name !== filterTeacher) return false;
+    if (filterMonth   && !(l.date||"").startsWith(filterMonth)) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      return (l.topic||"").toLowerCase().includes(q) ||
+             (l.teacher_name||"").toLowerCase().includes(q) ||
+             (l.class_name||"").toLowerCase().includes(q) ||
+             (l.outline||"").toLowerCase().includes(q);
+    }
+    return true;
+  });
+
+  const g2  = { display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 };
+  const fw  = (span=1) => ({ display:"flex", flexDirection:"column", gap:5, gridColumn:span===2?"1 / -1":"auto" });
+  const sec = { fontSize:11, fontWeight:700, color:t.gold, fontFamily:"'Trebuchet MS',sans-serif",
+    textTransform:"uppercase", letterSpacing:1.8, padding:"16px 0 8px",
+    borderTop:`1px solid ${t.border}`, marginTop:14 };
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:12, marginBottom:20 }}>
+        <div>
+          <div style={{ fontSize:23, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif", marginBottom:2 }}>
+            Lesson Register
+          </div>
+          <div style={{ fontSize:13, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}>
+            {lessons.length} lessons recorded · {filtered.length} shown
+          </div>
+        </div>
+        <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+          <button onClick={()=>{ setShowImport(v=>!v); setShowForm(false); }}
+            style={{ ...btnOutline, display:"flex", alignItems:"center", gap:6 }}>
+            <Icon name="upload" size={14} color={t.gold} /> Bulk Import
+          </button>
+          <button onClick={()=>{ setShowForm(v=>!v); setEditId(null); setForm(blank()); setShowImport(false); }}
+            style={{ ...btnGold, display:"flex", alignItems:"center", gap:6 }}>
+            <Icon name="plus" size={14} color="#fff" /> {showForm&&!editId ? "Cancel" : "Add Lesson"}
+          </button>
+        </div>
+      </div>
+
+      {/* Bulk Import Panel */}
+      {showImport && (
+        <div style={{ ...card, marginBottom:18, border:`1px solid ${t.warn}44`, background:t.warn+"08" }}>
+          <div style={{ fontSize:14, fontWeight:700, color:t.text, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:6 }}>
+            📥 Bulk Import Lessons
+          </div>
+          <div style={{ fontSize:12, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:10, lineHeight:1.6 }}>
+            Paste one lesson per line in CSV format:<br/>
+            <code style={{ background:t.surfaceAlt, padding:"2px 6px", borderRadius:4, fontSize:11 }}>
+              date, class, teacher, topic, bible_refs, memory_verse, outline, key_points, assignment, duration_mins, notes
+            </code>
+          </div>
+          <textarea rows={6} style={{ ...inp, fontFamily:"monospace", fontSize:12, marginBottom:10 }}
+            placeholder={"2026-05-18, Children (5-9), Mrs. Asante, The Good Samaritan, Luke 10:25-37, Love your neighbour, 1.Introduction 2.Story 3.Application, Show kindness, Draw the story, 45,\n2026-05-18, Teen (10-15), Mr. Boateng, Faith and Works, James 2:14-26, Faith without works is dead, ..."}
+            value={importText} onChange={e=>setImportText(e.target.value)} />
+          <div style={{ display:"flex", gap:10 }}>
+            <button onClick={handleImport} style={{ ...btnGold }}>Import</button>
+            <button onClick={()=>setShowImport(false)} style={{ ...btnOutline }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* Add / Edit Form */}
+      {showForm && (
+        <div style={{ ...card, marginBottom:20, border:`2px solid ${t.gold}33` }}>
+          <div style={{ fontSize:15, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif", marginBottom:14 }}>
+            {editId ? "✏️ Edit Lesson" : "📝 New Lesson Entry"}
+          </div>
+          <div style={g2}>
+            <div style={fw()}><label style={lbl}>Date *</label><input name="date" type="date" style={inp} value={form.date} onChange={hc} /></div>
+            <div style={fw()}><label style={lbl}>Class *</label>
+              <select name="class_name" style={{...sel,width:"100%"}} value={form.class_name} onChange={hc}>
+                <option value="">Select class…</option>
+                {classes.map(c=><option key={c.name} value={c.name}>{c.name}</option>)}
+              </select>
+            </div>
+            <div style={fw()}><label style={lbl}>Teacher *</label>
+              <select name="teacher_name" style={{...sel,width:"100%"}} value={form.teacher_name} onChange={hc}>
+                <option value="">Select teacher…</option>
+                {activeTeachers.map(x=><option key={x.name} value={x.name}>{x.name}</option>)}
+              </select>
+            </div>
+            <div style={fw()}><label style={lbl}>Duration (mins)</label><input name="duration_mins" type="number" style={inp} value={form.duration_mins} onChange={hc} /></div>
+          </div>
+
+          <div style={sec}>Lesson Content</div>
+          <div style={g2}>
+            <div style={fw(2)}><label style={lbl}>Topic / Title *</label><input name="topic" style={inp} value={form.topic} onChange={hc} placeholder="e.g. The Good Samaritan" /></div>
+            <div style={fw()}><label style={lbl}>Bible References</label><input name="bible_references" style={inp} value={form.bible_references} onChange={hc} placeholder="e.g. Luke 10:25-37" /></div>
+            <div style={fw()}><label style={lbl}>Memory Verse</label><input name="memory_verse" style={inp} value={form.memory_verse} onChange={hc} /></div>
+          </div>
+
+          <div style={sec}>Lesson Outline</div>
+          <div style={g2}>
+            <div style={fw(2)}><label style={lbl}>Full Outline / Structure</label>
+              <textarea name="outline" rows={5} style={{...inp,resize:"vertical"}} value={form.outline} onChange={hc}
+                placeholder={"1. Introduction (5 mins)\n2. Bible Story (15 mins)\n3. Discussion Questions (10 mins)\n4. Application (10 mins)\n5. Memory Verse & Closing Prayer (5 mins)"} />
+            </div>
+            <div style={fw(2)}><label style={lbl}>Key Points / Teaching Goals</label>
+              <textarea name="key_points" rows={3} style={{...inp,resize:"vertical"}} value={form.key_points} onChange={hc}
+                placeholder="• Children understand the meaning of neighbourly love&#10;• Apply kindness in daily life" />
+            </div>
+            <div style={fw(2)}><label style={lbl}>Assignment / Homework</label>
+              <textarea name="assignment" rows={2} style={{...inp,resize:"vertical"}} value={form.assignment} onChange={hc} />
+            </div>
+            <div style={fw(2)}><label style={lbl}>Additional Notes</label>
+              <textarea name="notes" rows={2} style={{...inp,resize:"vertical"}} value={form.notes} onChange={hc} />
+            </div>
+          </div>
+
+          <div style={{ marginTop:20, display:"flex", gap:12 }}>
+            <button onClick={handleSubmit} style={{ ...btnGold, padding:"12px 32px", fontSize:14 }}>
+              {editId ? "💾 Save Changes" : "✅ Save Lesson"}
+            </button>
+            <button onClick={()=>{ setShowForm(false); setEditId(null); setForm(blank()); }} style={{ ...btnOutline }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* Filters */}
+      <div style={{ ...card, marginBottom:14, display:"flex", gap:10, flexWrap:"wrap", alignItems:"center" }}>
+        <input style={{ ...inp, minWidth:200, flex:1 }} placeholder="🔍  Search topic, teacher, class, outline…"
+          value={search} onChange={e=>setSearch(e.target.value)} />
+        <select style={sel} value={filterClass} onChange={e=>setFilterClass(e.target.value)}>
+          <option value="">All Classes</option>
+          {[...new Set(lessons.map(l=>l.class_name).filter(Boolean))].sort().map(c=><option key={c}>{c}</option>)}
+        </select>
+        <select style={sel} value={filterTeacher} onChange={e=>setFilterTeacher(e.target.value)}>
+          <option value="">All Teachers</option>
+          {[...new Set(lessons.map(l=>l.teacher_name).filter(Boolean))].sort().map(t2=><option key={t2}>{t2}</option>)}
+        </select>
+        <select style={sel} value={filterMonth} onChange={e=>setFilterMonth(e.target.value)}>
+          <option value="">All Months</option>
+          {allMonths.map(m=>{
+            const [yr,mo]=m.split("-");
+            return <option key={m} value={m}>{new Date(yr,mo-1).toLocaleString("default",{month:"short",year:"numeric"})}</option>;
+          })}
+        </select>
+        {(search||filterClass||filterTeacher||filterMonth) && (
+          <button onClick={()=>{ setSearch(""); setFilterClass(""); setFilterTeacher(""); setFilterMonth(""); }}
+            style={{ padding:"8px 14px", borderRadius:9, border:`1px solid ${t.danger}44`,
+              background:t.danger+"11", color:t.danger, fontFamily:"'Trebuchet MS',sans-serif", fontSize:13, cursor:"pointer" }}>
+            ✕ Clear
+          </button>
+        )}
+      </div>
+
+      {/* Summary strip */}
+      {filtered.length > 0 && (
+        <div style={{ display:"flex", gap:10, marginBottom:14, flexWrap:"wrap" }}>
+          {[
+            { label:"Lessons",  value:filtered.length,                             color:t.gold },
+            { label:"Classes",  value:[...new Set(filtered.map(l=>l.class_name))].length, color:t.info },
+            { label:"Teachers", value:[...new Set(filtered.map(l=>l.teacher_name))].length, color:"#9B59B6" },
+          ].map(s=>(
+            <div key={s.label} style={{ ...card, padding:"10px 18px", flex:1, minWidth:100 }}>
+              <div style={{ fontSize:11, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1 }}>{s.label}</div>
+              <div style={{ fontSize:22, fontWeight:800, color:s.color, fontFamily:"'Georgia',serif" }}>{s.value}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Lessons list */}
+      {filtered.length === 0 ? (
+        <div style={{ ...card, textAlign:"center", padding:56, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}>
+          {lessons.length === 0 ? "No lessons yet. Click \"Add Lesson\" to get started." : "No lessons match your filters."}
+        </div>
+      ) : (
+        <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+          {filtered.map(l => {
+            const expanded = expandedId === l.id;
+            return (
+              <div key={l.id} style={{ ...card, padding:0, overflow:"hidden",
+                border:`1px solid ${expanded ? t.gold+"66" : t.border}`,
+                transition:"border 0.15s" }}>
+                {/* Row summary */}
+                <div style={{ display:"flex", alignItems:"center", gap:14, padding:"14px 18px",
+                  cursor:"pointer", background: expanded ? t.gold+"08" : "transparent" }}
+                  onClick={()=>setExpandedId(expanded ? null : l.id)}>
+                  {/* Date badge */}
+                  <div style={{ flexShrink:0, textAlign:"center", width:52,
+                    background:t.gold+"18", borderRadius:8, padding:"6px 0" }}>
+                    <div style={{ fontSize:18, fontWeight:800, color:t.gold, fontFamily:"'Georgia',serif", lineHeight:1 }}>
+                      {(l.date||"--").slice(8,10)}
+                    </div>
+                    <div style={{ fontSize:9, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase" }}>
+                      {l.date ? new Date(l.date).toLocaleString("default",{month:"short"}) : "--"}
+                    </div>
+                  </div>
+                  {/* Main info */}
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:15, fontWeight:700, color:t.text, fontFamily:"'Trebuchet MS',sans-serif",
+                      overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{l.topic||"(No topic)"}</div>
+                    <div style={{ fontSize:12, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginTop:3, display:"flex", gap:14, flexWrap:"wrap" }}>
+                      <span>🎓 {l.teacher_name||"—"}</span>
+                      <span>📚 {l.class_name||"—"}</span>
+                      {l.bible_references && <span>📖 {l.bible_references}</span>}
+                      {l.duration_mins && <span>⏱ {l.duration_mins} min</span>}
+                    </div>
+                  </div>
+                  {/* Actions */}
+                  <div style={{ display:"flex", gap:6, flexShrink:0 }} onClick={e=>e.stopPropagation()}>
+                    <button style={btnGhost} title="Edit" onClick={()=>startEdit(l)}>
+                      <Icon name="edit" size={13} color={t.warn} />
+                    </button>
+                    <button style={btnGhost} title="Delete"
+                      onClick={()=>{ if(window.confirm(`Delete "${l.topic}"?`)) deleteLesson(l.id); }}>
+                      <Icon name="trash" size={13} color={t.danger} />
+                    </button>
+                  </div>
+                  <Icon name={expanded?"close":"eye"} size={15} color={t.textFaint} />
+                </div>
+
+                {/* Expanded detail */}
+                {expanded && (
+                  <div style={{ borderTop:`1px solid ${t.border}`, padding:"16px 20px",
+                    display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))", gap:20 }}>
+                    {l.outline && (
+                      <div>
+                        <div style={{ fontSize:11, fontWeight:700, color:t.gold, textTransform:"uppercase",
+                          letterSpacing:1.2, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:6 }}>📋 Lesson Outline</div>
+                        <div style={{ fontSize:13, color:t.text, fontFamily:"'Trebuchet MS',sans-serif",
+                          whiteSpace:"pre-wrap", lineHeight:1.7 }}>{l.outline}</div>
+                      </div>
+                    )}
+                    {l.key_points && (
+                      <div>
+                        <div style={{ fontSize:11, fontWeight:700, color:t.info, textTransform:"uppercase",
+                          letterSpacing:1.2, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:6 }}>🎯 Key Points</div>
+                        <div style={{ fontSize:13, color:t.text, fontFamily:"'Trebuchet MS',sans-serif",
+                          whiteSpace:"pre-wrap", lineHeight:1.7 }}>{l.key_points}</div>
+                      </div>
+                    )}
+                    {(l.memory_verse||l.assignment||l.notes) && (
+                      <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+                        {l.memory_verse && (
+                          <div>
+                            <div style={{ fontSize:11, fontWeight:700, color:"#9B59B6", textTransform:"uppercase",
+                              letterSpacing:1.2, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:4 }}>📜 Memory Verse</div>
+                            <div style={{ fontSize:13, color:t.text, fontFamily:"'Trebuchet MS',sans-serif",
+                              fontStyle:"italic", lineHeight:1.6 }}>"{l.memory_verse}"</div>
+                          </div>
+                        )}
+                        {l.assignment && (
+                          <div>
+                            <div style={{ fontSize:11, fontWeight:700, color:ACTIVE_COLOR, textTransform:"uppercase",
+                              letterSpacing:1.2, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:4 }}>📝 Assignment</div>
+                            <div style={{ fontSize:13, color:t.text, fontFamily:"'Trebuchet MS',sans-serif",
+                              whiteSpace:"pre-wrap", lineHeight:1.6 }}>{l.assignment}</div>
+                          </div>
+                        )}
+                        {l.notes && (
+                          <div>
+                            <div style={{ fontSize:11, fontWeight:700, color:t.textMuted, textTransform:"uppercase",
+                              letterSpacing:1.2, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:4 }}>🗒 Notes</div>
+                            <div style={{ fontSize:13, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif",
+                              whiteSpace:"pre-wrap", lineHeight:1.6 }}>{l.notes}</div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── SIDEBAR ──────────────────────────────────────────────────────────────────
 const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => {
   const { mode, dark, toggle } = useTheme();
@@ -4750,6 +5105,7 @@ const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => 
     {id:"church",     label:"Church Attend.", icon:"cross",      perm:"church"},
     {id:"analytics",  label:"Analytics",      icon:"analytics",  perm:"analytics"},
     {id:"ai",         label:"AI Assistant",   icon:"ai",         perm:"dashboard"},
+    {id:"lessons",    label:"Lesson Register", icon:"lesson",     perm:"attendance"},
     {id:"teachers",   label:"Teachers",       icon:"teachers",   perm:"teachers"},
     {id:"classes",    label:"Classes",        icon:"classes",    perm:"classes"},
     {id:"programs",   label:"Programs",       icon:"settings",   perm:"programs"},
@@ -4765,6 +5121,7 @@ const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => 
     {id:"attendance", label:"My Records",     icon:"attendance", perm:"attendance"},
     {id:"analytics",  label:"Analytics",      icon:"analytics",  perm:"analytics"},
     {id:"ai",         label:"AI Assistant",   icon:"ai",         perm:"attendance"},
+    {id:"lessons",    label:"Lesson Register", icon:"lesson",     perm:"attendance"},
     {id:"export",     label:"Export",         icon:"export",     perm:"export"},
   ];
 
@@ -5033,6 +5390,7 @@ const MobileDrawer = ({ open, onClose, page, setPage, user, onLogout, db }) => {
     {id:"church",     label:"Church Attend.", icon:"cross"},
     {id:"analytics",  label:"Analytics",      icon:"analytics"},
     {id:"ai",         label:"AI Assistant",   icon:"ai"},
+    {id:"lessons",    label:"Lesson Register", icon:"lesson"},
     {id:"teachers",   label:"Teachers",       icon:"teachers"},
     {id:"classes",    label:"Classes",        icon:"classes"},
     {id:"programs",   label:"Programs",       icon:"settings"},
@@ -5047,6 +5405,7 @@ const MobileDrawer = ({ open, onClose, page, setPage, user, onLogout, db }) => {
     {id:"attendance", label:"My Records",     icon:"attendance",perm:"attendance"},
     {id:"analytics",  label:"Analytics",      icon:"analytics", perm:"analytics"},
     {id:"ai",         label:"AI Assistant",   icon:"ai",        perm:"attendance"},
+    {id:"lessons",    label:"Lesson Register", icon:"lesson",    perm:"attendance"},
     {id:"export",     label:"Export",         icon:"export",    perm:"export"},
   ].filter(n => can(n.perm||n.id));
 
@@ -5194,6 +5553,7 @@ export default function App() {
       editRecord={editingRecord}
       onCancelEdit={()=>{ setEditingRecord(null); setPage("attendance"); }} />),
     ssreport:  guard("attendance", <SSReportPage db={db} />),
+    lessons:   guard("attendance", <LessonsPage db={db} user={user} />),
     ai:        <AIAssistantPage db={db} user={user} />,
   };
 
