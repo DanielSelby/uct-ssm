@@ -1174,7 +1174,7 @@ const KpiCard = ({ label, value, sub, icon, color }) => {
       padding:"18px 20px", borderTop:`3px solid ${c}` }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
         <div>
-          <div style={{ fontSize:16, fontWeight:800, color:t.text,
+          <div style={{ fontSize:14, fontWeight:800, color:t.text,
             fontFamily:"'Trebuchet MS',sans-serif", marginBottom:8, lineHeight:1.3 }}>{label}</div>
           <div style={{ fontSize:30, fontWeight:900, color:c, fontFamily:"'Georgia',serif", lineHeight:1 }}>{value}</div>
           {sub && <div style={{ fontSize:11, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginTop:5 }}>{sub}</div>}
@@ -4753,6 +4753,294 @@ const useLessonsStore = () => {
   return { lessons, addLesson, updateLesson, deleteLesson };
 };
 
+// ─── ALL LESSONS MODAL ───────────────────────────────────────────────────────
+const AllLessonsModal = ({ lessons, onClose, deleteLesson, startEdit }) => {
+  const { t, card, inp, sel, btnGhost, th, td } = useThemeStyles();
+  const [search, setSearch]           = useState("");
+  const [filterClass, setFilterClass] = useState("");
+  const [filterTeacher, setFilterTeacher] = useState("");
+  const [filterMonth, setFilterMonth] = useState("");
+  const [filterBible, setFilterBible] = useState("");
+  const [sortBy, setSortBy]           = useState("date_desc");
+  const [expandedId, setExpandedId]   = useState(null);
+
+  const allClasses  = [...new Set(lessons.map(l=>l.class_name).filter(Boolean))].sort();
+  const allTeachers = [...new Set(lessons.map(l=>l.teacher_name).filter(Boolean))].sort();
+  const allMonths   = [...new Set(lessons.map(l=>(l.date||"").slice(0,7)).filter(Boolean))].sort().reverse();
+
+  const filtered = lessons.filter(l => {
+    if (filterClass   && l.class_name   !== filterClass)         return false;
+    if (filterTeacher && l.teacher_name !== filterTeacher)       return false;
+    if (filterMonth   && !(l.date||"").startsWith(filterMonth))  return false;
+    if (filterBible   && !(l.bible_references||"").toLowerCase().includes(filterBible.toLowerCase())) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      return (l.topic||"").toLowerCase().includes(q) ||
+             (l.teacher_name||"").toLowerCase().includes(q) ||
+             (l.class_name||"").toLowerCase().includes(q) ||
+             (l.bible_references||"").toLowerCase().includes(q) ||
+             (l.memory_verse||"").toLowerCase().includes(q) ||
+             (l.outline||"").toLowerCase().includes(q) ||
+             (l.notes||"").toLowerCase().includes(q);
+    }
+    return true;
+  }).sort((a,b) => {
+    if (sortBy==="date_desc")    return (b.date||"").localeCompare(a.date||"");
+    if (sortBy==="date_asc")     return (a.date||"").localeCompare(b.date||"");
+    if (sortBy==="topic_asc")    return (a.topic||"").localeCompare(b.topic||"");
+    if (sortBy==="class_asc")    return (a.class_name||"").localeCompare(b.class_name||"");
+    if (sortBy==="teacher_asc")  return (a.teacher_name||"").localeCompare(b.teacher_name||"");
+    return 0;
+  });
+
+  const hasFilter = search||filterClass||filterTeacher||filterMonth||filterBible;
+  const clearAll  = () => { setSearch(""); setFilterClass(""); setFilterTeacher(""); setFilterMonth(""); setFilterBible(""); };
+
+  const fmtDate = (d) => {
+    if (!d) return "—";
+    const dt = new Date(d);
+    return isNaN(dt) ? d : dt.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
+  };
+
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:800, display:"flex", flexDirection:"column" }}>
+      {/* Backdrop */}
+      <div onClick={onClose} style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.62)" }} />
+
+      {/* Panel */}
+      <div style={{ position:"relative", margin:"auto", width:"min(98vw,1050px)", maxHeight:"92vh",
+        background:t.surface, borderRadius:18, display:"flex", flexDirection:"column",
+        boxShadow:"0 24px 80px rgba(0,0,0,0.45)", overflow:"hidden" }}>
+
+        {/* Header */}
+        <div style={{ padding:"18px 24px 14px", borderBottom:`1px solid ${t.border}`,
+          background:t.surfaceAlt, display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
+          <div>
+            <div style={{ fontSize:20, fontWeight:800, color:t.gold, fontFamily:"'Georgia',serif" }}>
+              📚 All Submitted Lessons
+            </div>
+            <div style={{ fontSize:12, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginTop:2 }}>
+              {filtered.length} of {lessons.length} lessons shown
+            </div>
+          </div>
+          <button onClick={onClose}
+            style={{ background:t.danger+"18", border:`1px solid ${t.danger}44`, borderRadius:9,
+              padding:"8px 14px", cursor:"pointer", color:t.danger, fontFamily:"'Trebuchet MS',sans-serif",
+              fontSize:13, display:"flex", alignItems:"center", gap:6, fontWeight:700 }}>
+            <Icon name="close" size={14} color={t.danger} /> Close
+          </button>
+        </div>
+
+        {/* Filters bar */}
+        <div style={{ padding:"12px 20px", borderBottom:`1px solid ${t.border}`,
+          background:t.surface, display:"flex", gap:8, flexWrap:"wrap", alignItems:"center", flexShrink:0 }}>
+          {/* Search */}
+          <input style={{ ...inp, minWidth:190, flex:2 }}
+            placeholder="🔍 Search topic, teacher, class, verse, notes…"
+            value={search} onChange={e=>setSearch(e.target.value)} />
+          {/* Class */}
+          <select style={{ ...sel, minWidth:140 }} value={filterClass} onChange={e=>setFilterClass(e.target.value)}>
+            <option value="">All Classes</option>
+            {allClasses.map(c=><option key={c} value={c}>{c}</option>)}
+          </select>
+          {/* Teacher */}
+          <select style={{ ...sel, minWidth:150 }} value={filterTeacher} onChange={e=>setFilterTeacher(e.target.value)}>
+            <option value="">All Teachers</option>
+            {allTeachers.map(tc=><option key={tc} value={tc}>{tc}</option>)}
+          </select>
+          {/* Month */}
+          <select style={{ ...sel, minWidth:130 }} value={filterMonth} onChange={e=>setFilterMonth(e.target.value)}>
+            <option value="">All Months</option>
+            {allMonths.map(m=>{
+              const [yr,mo]=m.split("-");
+              return <option key={m} value={m}>{new Date(yr,mo-1).toLocaleString("default",{month:"short",year:"numeric"})}</option>;
+            })}
+          </select>
+          {/* Bible ref */}
+          <input style={{ ...inp, minWidth:130, flex:1 }}
+            placeholder="📖 Bible ref…"
+            value={filterBible} onChange={e=>setFilterBible(e.target.value)} />
+          {/* Sort */}
+          <select style={{ ...sel, minWidth:140 }} value={sortBy} onChange={e=>setSortBy(e.target.value)}>
+            <option value="date_desc">Newest First</option>
+            <option value="date_asc">Oldest First</option>
+            <option value="topic_asc">Topic A–Z</option>
+            <option value="class_asc">Class A–Z</option>
+            <option value="teacher_asc">Teacher A–Z</option>
+          </select>
+          {hasFilter && (
+            <button onClick={clearAll}
+              style={{ padding:"8px 13px", borderRadius:9, border:`1px solid ${t.danger}44`,
+                background:t.danger+"11", color:t.danger, fontFamily:"'Trebuchet MS',sans-serif",
+                fontSize:13, cursor:"pointer", whiteSpace:"nowrap" }}>
+              ✕ Clear All
+            </button>
+          )}
+        </div>
+
+        {/* Summary chips */}
+        {filtered.length > 0 && (
+          <div style={{ padding:"8px 20px 0", display:"flex", gap:8, flexWrap:"wrap", flexShrink:0 }}>
+            {[
+              { label:`${filtered.length} Lesson${filtered.length!==1?"s":""}`, color:t.gold },
+              { label:`${[...new Set(filtered.map(l=>l.class_name))].length} Class${[...new Set(filtered.map(l=>l.class_name))].length!==1?"es":""}`, color:t.info },
+              { label:`${[...new Set(filtered.map(l=>l.teacher_name))].length} Teacher${[...new Set(filtered.map(l=>l.teacher_name))].length!==1?"s":""}`, color:"#9B59B6" },
+              { label:`${filtered.reduce((s,l)=>s+(Number(l.duration_mins)||0),0)} Total Mins`, color:t.success },
+            ].map(s=>(
+              <span key={s.label} style={{ fontSize:11, padding:"3px 11px", borderRadius:20,
+                background:s.color+"18", color:s.color, fontFamily:"'Trebuchet MS',sans-serif",
+                fontWeight:700, border:`1px solid ${s.color}33` }}>{s.label}</span>
+            ))}
+          </div>
+        )}
+
+        {/* Lessons list */}
+        <div style={{ flex:1, overflowY:"auto", padding:"12px 20px 20px" }}>
+          {filtered.length === 0 ? (
+            <div style={{ textAlign:"center", padding:60, color:t.textMuted,
+              fontFamily:"'Trebuchet MS',sans-serif", fontSize:14 }}>
+              {lessons.length===0 ? "No lessons recorded yet." : "No lessons match your filters."}
+            </div>
+          ) : (
+            <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+              {filtered.map((l,idx) => {
+                const expanded = expandedId === l.id;
+                return (
+                  <div key={l.id} style={{ borderRadius:12, overflow:"hidden",
+                    border:`1px solid ${expanded ? t.gold+"66" : t.border}`,
+                    background: expanded ? t.gold+"06" : t.surface,
+                    transition:"all 0.15s" }}>
+
+                    {/* Row */}
+                    <div style={{ display:"flex", alignItems:"center", gap:12, padding:"13px 16px",
+                      cursor:"pointer" }}
+                      onClick={()=>setExpandedId(expanded ? null : l.id)}>
+
+                      {/* Index badge */}
+                      <div style={{ flexShrink:0, width:28, height:28, borderRadius:"50%",
+                        background:t.gold+"22", display:"flex", alignItems:"center", justifyContent:"center",
+                        fontSize:11, fontWeight:800, color:t.gold, fontFamily:"'Georgia',serif" }}>
+                        {idx+1}
+                      </div>
+
+                      {/* Date badge */}
+                      <div style={{ flexShrink:0, textAlign:"center", width:48,
+                        background:t.surfaceAlt, borderRadius:8, padding:"5px 0",
+                        border:`1px solid ${t.border}` }}>
+                        <div style={{ fontSize:16, fontWeight:800, color:t.gold, fontFamily:"'Georgia',serif", lineHeight:1 }}>
+                          {(l.date||"--").slice(8,10)}
+                        </div>
+                        <div style={{ fontSize:9, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase" }}>
+                          {l.date ? new Date(l.date).toLocaleString("default",{month:"short"}) : "--"}
+                        </div>
+                        <div style={{ fontSize:9, color:t.textFaint, fontFamily:"'Trebuchet MS',sans-serif" }}>
+                          {(l.date||"").slice(0,4)}
+                        </div>
+                      </div>
+
+                      {/* Main info */}
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:14, fontWeight:700, color:t.text,
+                          fontFamily:"'Trebuchet MS',sans-serif",
+                          overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                          {l.topic||"(No topic)"}
+                        </div>
+                        <div style={{ fontSize:11, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif",
+                          marginTop:3, display:"flex", gap:12, flexWrap:"wrap" }}>
+                          <span>🎓 {l.teacher_name||"—"}</span>
+                          <span>📚 {l.class_name||"—"}</span>
+                          {l.bible_references && <span>📖 {l.bible_references}</span>}
+                          {l.memory_verse && <span style={{ fontStyle:"italic" }}>📜 {l.memory_verse.length>30?l.memory_verse.slice(0,30)+"…":l.memory_verse}</span>}
+                          {l.duration_mins && <span>⏱ {l.duration_mins} min</span>}
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div style={{ display:"flex", gap:5, flexShrink:0 }} onClick={e=>e.stopPropagation()}>
+                        <button style={{ padding:"6px 8px", borderRadius:7, border:`1px solid ${t.warn}33`,
+                          background:t.warn+"11", cursor:"pointer" }}
+                          title="Edit" onClick={()=>{ startEdit(l); onClose(); }}>
+                          <Icon name="edit" size={13} color={t.warn} />
+                        </button>
+                        <button style={{ padding:"6px 8px", borderRadius:7, border:`1px solid ${t.danger}33`,
+                          background:t.danger+"11", cursor:"pointer" }}
+                          title="Delete"
+                          onClick={()=>{ if(window.confirm(`Delete "${l.topic}"?`)) deleteLesson(l.id); }}>
+                          <Icon name="trash" size={13} color={t.danger} />
+                        </button>
+                      </div>
+
+                      <Icon name={expanded?"close":"eye"} size={14} color={t.textFaint} />
+                    </div>
+
+                    {/* Expanded detail */}
+                    {expanded && (
+                      <div style={{ borderTop:`1px solid ${t.border}`, padding:"16px 20px",
+                        display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))", gap:18 }}>
+
+                        {l.outline && (
+                          <div>
+                            <div style={{ fontSize:10, fontWeight:700, color:t.gold, textTransform:"uppercase",
+                              letterSpacing:1.4, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:6 }}>📋 Lesson Outline</div>
+                            <div style={{ fontSize:13, color:t.text, fontFamily:"'Trebuchet MS',sans-serif",
+                              whiteSpace:"pre-wrap", lineHeight:1.7 }}>{l.outline}</div>
+                          </div>
+                        )}
+                        {l.key_points && (
+                          <div>
+                            <div style={{ fontSize:10, fontWeight:700, color:t.info, textTransform:"uppercase",
+                              letterSpacing:1.4, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:6 }}>🎯 Key Points</div>
+                            <div style={{ fontSize:13, color:t.text, fontFamily:"'Trebuchet MS',sans-serif",
+                              whiteSpace:"pre-wrap", lineHeight:1.7 }}>{l.key_points}</div>
+                          </div>
+                        )}
+                        {(l.memory_verse||l.assignment||l.notes) && (
+                          <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+                            {l.memory_verse && (
+                              <div>
+                                <div style={{ fontSize:10, fontWeight:700, color:"#9B59B6", textTransform:"uppercase",
+                                  letterSpacing:1.4, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:4 }}>📜 Memory Verse</div>
+                                <div style={{ fontSize:13, color:t.text, fontFamily:"'Trebuchet MS',sans-serif",
+                                  fontStyle:"italic", lineHeight:1.6 }}>"{l.memory_verse}"</div>
+                              </div>
+                            )}
+                            {l.assignment && (
+                              <div>
+                                <div style={{ fontSize:10, fontWeight:700, color:ACTIVE_COLOR, textTransform:"uppercase",
+                                  letterSpacing:1.4, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:4 }}>📝 Assignment</div>
+                                <div style={{ fontSize:13, color:t.text, fontFamily:"'Trebuchet MS',sans-serif",
+                                  whiteSpace:"pre-wrap", lineHeight:1.6 }}>{l.assignment}</div>
+                              </div>
+                            )}
+                            {l.notes && (
+                              <div>
+                                <div style={{ fontSize:10, fontWeight:700, color:t.textMuted, textTransform:"uppercase",
+                                  letterSpacing:1.4, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:4 }}>🗒 Notes</div>
+                                <div style={{ fontSize:13, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif",
+                                  whiteSpace:"pre-wrap", lineHeight:1.6 }}>{l.notes}</div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Full date */}
+                        <div style={{ fontSize:11, color:t.textFaint, fontFamily:"'Trebuchet MS',sans-serif",
+                          gridColumn:"1 / -1", paddingTop:8, borderTop:`1px solid ${t.border}` }}>
+                          Recorded on {fmtDate(l.date)}{l.duration_mins ? ` · Duration: ${l.duration_mins} mins` : ""}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const LessonsPage = ({ db, user }) => {
   const { t, card, inp, sel, lbl, btnGold, btnOutline, btnGhost, th, td } = useThemeStyles();
   const { lessons, addLesson, updateLesson, deleteLesson } = useLessonsStore();
@@ -4775,8 +5063,9 @@ const LessonsPage = ({ db, user }) => {
   const [filterTeacher, setFilterTeacher] = useState("");
   const [filterMonth, setFilterMonth]   = useState("");
   const [expandedId, setExpandedId]     = useState(null);
-  const [importText, setImportText]     = useState("");
+  const [importText, setImportText_unused]  = useState(""); // kept for compat, unused
   const [showImport, setShowImport]     = useState(false);
+  const [showAllLessons, setShowAllLessons] = useState(false);
 
   const hc = (e) => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
 
@@ -4796,23 +5085,103 @@ const LessonsPage = ({ db, user }) => {
     window.scrollTo({ top:0, behavior:"smooth" });
   };
 
-  // Bulk import from CSV-style text
-  const handleImport = () => {
-    const lines = importText.trim().split("\n").filter(Boolean);
-    let count = 0;
-    lines.forEach(line => {
-      // Expect: date, class, teacher, topic (comma-separated minimum)
-      const parts = line.split(",").map(s=>s.trim());
-      if (parts.length >= 4) {
-        addLesson({ date:parts[0]||"", class_name:parts[1]||"", teacher_name:parts[2]||"",
-          topic:parts[3]||"", bible_references:parts[4]||"", memory_verse:parts[5]||"",
-          outline:parts[6]||"", key_points:parts[7]||"", assignment:parts[8]||"",
-          duration_mins:parts[9]||"", notes:parts[10]||"" });
-        count++;
+  // ── Download Excel template ──────────────────────────────────
+  const downloadTemplate = () => {
+    const wb = XLSX.utils.book_new();
+
+    // ── Instructions sheet ────────────────────────────────────
+    const instr = [
+      ["UCT Sunday School — Lesson Register Import Template"],
+      [""],
+      ["INSTRUCTIONS:"],
+      ["1. Go to the 'Lessons' sheet and fill in your lesson data starting from row 3."],
+      ["2. Do NOT change or delete the column headers in row 2."],
+      ["3. DATE must be in YYYY-MM-DD format (e.g. 2026-05-18)."],
+      ["4. DURATION_MINS should be a number only (e.g. 45)."],
+      ["5. Required columns: Date, Class_Name, Teacher_Name, Topic."],
+      ["6. All other columns are optional but recommended."],
+      ["7. Save the file as .xlsx and click 'Import Excel File' to upload."],
+      [""],
+      ["COLUMN GUIDE:"],
+      ["Date",           "Date of the lesson (YYYY-MM-DD)"],
+      ["Class_Name",     "Name of the class (e.g. Children (5-9), Teen (10-15))"],
+      ["Teacher_Name",   "Full name of the teacher"],
+      ["Topic",          "Title or topic of the lesson"],
+      ["Bible_References","Scripture references (e.g. Luke 10:25-37)"],
+      ["Memory_Verse",   "The memory verse for the lesson"],
+      ["Outline",        "Full lesson outline / structure"],
+      ["Key_Points",     "Key teaching goals or points"],
+      ["Assignment",     "Homework or assignment given"],
+      ["Duration_Mins",  "Duration of the lesson in minutes (number only)"],
+      ["Notes",          "Any additional notes"],
+    ];
+    const wsInstr = XLSX.utils.aoa_to_sheet(instr);
+    wsInstr["!cols"] = [{ wch:22 },{ wch:60 }];
+    XLSX.utils.book_append_sheet(wb, wsInstr, "Instructions");
+
+    // ── Lessons data sheet ────────────────────────────────────
+    const headers = ["Date","Class_Name","Teacher_Name","Topic","Bible_References","Memory_Verse","Outline","Key_Points","Assignment","Duration_Mins","Notes"];
+    const sample = [
+      ["2026-05-18","Children (5-9)","Mrs. Asante","The Good Samaritan","Luke 10:25-37","Love your neighbour as yourself","1. Opening Prayer (5 min)\n2. Bible Story (15 min)\n3. Discussion (10 min)\n4. Application (10 min)\n5. Memory Verse & Close (5 min)","• Understand neighbourly love\n• Apply kindness daily","Draw the parable scene in your notebook","45","Went well; children were engaged"],
+      ["2026-05-18","Teen (10-15)","Mr. Boateng","Faith and Works","James 2:14-26","Faith without works is dead","1. Recap last week (5 min)\n2. Read passage (10 min)\n3. Group discussion (15 min)\n4. Practical challenge (10 min)\n5. Prayer (5 min)","• Faith must produce action\n• Identify one act of service this week","List 3 ways to serve someone this week","45",""],
+    ];
+    const wsData = XLSX.utils.aoa_to_sheet([headers, ...sample]);
+    wsData["!cols"] = headers.map((h,i) => ({
+      wch: [12,18,18,28,20,26,40,28,24,14,24][i]
+    }));
+    XLSX.utils.book_append_sheet(wb, wsData, "Lessons");
+
+    XLSX.writeFile(wb, "UCT_LessonRegister_Template.xlsx");
+  };
+
+  // ── Import from uploaded Excel file ──────────────────────────
+  const handleFileImport = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const wb    = XLSX.read(ev.target.result, { type:"binary" });
+        // Try "Lessons" sheet first, fall back to first sheet
+        const sheetName = wb.SheetNames.includes("Lessons") ? "Lessons" : wb.SheetNames[0];
+        const rows  = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval:"" });
+        if (!rows.length) { alert("No data rows found in the file."); return; }
+        let count = 0, skipped = 0;
+        rows.forEach(row => {
+          // Normalise keys: lowercase + underscores
+          const r = {};
+          Object.keys(row).forEach(k => { r[k.toLowerCase().replace(/\s+/g,"_")] = String(row[k]||"").trim(); });
+          const date     = r["date"]||"";
+          const cls      = r["class_name"]||r["class"]||"";
+          const teacher  = r["teacher_name"]||r["teacher"]||"";
+          const topic    = r["topic"]||"";
+          if (!topic || !cls || !teacher) { skipped++; return; }
+          addLesson({
+            date,
+            class_name:       cls,
+            teacher_name:     teacher,
+            topic,
+            bible_references: r["bible_references"]||r["bible_refs"]||"",
+            memory_verse:     r["memory_verse"]||"",
+            outline:          r["outline"]||"",
+            key_points:       r["key_points"]||"",
+            assignment:       r["assignment"]||"",
+            duration_mins:    r["duration_mins"]||r["duration"]||"",
+            notes:            r["notes"]||"",
+          });
+          count++;
+        });
+        let msg = `✅ ${count} lesson${count!==1?"s":""} imported successfully.`;
+        if (skipped) msg += `\n⚠ ${skipped} row${skipped!==1?"s":""} skipped (missing Topic, Class, or Teacher).`;
+        alert(msg);
+        setShowImport(false);
+      } catch(err) {
+        alert("Could not read the file. Make sure it is a valid .xlsx file.\n\n" + err.message);
       }
-    });
-    alert(`Imported ${count} lesson${count!==1?"s":""}.`);
-    setImportText(""); setShowImport(false);
+    };
+    reader.readAsBinaryString(file);
+    // Reset input so same file can be re-imported
+    e.target.value = "";
   };
 
   const allMonths = [...new Set(lessons.map(l=>(l.date||"").slice(0,7)).filter(Boolean))].sort().reverse();
@@ -4839,6 +5208,16 @@ const LessonsPage = ({ db, user }) => {
 
   return (
     <div>
+      {/* All Lessons Modal */}
+      {showAllLessons && (
+        <AllLessonsModal
+          lessons={lessons}
+          onClose={()=>setShowAllLessons(false)}
+          deleteLesson={deleteLesson}
+          startEdit={startEdit}
+        />
+      )}
+
       {/* Header */}
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:12, marginBottom:20 }}>
         <div>
@@ -4850,6 +5229,12 @@ const LessonsPage = ({ db, user }) => {
           </div>
         </div>
         <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+          <button onClick={()=>setShowAllLessons(true)}
+            style={{ ...btnOutline, display:"flex", alignItems:"center", gap:6,
+              border:`1px solid ${t.info}66`, color:t.info, background:t.info+"11" }}>
+            <Icon name="eye" size={14} color={t.info} />
+            View All Lessons ({lessons.length})
+          </button>
           <button onClick={()=>{ setShowImport(v=>!v); setShowForm(false); }}
             style={{ ...btnOutline, display:"flex", alignItems:"center", gap:6 }}>
             <Icon name="upload" size={14} color={t.gold} /> Bulk Import
@@ -4864,22 +5249,84 @@ const LessonsPage = ({ db, user }) => {
       {/* Bulk Import Panel */}
       {showImport && (
         <div style={{ ...card, marginBottom:18, border:`1px solid ${t.warn}44`, background:t.warn+"08" }}>
-          <div style={{ fontSize:14, fontWeight:700, color:t.text, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:6 }}>
+          <div style={{ fontSize:15, fontWeight:700, color:t.text, fontFamily:"'Georgia',serif", marginBottom:4 }}>
             📥 Bulk Import Lessons
           </div>
-          <div style={{ fontSize:12, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:10, lineHeight:1.6 }}>
-            Paste one lesson per line in CSV format:<br/>
-            <code style={{ background:t.surfaceAlt, padding:"2px 6px", borderRadius:4, fontSize:11 }}>
-              date, class, teacher, topic, bible_refs, memory_verse, outline, key_points, assignment, duration_mins, notes
-            </code>
+          <div style={{ fontSize:12, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:18, lineHeight:1.7 }}>
+            Download the Excel template, fill in your lesson data, then upload it here.
           </div>
-          <textarea rows={6} style={{ ...inp, fontFamily:"monospace", fontSize:12, marginBottom:10 }}
-            placeholder={"2026-05-18, Children (5-9), Mrs. Asante, The Good Samaritan, Luke 10:25-37, Love your neighbour, 1.Introduction 2.Story 3.Application, Show kindness, Draw the story, 45,\n2026-05-18, Teen (10-15), Mr. Boateng, Faith and Works, James 2:14-26, Faith without works is dead, ..."}
-            value={importText} onChange={e=>setImportText(e.target.value)} />
-          <div style={{ display:"flex", gap:10 }}>
-            <button onClick={handleImport} style={{ ...btnGold }}>Import</button>
-            <button onClick={()=>setShowImport(false)} style={{ ...btnOutline }}>Cancel</button>
+
+          {/* Step 1 */}
+          <div style={{ display:"flex", alignItems:"flex-start", gap:14, padding:"14px 16px",
+            borderRadius:10, background:t.surfaceAlt, border:`1px solid ${t.border}`, marginBottom:12 }}>
+            <div style={{ width:32, height:32, borderRadius:"50%", background:t.gold+"22",
+              display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
+              fontSize:14, fontWeight:800, color:t.gold, fontFamily:"'Georgia',serif" }}>1</div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:13, fontWeight:700, color:t.text, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:4 }}>
+                Download the Template
+              </div>
+              <div style={{ fontSize:12, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:10, lineHeight:1.6 }}>
+                Click below to get the Excel template. It includes an <strong>Instructions</strong> sheet and a <strong>Lessons</strong> sheet with sample rows and all column headers pre-filled.
+              </div>
+              <button onClick={downloadTemplate}
+                style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"9px 20px",
+                  borderRadius:9, border:`1px solid ${t.success}66`, background:t.success+"18",
+                  color:t.success, fontFamily:"'Trebuchet MS',sans-serif", fontSize:13,
+                  fontWeight:700, cursor:"pointer" }}>
+                <Icon name="export" size={15} color={t.success} />
+                ⬇ Download Excel Template
+              </button>
+            </div>
           </div>
+
+          {/* Step 2 */}
+          <div style={{ display:"flex", alignItems:"flex-start", gap:14, padding:"14px 16px",
+            borderRadius:10, background:t.surfaceAlt, border:`1px solid ${t.border}`, marginBottom:12 }}>
+            <div style={{ width:32, height:32, borderRadius:"50%", background:t.info+"22",
+              display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
+              fontSize:14, fontWeight:800, color:t.info, fontFamily:"'Georgia',serif" }}>2</div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:13, fontWeight:700, color:t.text, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:4 }}>
+                Fill In Your Lessons
+              </div>
+              <div style={{ fontSize:12, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", lineHeight:1.6 }}>
+                Open the file, go to the <strong>Lessons</strong> sheet, and enter your data from row 3 downward.
+                Do <strong>not</strong> rename or remove the header row. Required: <em>Date, Class_Name, Teacher_Name, Topic</em>.
+              </div>
+            </div>
+          </div>
+
+          {/* Step 3 */}
+          <div style={{ display:"flex", alignItems:"flex-start", gap:14, padding:"14px 16px",
+            borderRadius:10, background:t.surfaceAlt, border:`1px solid ${t.border}`, marginBottom:16 }}>
+            <div style={{ width:32, height:32, borderRadius:"50%", background:ACTIVE_COLOR+"22",
+              display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
+              fontSize:14, fontWeight:800, color:ACTIVE_COLOR, fontFamily:"'Georgia',serif" }}>3</div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:13, fontWeight:700, color:t.text, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:4 }}>
+                Upload &amp; Import
+              </div>
+              <div style={{ fontSize:12, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:10, lineHeight:1.6 }}>
+                Save your filled template and upload it below. The system will read the <strong>Lessons</strong> sheet automatically.
+              </div>
+              <label style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"9px 20px",
+                borderRadius:9, border:`1px solid ${ACTIVE_COLOR}66`, background:ACTIVE_COLOR+"18",
+                color:ACTIVE_COLOR, fontFamily:"'Trebuchet MS',sans-serif", fontSize:13,
+                fontWeight:700, cursor:"pointer" }}>
+                <Icon name="upload" size={15} color={ACTIVE_COLOR} />
+                📂 Choose Excel File (.xlsx)
+                <input type="file" accept=".xlsx,.xls" style={{ display:"none" }} onChange={handleFileImport} />
+              </label>
+            </div>
+          </div>
+
+          <button onClick={()=>setShowImport(false)}
+            style={{ padding:"8px 20px", borderRadius:9, border:`1px solid ${t.border}`,
+              background:"transparent", color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif",
+              fontSize:13, cursor:"pointer" }}>
+            Close
+          </button>
         </div>
       )}
 
@@ -5141,7 +5588,7 @@ const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => 
     borderLeft: active ? `3px solid ${ACTIVE_COLOR}` : "3px solid transparent",
     background: active ? t.sidebarActive : "transparent",
     color: active ? "#FFFFFF" : t.sidebarMuted,
-    fontSize:15, fontFamily:"'Trebuchet MS',sans-serif", transition:"all 0.15s", whiteSpace:"nowrap",
+    fontSize:13, fontFamily:"'Trebuchet MS',sans-serif", transition:"all 0.15s", whiteSpace:"nowrap",
   });
 
   const modeLabel = mode==="light"?"☀ Light":mode==="navy"?"🌊 Navy":mode==="dark"?"🌙 Dark":mode==="darkBlue"?"🌊🌙 Dark Blue":mode==="orange"?"🔥 Orange":"🔥🌙 Dark Orange";
@@ -5453,7 +5900,7 @@ const MobileDrawer = ({ open, onClose, page, setPage, user, onLogout, db }) => {
                   background: active ? t.sidebarActive : "transparent",
                   borderLeft: active ? `3px solid ${ACTIVE_COLOR}` : "3px solid transparent",
                   color: active ? "#FFFFFF" : t.sidebarMuted,
-                  fontFamily:"'Trebuchet MS',sans-serif", fontSize:15 }}>
+                  fontFamily:"'Trebuchet MS',sans-serif", fontSize:13 }}>
                 <Icon name={n.icon} size={18} color={active ? ACTIVE_COLOR : "rgba(255,255,255,0.5)"} />
                 {n.label}
               </div>
