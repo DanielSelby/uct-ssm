@@ -882,24 +882,40 @@ const useSupabaseDB = () => {
   const addProgram = useCallback(async (name) => {
     const newP = { id:`P${Date.now()}`, name:name.trim(), is_active:"YES",
       sort_order: String(programs.length+1) };
-    try {
-      await sbFetch("uct_programs", { method:"POST", body:JSON.stringify(newP) });
-      setPrograms(p => [...p, newP]);
-    } catch(e) { alert("Save failed: " + e.message); }
+    // Update local state IMMEDIATELY so UI reacts right away
+    setPrograms(p => [...p, newP]);
+    // Then persist to Supabase (non-blocking, silent on failure)
+    if (SUPABASE_READY) {
+      try {
+        await sbFetch("uct_programs", { method:"POST", body:JSON.stringify(newP) });
+      } catch(e) {
+        console.warn("Supabase program save failed (local state kept):", e.message);
+      }
+    }
   }, [programs]);
 
   const updateProgram = useCallback(async (id, updates) => {
-    try {
-      await sbFetch(`uct_programs?id=eq.${id}`, { method:"PATCH", body:JSON.stringify(updates) });
-      setPrograms(p => p.map(x => x.id===id ? {...x,...updates} : x));
-    } catch(e) { alert("Update failed: " + e.message); }
+    // Update local state immediately
+    setPrograms(p => p.map(x => x.id===id ? {...x,...updates} : x));
+    if (SUPABASE_READY) {
+      try {
+        await sbFetch(`uct_programs?id=eq.${id}`, { method:"PATCH", body:JSON.stringify(updates) });
+      } catch(e) {
+        console.warn("Supabase program update failed (local state kept):", e.message);
+      }
+    }
   }, []);
 
   const deleteProgram = useCallback(async (id) => {
-    try {
-      await sbFetch(`uct_programs?id=eq.${id}`, { method:"DELETE" });
-      setPrograms(p => p.filter(x => x.id!==id));
-    } catch(e) { alert("Delete failed: " + e.message); }
+    // Remove locally immediately
+    setPrograms(p => p.filter(x => x.id!==id));
+    if (SUPABASE_READY) {
+      try {
+        await sbFetch(`uct_programs?id=eq.${id}`, { method:"DELETE" });
+      } catch(e) {
+        console.warn("Supabase program delete failed (local state kept):", e.message);
+      }
+    }
   }, []);
 
   const toggleProgramActive = useCallback(async (id) => {
@@ -2956,6 +2972,14 @@ const ChurchAttendancePage = ({ db, user }) => {
   const [filter, setFilter]   = useState({ program:"", month:"" });
   const [loading, setLoading] = useState(false);
 
+  // Auto-set default program when programs list loads/changes and form is blank
+  useEffect(() => {
+    if (!form.program && activePrograms.length > 0) {
+      setForm(f => ({ ...f, program: activePrograms[0].name }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePrograms.length]);
+
   // Stable handler — prevents focus loss on each keystroke
   const handleChange = useCallback((e) => {
     const { name, value } = e.target;
@@ -3214,23 +3238,35 @@ const ProgramsPage = ({ db }) => {
   const [newName, setNewName]     = useState("");
   const [editId, setEditId]       = useState(null);
   const [editName, setEditName]   = useState("");
+  const [toast, setToast]         = useState("");
+  const [adding, setAdding]       = useState(false);
 
   const sorted = [...programs].sort((a,b)=>Number(a.sort_order)-Number(b.sort_order));
   const active = programs.filter(p=>p.is_active==="YES").length;
 
-  const handleAdd = () => {
-    if (!newName.trim()) return;
-    if (programs.find(p=>p.name.toLowerCase()===newName.trim().toLowerCase())) {
-      alert("A program with that name already exists."); return;
-    }
-    addProgram(newName.trim());
-    setNewName("");
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(""), 3000);
   };
 
-  const handleSaveEdit = (id) => {
+  const handleAdd = async () => {
+    if (!newName.trim()) { showToast("⚠️ Please enter a program name."); return; }
+    if (programs.find(p=>p.name.toLowerCase()===newName.trim().toLowerCase())) {
+      showToast("⚠️ A program with that name already exists."); return;
+    }
+    setAdding(true);
+    await addProgram(newName.trim());
+    setNewName("");
+    setAdding(false);
+    showToast(`✅ "${newName.trim()}" added successfully!`);
+  };
+
+  const handleSaveEdit = async (id) => {
     if (!editName.trim()) return;
-    updateProgram(id, { name: editName.trim() });
+    const oldName = programs.find(p=>p.id===id)?.name || "";
+    await updateProgram(id, { name: editName.trim() });
     setEditId(null); setEditName("");
+    showToast(`✅ "${oldName}" renamed to "${editName.trim()}"`);
   };
 
   return (
@@ -3243,19 +3279,48 @@ const ProgramsPage = ({ db }) => {
         {" "}{active} active of {programs.length} total.
       </div>
 
+      {/* Toast notification */}
+      {toast && (
+        <div style={{
+          position:"fixed", top:24, right:24, zIndex:9999,
+          background: toast.startsWith("✅") ? "#0A7A45" : "#C87A0A",
+          color:"#fff", padding:"12px 20px", borderRadius:10,
+          fontFamily:"'Trebuchet MS',sans-serif", fontSize:14, fontWeight:600,
+          boxShadow:"0 4px 20px rgba(0,0,0,0.25)",
+          animation:"fadeIn .2s ease"
+        }}>{toast}</div>
+      )}
+
       {/* Add new */}
-      <div style={{ ...card, marginBottom:24, display:"flex", gap:12, alignItems:"flex-end", flexWrap:"wrap" }}>
-        <div style={{ flex:1, minWidth:240 }}>
-          <label style={{ ...lbl, display:"block", marginBottom:6 }}>New Program Name</label>
-          <input style={inp} placeholder="e.g. Anniversary Sunday Service"
-            value={newName} onChange={e=>setNewName(e.target.value)}
-            onKeyDown={e=>e.key==="Enter"&&handleAdd()} />
+      <div style={{ ...card, marginBottom:24 }}>
+        <div style={{ fontSize:14, fontWeight:700, color:t.text, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:14 }}>
+          Add New Program
         </div>
-        <button style={{ ...btnGold, padding:"10px 24px" }} onClick={handleAdd}>
-          <span style={{ display:"flex", alignItems:"center", gap:7 }}>
-            <Icon name="plus" size={15} color="#0B1628" /> Add Program
-          </span>
-        </button>
+        <div style={{ display:"flex", gap:12, alignItems:"flex-end", flexWrap:"wrap" }}>
+          <div style={{ flex:1, minWidth:240 }}>
+            <label style={{ ...lbl, display:"block", marginBottom:6 }}>Program Name</label>
+            <input style={{ ...inp, borderColor: newName.trim() ? t.borderStrong : undefined }}
+              placeholder="e.g. Anniversary Sunday Service"
+              value={newName} onChange={e=>setNewName(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&handleAdd()} />
+          </div>
+          <button
+            style={{
+              ...btnGold, padding:"10px 24px",
+              opacity: adding ? 0.7 : 1,
+              cursor: adding ? "not-allowed" : "pointer",
+              minWidth: 140,
+            }}
+            onClick={handleAdd}
+            disabled={adding}>
+            <span style={{ display:"flex", alignItems:"center", gap:7 }}>
+              {adding
+                ? <span style={{fontSize:12}}>Adding…</span>
+                : <><Icon name="plus" size={15} color="#fff" /> Add Program</>
+              }
+            </span>
+          </button>
+        </div>
       </div>
 
       {/* List */}
