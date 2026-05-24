@@ -4261,7 +4261,7 @@ const SSReportPage = ({ db }) => {
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:20, flexWrap:"wrap", gap:12 }}>
         <div>
           <div style={{ fontSize:23, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif", marginBottom:3 }}>
-            SS Comparison Report
+            Sunday School Comparison Report
           </div>
           <div style={{ fontSize:13, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}>
             Current session vs previous session · auto-updates when new reports are submitted
@@ -6197,7 +6197,7 @@ const MobileDrawer = ({ open, onClose, page, setPage, user, onLogout, db }) => {
             <AnimatedBible size={42} />
             <div>
               <div style={{ fontSize:10, fontWeight:700, color:"#FFFFFF", fontFamily:"'Trebuchet MS',sans-serif", letterSpacing:1.2 }}>{CHURCH_NAME.toUpperCase()}</div>
-              <div style={{ fontSize:8.5, color:"rgba(255,255,255,0.5)", fontFamily:"'Trebuchet MS',sans-serif" }}>SSM SYSTEM</div>
+              <div style={{ fontSize:8.5, color:"rgba(255,255,255,0.5)", fontFamily:"'Trebuchet MS',sans-serif" }}>SSM SYSTEM by De-Word</div>
             </div>
           </div>
           <button onClick={onClose} style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.2)", borderRadius:7, padding:"6px 8px", cursor:"pointer" }}>
