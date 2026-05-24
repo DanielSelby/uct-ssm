@@ -287,6 +287,9 @@ const ALL_PERMISSIONS = [
   { key:"programs",   label:"Programs Management",  group:"Navigation" },
   { key:"export",     label:"Export Center",        group:"Navigation" },
   { key:"submit",     label:"Submit SS Report",     group:"Navigation" },
+  { key:"ssreport",   label:"SS Report Viewer",     group:"Navigation" },
+  { key:"lessons",    label:"Lesson Register",      group:"Navigation" },
+  { key:"ai",         label:"AI Assistant",         group:"Navigation" },
   { key:"approve_records",  label:"Approve / Reject Records",   group:"Actions" },
   { key:"delete_records",   label:"Delete Records",              group:"Actions" },
   { key:"view_analytics",   label:"View Analytics Data",         group:"Actions" },
@@ -5101,11 +5104,11 @@ const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => 
   const allAdminNav = [
     {id:"dashboard",  label:"Dashboard",      icon:"dashboard",  perm:"dashboard"},
     {id:"attendance", label:"SS Records",     icon:"attendance", perm:"attendance"},
-    {id:"ssreport",   label:"SS Report",      icon:"ssreport",   perm:"attendance"},
+    {id:"ssreport",   label:"SS Report",      icon:"ssreport",   perm:"ssreport"},
     {id:"church",     label:"Church Attend.", icon:"cross",      perm:"church"},
     {id:"analytics",  label:"Analytics",      icon:"analytics",  perm:"analytics"},
-    {id:"ai",         label:"AI Assistant",   icon:"ai",         perm:"dashboard"},
-    {id:"lessons",    label:"Lesson Register", icon:"lesson",     perm:"attendance"},
+    {id:"ai",         label:"AI Assistant",   icon:"ai",         perm:"ai"},
+    {id:"lessons",    label:"Lesson Register", icon:"lesson",     perm:"lessons"},
     {id:"teachers",   label:"Teachers",       icon:"teachers",   perm:"teachers"},
     {id:"classes",    label:"Classes",        icon:"classes",    perm:"classes"},
     {id:"programs",   label:"Programs",       icon:"settings",   perm:"programs"},
@@ -5116,12 +5119,12 @@ const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => 
   ];
   const allTeacherNav = [
     {id:"submit",     label:"Submit Report",  icon:"submit",     perm:"submit"},
-    {id:"ssreport",   label:"SS Report",      icon:"analytics",  perm:"attendance"},
+    {id:"ssreport",   label:"SS Report",      icon:"analytics",  perm:"ssreport"},
     {id:"church",     label:"Church Attend.", icon:"cross",      perm:"church"},
     {id:"attendance", label:"My Records",     icon:"attendance", perm:"attendance"},
     {id:"analytics",  label:"Analytics",      icon:"analytics",  perm:"analytics"},
-    {id:"ai",         label:"AI Assistant",   icon:"ai",         perm:"attendance"},
-    {id:"lessons",    label:"Lesson Register", icon:"lesson",     perm:"attendance"},
+    {id:"ai",         label:"AI Assistant",   icon:"ai",         perm:"ai"},
+    {id:"lessons",    label:"Lesson Register", icon:"lesson",     perm:"lessons"},
     {id:"export",     label:"Export",         icon:"export",     perm:"export"},
   ];
 
@@ -5400,12 +5403,12 @@ const MobileDrawer = ({ open, onClose, page, setPage, user, onLogout, db }) => {
     {id:"export",     label:"Export",         icon:"export"},
   ] : [
     {id:"submit",     label:"Submit Report",  icon:"submit",    perm:"submit"},
-    {id:"ssreport",   label:"SS Report",      icon:"ssreport",  perm:"attendance"},
+    {id:"ssreport",   label:"SS Report",      icon:"ssreport",  perm:"ssreport"},
     {id:"church",     label:"Church Attend.", icon:"cross",     perm:"church"},
     {id:"attendance", label:"My Records",     icon:"attendance",perm:"attendance"},
     {id:"analytics",  label:"Analytics",      icon:"analytics", perm:"analytics"},
-    {id:"ai",         label:"AI Assistant",   icon:"ai",        perm:"attendance"},
-    {id:"lessons",    label:"Lesson Register", icon:"lesson",    perm:"attendance"},
+    {id:"ai",         label:"AI Assistant",   icon:"ai",        perm:"ai"},
+    {id:"lessons",    label:"Lesson Register", icon:"lesson",    perm:"lessons"},
     {id:"export",     label:"Export",         icon:"export",    perm:"export"},
   ].filter(n => can(n.perm||n.id));
 
@@ -5552,9 +5555,9 @@ export default function App() {
       onSuccess={()=>toast(editingRecord?"Record updated!":"Report saved!","success")}
       editRecord={editingRecord}
       onCancelEdit={()=>{ setEditingRecord(null); setPage("attendance"); }} />),
-    ssreport:  guard("attendance", <SSReportPage db={db} />),
-    lessons:   guard("attendance", <LessonsPage db={db} user={user} />),
-    ai:        <AIAssistantPage db={db} user={user} />,
+    ssreport:  guard("ssreport",   <SSReportPage db={db} />),
+    lessons:   guard("lessons",    <LessonsPage db={db} user={user} />),
+    ai:        guard("ai",         <AIAssistantPage db={db} user={user} />),
   };
 
   const t = T[mode]||T.light;
