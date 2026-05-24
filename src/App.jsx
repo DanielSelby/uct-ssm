@@ -596,14 +596,15 @@ const useUsers = () => {
     if (exists) return { error: "An account with this email already exists." };
 
     const newU = {
-      id:          `U${Date.now()}`,
-      name:        data.name.trim(),
-      email:       data.email.toLowerCase().trim(),
-      password:    data.password.trim(),
-      role:        data.role || "teacher",
-      is_active:   "YES",
-      permissions: JSON.stringify(Array.isArray(data.permissions) ? data.permissions : TEACHER_PERMS_DEFAULT),
-      created_at:  new Date().toISOString().slice(0,10),
+      id:             `U${Date.now()}`,
+      name:           data.name.trim(),
+      email:          data.email.toLowerCase().trim(),
+      password:       data.password.trim(),
+      role:           data.role || "teacher",
+      is_active:      "YES",
+      assigned_class: data.assigned_class || "",
+      permissions:    JSON.stringify(Array.isArray(data.permissions) ? data.permissions : TEACHER_PERMS_DEFAULT),
+      created_at:     new Date().toISOString().slice(0,10),
     };
 
     if (SUPABASE_READY) {
@@ -622,11 +623,12 @@ const useUsers = () => {
     const updated = current.map(u => {
       if (u.id !== id) return u;
       const merged = { ...u };
-      if (updates.name)                    merged.name      = updates.name.trim();
-      if (updates.email)                   merged.email     = updates.email.toLowerCase().trim();
-      if (updates.role)                    merged.role      = updates.role;
-      if (updates.is_active !== undefined) merged.is_active = updates.is_active;
-      if (updates.password?.trim())        merged.password  = updates.password.trim();
+      if (updates.name)                    merged.name           = updates.name.trim();
+      if (updates.email)                   merged.email          = updates.email.toLowerCase().trim();
+      if (updates.role)                    merged.role           = updates.role;
+      if (updates.is_active !== undefined) merged.is_active      = updates.is_active;
+      if (updates.password?.trim())        merged.password       = updates.password.trim();
+      if (updates.assigned_class !== undefined) merged.assigned_class = updates.assigned_class;
       if (updates.permissions !== undefined) {
         merged.permissions = Array.isArray(updates.permissions)
           ? JSON.stringify(updates.permissions)
@@ -1839,11 +1841,16 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
   const { teachers, classes, addRecord, updateRecord } = db;
   const activeTeachers = teachers.filter(x => x.is_active === "YES");
 
-  const isEditMode = !!editProp;
+  const isEditMode    = !!editProp;
+  const isAdmin       = user?.role === "admin";
+  const lockedClass   = !isAdmin && user?.assigned_class ? user.assigned_class : "";
+  const lockedTeacher = !isAdmin ? (user?.name || "") : "";
 
   const makeBlank = () => ({
     date: new Date().toISOString().slice(0,10), day_of_week:"Sunday",
-    service_type:"Regular Sunday School", class_name:"", teacher_name: user?.name||"",
+    service_type:"Regular Sunday School",
+    class_name:   lockedClass,
+    teacher_name: lockedTeacher,
     assistant_teacher:"", submitted_by: user?.name||"", time_started:"09:00", time_ended:"10:30",
     total_beginning:"", total_closing:"", male_present:"", female_present:"",
     first_timers:"", visitors:"", absent_members:"",
@@ -1952,8 +1959,32 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
           <div style={fw()}><label style={lbl}>Date</label><input name="date" style={inp} type="date" value={form.date} onChange={handleChange} /></div>
           <div style={fw()}><label style={lbl}>Day</label><select name="day_of_week" style={{...sel,width:"100%"}} value={form.day_of_week} onChange={handleChange}>{["Sunday","Saturday","Wednesday"].map(o=><option key={o}>{o}</option>)}</select></div>
           <div style={fw()}><label style={lbl}>Service Type</label><select name="service_type" style={{...sel,width:"100%"}} value={form.service_type} onChange={handleChange}><option>Regular Sunday School</option><option>Joint Sunday School</option><option>Special Service</option></select></div>
-          <div style={fw()}><label style={lbl}>Class Name *</label><select name="class_name" style={{...sel,width:"100%"}} value={form.class_name} onChange={handleChange}><option value="">Select…</option>{classes.map(c=><option key={c.name} value={c.name}>{c.name}</option>)}</select></div>
-          <div style={fw()}><label style={lbl}>Teacher Name</label><select name="teacher_name" style={{...sel,width:"100%"}} value={form.teacher_name} onChange={handleChange}><option value="">Select…</option>{activeTeachers.map(x=><option key={x.name} value={x.name}>{x.name}</option>)}</select></div>
+          <div style={fw()}><label style={lbl}>Class Name *</label>
+            {lockedClass ? (
+              <div style={{ ...inp, background: isDark(t.mode||"light") ? "rgba(0,255,100,0.06)" : "#f0fff4",
+                border:`2px solid ${t.success}55`, color:t.text, display:"flex", alignItems:"center", gap:8 }}>
+                🔒 <span style={{ fontWeight:700 }}>{lockedClass}</span>
+                <span style={{ fontSize:11, color:t.success, marginLeft:"auto" }}>Assigned</span>
+              </div>
+            ) : (
+              <select name="class_name" style={{...sel,width:"100%"}} value={form.class_name} onChange={handleChange}>
+                <option value="">Select…</option>{classes.map(c=><option key={c.name} value={c.name}>{c.name}</option>)}
+              </select>
+            )}
+          </div>
+          <div style={fw()}><label style={lbl}>Teacher Name</label>
+            {lockedTeacher ? (
+              <div style={{ ...inp, background: isDark(t.mode||"light") ? "rgba(0,255,100,0.06)" : "#f0fff4",
+                border:`2px solid ${t.success}55`, color:t.text, display:"flex", alignItems:"center", gap:8 }}>
+                🔒 <span style={{ fontWeight:700 }}>{lockedTeacher}</span>
+                <span style={{ fontSize:11, color:t.success, marginLeft:"auto" }}>You</span>
+              </div>
+            ) : (
+              <select name="teacher_name" style={{...sel,width:"100%"}} value={form.teacher_name} onChange={handleChange}>
+                <option value="">Select…</option>{activeTeachers.map(x=><option key={x.name} value={x.name}>{x.name}</option>)}
+              </select>
+            )}
+          </div>
           <div style={fw()}><label style={lbl}>Assistant Teacher</label><select name="assistant_teacher" style={{...sel,width:"100%"}} value={form.assistant_teacher} onChange={handleChange}><option value="">None</option>{activeTeachers.map(x=><option key={x.name} value={x.name}>{x.name}</option>)}</select></div>
           <div style={fw()}><label style={lbl}>Submitted By</label><input name="submitted_by" style={inp} value={form.submitted_by} onChange={handleChange} /></div>
           <div />
@@ -2021,21 +2052,29 @@ const AttendancePage = ({ db, user, onEditRecord }) => {
   const { t, card, btnGhost, th, td } = useThemeStyles();
   const { records, classes, approveRecord, deleteRecord } = db;
   const [detail, setDetail] = useState(null);
+
+  const isAdmin      = user?.role === "admin";
+  const lockedClass  = !isAdmin && user?.assigned_class ? user.assigned_class : "";
+
   const [filter, setFilter] = useState({
-    cls: "", status: "", search: "", teacher: "",
+    cls: lockedClass, status: "", search: "", teacher: "",
     dateFrom: "", dateTo: "", month: "",
   });
-  const [sortDir, setSortDir] = useState("desc"); // "desc" newest first, "asc" oldest first
+  const [sortDir, setSortDir] = useState("desc");
 
   const sel = { background:t.surfaceAlt, border:`1px solid ${t.border}`, borderRadius:9, padding:"8px 12px", color:t.text, fontFamily:"'Trebuchet MS',sans-serif", fontSize:13, outline:"none" };
   const inp = { ...sel };
 
-  // Derived filter options
-  const allDates    = [...new Set(records.map(r=>r.date).filter(Boolean))].sort().reverse();
-  const allMonths   = [...new Set(records.map(r=>(r.date||"").slice(0,7)).filter(Boolean))].sort().reverse();
-  const allTeachers = [...new Set(records.map(r=>r.teacher_name).filter(Boolean))].sort();
+  // Scope base records to teacher's assigned class
+  const baseRecords = lockedClass
+    ? records.filter(r => r.class_name === lockedClass)
+    : records;
 
-  const filtered = records.filter(r => {
+  const allDates    = [...new Set(baseRecords.map(r=>r.date).filter(Boolean))].sort().reverse();
+  const allMonths   = [...new Set(baseRecords.map(r=>(r.date||"").slice(0,7)).filter(Boolean))].sort().reverse();
+  const allTeachers = [...new Set(baseRecords.map(r=>r.teacher_name).filter(Boolean))].sort();
+
+  const filtered = baseRecords.filter(r => {
     if (filter.cls     && r.class_name   !== filter.cls)     return false;
     if (filter.status  && r.status       !== filter.status)  return false;
     if (filter.teacher && r.teacher_name !== filter.teacher) return false;
@@ -2055,7 +2094,12 @@ const AttendancePage = ({ db, user, onEditRecord }) => {
     ? (a.date||"").localeCompare(b.date||"")
     : (b.date||"").localeCompare(a.date||""));
 
-  const hasActiveFilter = Object.values(filter).some(v=>v!=="");
+  const hasActiveFilter = Object.values(filter).some((v,i) => {
+    // lockedClass on cls is not a "user" filter — don't count it
+    const keys = Object.keys(filter);
+    if (keys[i] === "cls" && lockedClass) return false;
+    return v !== "";
+  });
 
   // Summary stats for the filtered set
   const stats = sorted.reduce((acc, r) => ({
@@ -2121,10 +2165,16 @@ const AttendancePage = ({ db, user, onEditRecord }) => {
           <input style={{ ...inp, minWidth:200, flex:1 }} placeholder="🔍  Search topic, teacher or class…"
             value={filter.search} onChange={e=>setFilter(f=>({...f,search:e.target.value}))} />
 
-          <select style={{ ...sel, minWidth:150 }} value={filter.cls} onChange={e=>setFilter(f=>({...f,cls:e.target.value}))}>
-            <option value="">All Classes</option>
-            {[...new Set(records.map(r=>r.class_name).filter(Boolean))].sort().map(c=><option key={c}>{c}</option>)}
-          </select>
+          {lockedClass ? (
+            <div style={{ ...sel, display:"flex", alignItems:"center", gap:7, color:t.success, fontWeight:600, border:`2px solid ${t.success}44` }}>
+              🔒 {lockedClass}
+            </div>
+          ) : (
+            <select style={{ ...sel, minWidth:150 }} value={filter.cls} onChange={e=>setFilter(f=>({...f,cls:e.target.value}))}>
+              <option value="">All Classes</option>
+              {[...new Set(records.map(r=>r.class_name).filter(Boolean))].sort().map(c=><option key={c}>{c}</option>)}
+            </select>
+          )}
 
           {user?.role==="admin" && (
             <select style={{ ...sel, minWidth:150 }} value={filter.teacher} onChange={e=>setFilter(f=>({...f,teacher:e.target.value}))}>
@@ -3280,9 +3330,10 @@ const ProgramsPage = ({ db }) => {
 };
 
 // ─── USERS & PERMISSIONS PAGE ─────────────────────────────────────────────────
-const UsersPage = ({ users: userHook }) => {
+const UsersPage = ({ users: userHook, db }) => {
   const { t, card, btnGold, btnOutline, btnGhost, inp, sel, lbl, th, td } = useThemeStyles();
   const { appUsers, addUser, updateUser, deleteUser, toggleUserActive } = userHook;
+  const classes = db?.classes || [];
 
   const [modal, setModal]   = useState(null); // null | "add" | user-obj
   const [editPerms, setEditPerms] = useState(null); // user being permissions-edited
@@ -3295,15 +3346,14 @@ const UsersPage = ({ users: userHook }) => {
 
   // ── Add/Edit User Form ──────────────────────────────────────
   const UserForm = ({ initial, onSave, onClose }) => {
-    const blank = { name:"", email:"", password:"", role:"teacher", is_active:"YES",
+    const blank = { name:"", email:"", password:"", role:"teacher", is_active:"YES", assigned_class:"",
       permissions: initial ? parsePerms(initial.permissions) : [...TEACHER_PERMS_DEFAULT] };
     const [form, setForm] = useState(initial
-      ? { ...blank, ...initial, password: "", permissions: parsePerms(initial.permissions) }  // password always starts blank on edit
+      ? { ...blank, ...initial, password: "", permissions: parsePerms(initial.permissions) }
       : blank);
     const [err, setErr]   = useState("");
     const [showPw, setShowPw] = useState(false);
 
-    // Stable handler — no focus loss
     const handleChange = useCallback((e) => {
       const { name, value } = e.target;
       setForm(f => ({ ...f, [name]: value }));
@@ -3350,7 +3400,6 @@ const UsersPage = ({ users: userHook }) => {
             <label style={lbl}>Email Address *</label>
             <input name="email" style={inp} type="email" value={form.email} onChange={handleChange} placeholder="email@uct.org" />
           </div>
-          {/* Password with show/hide toggle */}
           <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
             <label style={lbl}>{initial ? "New Password (leave blank to keep)" : "Password *"}</label>
             <div style={{ position:"relative" }}>
@@ -3373,6 +3422,21 @@ const UsersPage = ({ users: userHook }) => {
               Selecting a role auto-fills permissions below
             </div>
           </div>
+
+          {/* ── Assigned Class — the key new field ─────────────── */}
+          <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+            <label style={lbl}>Assigned Class</label>
+            <select name="assigned_class" style={{ ...sel, width:"100%",
+              border: form.assigned_class ? `2px solid ${t.success}` : `1px solid ${t.border}` }}
+              value={form.assigned_class} onChange={handleChange}>
+              <option value="">— None / Admin sees all —</option>
+              {classes.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+            </select>
+            <div style={{ fontSize:11, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", lineHeight:1.5 }}>
+              Locks this teacher's class & name across all data entry screens. Leave blank for full access.
+            </div>
+          </div>
+
           <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
             <label style={lbl}>Status</label>
             <select name="is_active" style={{ ...sel, width:"100%" }} value={form.is_active} onChange={handleChange}>
@@ -3559,7 +3623,7 @@ const UsersPage = ({ users: userHook }) => {
         <table style={{ width:"100%", borderCollapse:"collapse" }}>
           <thead>
             <tr style={{ background:t.surfaceAlt }}>
-              {["User","Email","Role","Permissions","Status","Actions"].map(h=><th key={h} style={th}>{h}</th>)}
+              {["User","Email","Role","Assigned Class","Permissions","Status","Actions"].map(h=><th key={h} style={th}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -3588,6 +3652,17 @@ const UsersPage = ({ users: userHook }) => {
                     const color = found?.color || (u.role==="admin" ? t.gold : t.info);
                     return <Badge label={label} color={color} />;
                   })()}</td>
+                  <td style={td}>
+                    {u.assigned_class ? (
+                      <span style={{ fontSize:11, padding:"3px 9px", borderRadius:12,
+                        background:t.success+"18", color:t.success, fontFamily:"'Trebuchet MS',sans-serif",
+                        fontWeight:600, border:`1px solid ${t.success}44` }}>
+                        🔒 {u.assigned_class}
+                      </span>
+                    ) : (
+                      <span style={{ fontSize:11, color:t.textFaint, fontFamily:"'Trebuchet MS',sans-serif" }}>All classes</span>
+                    )}
+                  </td>
                   <td style={td}>
                     {isAdmin ? (
                       <span style={{ fontSize:11, color:t.success, fontFamily:"'Trebuchet MS',sans-serif" }}>Full Access ({perms.length})</span>
@@ -5092,9 +5167,14 @@ const LessonsPage = ({ db, user }) => {
   const { teachers, classes } = db;
   const activeTeachers = teachers.filter(x => x.is_active === "YES");
 
+  const isAdmin        = user?.role === "admin";
+  const lockedClass    = !isAdmin && user?.assigned_class ? user.assigned_class : "";
+  const lockedTeacher  = !isAdmin ? (user?.name || "") : "";
+
   const blank = () => ({
     date: new Date().toISOString().slice(0,10),
-    class_name: "", teacher_name: user?.name||"",
+    class_name:   lockedClass,
+    teacher_name: lockedTeacher,
     topic: "", bible_references: "", memory_verse: "", message_book_ref: "",
     outline: "", key_points: "", assignment: "",
     duration_mins: "", notes: "",
@@ -5274,9 +5354,13 @@ const LessonsPage = ({ db, user }) => {
     setShowExportMenu(false);
   };
 
-  const allMonths = [...new Set(lessons.map(l=>(l.date||"").slice(0,7)).filter(Boolean))].sort().reverse();
+  const baseLessons = lockedClass
+    ? lessons.filter(l => l.class_name === lockedClass)
+    : lessons;
 
-  const filtered = lessons.filter(l => {
+  const allMonths = [...new Set(baseLessons.map(l=>(l.date||"").slice(0,7)).filter(Boolean))].sort().reverse();
+
+  const filtered = baseLessons.filter(l => {
     if (filterClass   && l.class_name   !== filterClass)   return false;
     if (filterTeacher && l.teacher_name !== filterTeacher) return false;
     if (filterMonth   && !(l.date||"").startsWith(filterMonth)) return false;
@@ -5487,16 +5571,30 @@ const LessonsPage = ({ db, user }) => {
           <div style={g2}>
             <div style={fw()}><label style={lbl}>Date *</label><input name="date" type="date" style={inp} value={form.date} onChange={hc} /></div>
             <div style={fw()}><label style={lbl}>Class *</label>
-              <select name="class_name" style={{...sel,width:"100%"}} value={form.class_name} onChange={hc}>
-                <option value="">Select class…</option>
-                {classes.map(c=><option key={c.name} value={c.name}>{c.name}</option>)}
-              </select>
+              {lockedClass ? (
+                <div style={{ ...inp, border:`2px solid ${t.success}55`, display:"flex", alignItems:"center", gap:8 }}>
+                  🔒 <span style={{ fontWeight:700 }}>{lockedClass}</span>
+                  <span style={{ fontSize:11, color:t.success, marginLeft:"auto" }}>Assigned</span>
+                </div>
+              ) : (
+                <select name="class_name" style={{...sel,width:"100%"}} value={form.class_name} onChange={hc}>
+                  <option value="">Select class…</option>
+                  {classes.map(c=><option key={c.name} value={c.name}>{c.name}</option>)}
+                </select>
+              )}
             </div>
             <div style={fw()}><label style={lbl}>Teacher *</label>
-              <select name="teacher_name" style={{...sel,width:"100%"}} value={form.teacher_name} onChange={hc}>
-                <option value="">Select teacher…</option>
-                {activeTeachers.map(x=><option key={x.name} value={x.name}>{x.name}</option>)}
-              </select>
+              {lockedTeacher ? (
+                <div style={{ ...inp, border:`2px solid ${t.success}55`, display:"flex", alignItems:"center", gap:8 }}>
+                  🔒 <span style={{ fontWeight:700 }}>{lockedTeacher}</span>
+                  <span style={{ fontSize:11, color:t.success, marginLeft:"auto" }}>You</span>
+                </div>
+              ) : (
+                <select name="teacher_name" style={{...sel,width:"100%"}} value={form.teacher_name} onChange={hc}>
+                  <option value="">Select teacher…</option>
+                  {activeTeachers.map(x=><option key={x.name} value={x.name}>{x.name}</option>)}
+                </select>
+              )}
             </div>
             <div style={fw()}><label style={lbl}>Duration (mins)</label><input name="duration_mins" type="number" style={inp} value={form.duration_mins} onChange={hc} /></div>
           </div>
@@ -6152,7 +6250,7 @@ export default function App() {
     teachers:  guard("teachers",   <TeachersPage db={db} />),
     classes:   guard("classes",    <ClassesPage db={db} />),
     programs:  guard("programs",   <ProgramsPage db={db} />),
-    users:     user?.role==="admin" ? <UsersPage users={users} /> : <AccessDenied />,
+    users:     user?.role==="admin" ? <UsersPage users={users} db={db} /> : <AccessDenied />,
     roles:     user?.role==="admin" ? <RolesPage /> : <AccessDenied />,
     branding:  user?.role==="admin" ? <BrandingPage /> : <AccessDenied />,
     export:    guard("export",     <ExportPage db={db} />),
