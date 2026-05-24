@@ -1829,10 +1829,12 @@ const DashboardPage = ({ db }) => {
 };
 
 // ─── SUBMIT PAGE ──────────────────────────────────────────────────────────────
-const SubmitPage = ({ db, user, onSuccess }) => {
+const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit }) => {
   const { t, inp, sel, lbl, btnGold, btnOutline, card } = useThemeStyles();
-  const { teachers, classes, addRecord } = db;
+  const { teachers, classes, addRecord, updateRecord } = db;
   const activeTeachers = teachers.filter(x => x.is_active === "YES");
+
+  const isEditMode = !!editProp;
 
   const makeBlank = () => ({
     date: new Date().toISOString().slice(0,10), day_of_week:"Sunday",
@@ -1845,11 +1847,16 @@ const SubmitPage = ({ db, user, onSuccess }) => {
     teachers_present:"", teacher_names:"", challenges:"", prayer_requests:"", announcements:""
   });
 
-  const [form, setForm]     = useState(makeBlank);
+  const [form, setForm]       = useState(isEditMode ? { ...makeBlank(), ...editProp } : makeBlank);
   const [loading, setLoading] = useState(false);
-  const [done, setDone]     = useState(false);
+  const [done, setDone]       = useState(false);
 
-  // KEY FIX: single stable handler using input's `name` attribute
+  // Sync form when editProp changes (e.g. user selects a different record)
+  useEffect(() => {
+    if (editProp) setForm({ ...makeBlank(), ...editProp });
+    else          setForm(makeBlank());
+  }, [editProp?.id]);
+
   const handleChange = useCallback((e) => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
@@ -1860,10 +1867,20 @@ const SubmitPage = ({ db, user, onSuccess }) => {
     if (!form.topic.trim()) { alert("Please enter the lesson topic."); return; }
     setLoading(true);
     setTimeout(() => {
-      addRecord(form);
+      if (isEditMode) {
+        // Update existing — preserve id and status
+        updateRecord(editProp.id, { ...form, status: "pending" });
+      } else {
+        addRecord(form);
+      }
       setLoading(false);
       setDone(true);
-      setTimeout(() => { setDone(false); setForm(makeBlank()); onSuccess && onSuccess(); }, 2500);
+      setTimeout(() => {
+        setDone(false);
+        setForm(makeBlank());
+        onSuccess && onSuccess();
+        onCancelEdit && onCancelEdit();
+      }, 2200);
     }, 400);
   };
 
@@ -1878,15 +1895,51 @@ const SubmitPage = ({ db, user, onSuccess }) => {
       <div style={{ width:80, height:80, borderRadius:"50%", background:t.success+"18", display:"flex", alignItems:"center", justifyContent:"center" }}>
         <Icon name="check" size={40} color={t.success} />
       </div>
-      <div style={{ fontSize:24, color:t.gold, fontFamily:"'Georgia',serif" }}>Report Submitted!</div>
-      <div style={{ color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", fontSize:14 }}>Saved to your Excel workbook.</div>
+      <div style={{ fontSize:24, color:t.gold, fontFamily:"'Georgia',serif" }}>
+        {isEditMode ? "Record Updated!" : "Report Submitted!"}
+      </div>
+      <div style={{ color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", fontSize:14 }}>
+        {isEditMode ? "Changes saved. Awaiting admin approval." : "Saved to your records."}
+      </div>
     </div>
   );
 
   return (
     <div>
-      <div style={{ fontSize:23, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif", marginBottom:3 }}>Submit Attendance Report</div>
-      <div style={{ fontSize:13, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:24 }}>Saved directly to your local Excel workbook — no internet required.</div>
+      {/* Page title + edit banner */}
+      <div style={{ marginBottom:20 }}>
+        <div style={{ fontSize:23, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif", marginBottom:3 }}>
+          {isEditMode ? "Edit Report" : "Submit Attendance Report"}
+        </div>
+        <div style={{ fontSize:13, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}>
+          {isEditMode ? "You are editing a pending submission. Changes will reset it to pending for re-approval." : "Saved directly to your records."}
+        </div>
+      </div>
+
+      {/* Edit mode banner */}
+      {isEditMode && (
+        <div style={{ marginBottom:18, padding:"12px 16px", borderRadius:10,
+          background: t.warn+"18", border:`1px solid ${t.warn}44`,
+          display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, flexWrap:"wrap" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <span style={{ fontSize:18 }}>✏️</span>
+            <div>
+              <div style={{ fontSize:13, fontWeight:700, color:t.text, fontFamily:"'Trebuchet MS',sans-serif" }}>
+                Editing: {editProp.class_name} — {editProp.date}
+              </div>
+              <div style={{ fontSize:11, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}>
+                Status will return to <strong>Pending</strong> after saving, requiring admin re-approval.
+              </div>
+            </div>
+          </div>
+          <button onClick={onCancelEdit} style={{ padding:"7px 14px", borderRadius:8,
+            border:`1px solid ${t.border}`, background:"transparent", color:t.textMuted,
+            fontFamily:"'Trebuchet MS',sans-serif", fontSize:12, cursor:"pointer" }}>
+            ✕ Cancel Edit
+          </button>
+        </div>
+      )}
+
       <div style={card}>
 
         <div style={sec}>Basic Information</div>
@@ -1943,11 +1996,14 @@ const SubmitPage = ({ db, user, onSuccess }) => {
           <div style={fw(2)}><label style={lbl}>Announcements</label><textarea name="announcements" style={{...inp,minHeight:65,resize:"vertical"}} value={form.announcements} onChange={handleChange} /></div>
         </div>
 
-        <div style={{ marginTop:24, display:"flex", gap:12 }}>
+        <div style={{ marginTop:24, display:"flex", gap:12, flexWrap:"wrap" }}>
           <button onClick={handleSubmit} disabled={loading} style={{ ...btnGold, padding:"13px 36px", fontSize:14 }}>
-            {loading ? "Saving…" : "Submit Report"}
+            {loading ? "Saving…" : isEditMode ? "💾 Save Changes" : "Submit Report"}
           </button>
-          <button onClick={()=>setForm(makeBlank())} style={{ ...btnOutline, padding:"13px 24px" }}>Clear Form</button>
+          {isEditMode
+            ? <button onClick={onCancelEdit} style={{ ...btnOutline, padding:"13px 24px" }}>Cancel</button>
+            : <button onClick={()=>setForm(makeBlank())} style={{ ...btnOutline, padding:"13px 24px" }}>Clear Form</button>
+          }
         </div>
       </div>
     </div>
@@ -1956,7 +2012,7 @@ const SubmitPage = ({ db, user, onSuccess }) => {
 
 
 // ─── ATTENDANCE PAGE ──────────────────────────────────────────────────────────
-const AttendancePage = ({ db, user }) => {
+const AttendancePage = ({ db, user, onEditRecord }) => {
   const { t, card, btnGhost, th, td } = useThemeStyles();
   const { records, classes, approveRecord, deleteRecord } = db;
   const [detail, setDetail] = useState(null);
@@ -2169,6 +2225,12 @@ const AttendancePage = ({ db, user }) => {
                   <td style={td}>
                     <div style={{ display:"flex", gap:5 }}>
                       <button style={btnGhost} title="View" onClick={()=>setDetail(r)}><Icon name="eye" size={13} color={t.textMuted}/></button>
+                      {/* Edit — only for pending records; teacher can edit own, admin can edit any */}
+                      {r.status !== "approved" && (user?.role==="admin" || r.teacher_name===user?.name || r.submitted_by===user?.name) && (
+                        <button style={btnGhost} title="Edit" onClick={()=>onEditRecord && onEditRecord(r)}>
+                          <Icon name="edit" size={13} color={t.warn}/>
+                        </button>
+                      )}
                       {user?.role==="admin" && r.status!=="approved" && <button style={btnGhost} title="Approve" onClick={()=>approveRecord(r.id)}><Icon name="check" size={13} color={t.success}/></button>}
                       {user?.role==="admin" && <button style={btnGhost} title="Delete" onClick={()=>{ if(window.confirm("Delete record?")) deleteRecord(r.id); }}><Icon name="trash" size={13} color={t.danger}/></button>}
                     </div>
@@ -4289,12 +4351,27 @@ const AIAssistantPage = ({ db, user }) => {
   const { mode } = useTheme();
   const { records, classes, churchRecs } = db;
 
+  // API key — stored in sessionStorage so it survives page re-renders but not tab close
+  const [apiKey, setApiKey]   = useState(() => sessionStorage.getItem("uct_ai_key") || "");
+  const [keyInput, setKeyInput] = useState("");
+  const [showKeyInput, setShowKeyInput] = useState(false);
+
+  const saveKey = () => {
+    const k = keyInput.trim();
+    if (!k.startsWith("sk-ant-")) { alert("Invalid key — must start with sk-ant-"); return; }
+    sessionStorage.setItem("uct_ai_key", k);
+    setApiKey(k);
+    setKeyInput("");
+    setShowKeyInput(false);
+  };
+  const forgetKey = () => { sessionStorage.removeItem("uct_ai_key"); setApiKey(""); };
+
   const [messages, setMessages] = useState([
     { role:"assistant", content:"Hello! I'm your Sunday School AI Assistant ✨\n\nI have full access to your attendance records, class data, and church reports. Ask me anything — summaries, trends, comparisons, recommendations, or anything else about your ministry data." }
   ]);
-  const [input, setInput]       = useState("");
-  const [loading, setLoading]   = useState(false);
-  const [activeTab, setActiveTab] = useState("chat"); // chat | insights
+  const [input, setInput]         = useState("");
+  const [loading, setLoading]     = useState(false);
+  const [activeTab, setActiveTab] = useState("chat");
   const bottomRef = useRef(null);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior:"smooth" }); }, [messages]);
@@ -4306,15 +4383,13 @@ const AIAssistantPage = ({ db, user }) => {
     const latestDate = allDates[allDates.length-1] || "none";
     const prevDate   = allDates[allDates.length-2] || "none";
 
-    // Per-class summary
     const classSummary = classes.filter(c=>c.is_active==="YES").map(cls => {
-      const recs = records.filter(r=>r.class_name===cls.name);
+      const recs   = records.filter(r=>r.class_name===cls.name);
       const latest = recs.filter(r=>r.date===latestDate);
       const prev   = recs.filter(r=>r.date===prevDate);
       const avgClose = recs.length ? Math.round(recs.reduce((s,r)=>s+(Number(r.total_closing)||0),0)/recs.length) : 0;
       return {
-        class: cls.name,
-        totalSubmissions: recs.length,
+        class: cls.name, totalSubmissions: recs.length,
         latestClose: latest.reduce((s,r)=>s+(Number(r.total_closing)||0),0),
         prevClose:   prev.reduce((s,r)=>s+(Number(r.total_closing)||0),0),
         avgClose,
@@ -4323,7 +4398,6 @@ const AIAssistantPage = ({ db, user }) => {
       };
     });
 
-    // Monthly trend
     const monthMap = {};
     records.forEach(r => {
       const m = (r.date||"").slice(0,7); if(!m) return;
@@ -4363,29 +4437,28 @@ Give clear, pastoral, ministry-focused insights. Use emojis sparingly. Be concis
   };
 
   const sendMessage = async () => {
-    if (!input.trim() || loading) return;
+    if (!input.trim() || loading || !apiKey) return;
     const userMsg = input.trim();
     setInput("");
     setMessages(m => [...m, { role:"user", content:userMsg }]);
     setLoading(true);
 
     try {
-      const systemPrompt = buildContext();
-      const history = messages.slice(-10);
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "x-api-key": apiKey,
           "anthropic-version": "2023-06-01",
           "anthropic-dangerous-direct-browser-access": "true",
         },
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
           max_tokens: 1000,
-          system: systemPrompt,
+          system: buildContext(),
           messages: [
-            ...history.map(m => ({ role: m.role, content: m.content })),
-            { role: "user", content: userMsg },
+            ...messages.slice(-10).map(m => ({ role:m.role, content:m.content })),
+            { role:"user", content:userMsg },
           ],
         }),
       });
@@ -4395,11 +4468,11 @@ Give clear, pastoral, ministry-focused insights. Use emojis sparingly. Be concis
         throw new Error(err?.error?.message || `HTTP ${response.status}`);
       }
 
-      const data = await response.json();
-      const reply = data.content?.map(b => b.text || "").join("") || "Sorry, I couldn't get a response.";
-      setMessages(m => [...m, { role: "assistant", content: reply }]);
+      const data  = await response.json();
+      const reply = data.content?.map(b => b.text||"").join("") || "Sorry, I couldn't get a response.";
+      setMessages(m => [...m, { role:"assistant", content:reply }]);
     } catch (e) {
-      setMessages(m => [...m, { role: "assistant", content: `⚠️ Error: ${e.message || "Connection failed. Please try again."}` }]);
+      setMessages(m => [...m, { role:"assistant", content:`⚠️ ${e.message || "Connection failed. Please try again."}` }]);
     }
     setLoading(false);
   };
@@ -4463,6 +4536,68 @@ Give clear, pastoral, ministry-focused insights. Use emojis sparingly. Be concis
         </div>
       </div>
 
+      {/* ── API Key Setup Banner ───────────────────────────────────────────── */}
+      {!apiKey ? (
+        <div style={{ ...card, marginBottom:18, border:`2px dashed ${ACTIVE_COLOR}66`,
+          background: isDark(mode) ? `${ACTIVE_COLOR}11` : `${ACTIVE_COLOR}08`,
+          display:"flex", flexDirection:"column", gap:14 }}>
+          <div style={{ display:"flex", alignItems:"flex-start", gap:12 }}>
+            <span style={{ fontSize:28 }}>🔑</span>
+            <div>
+              <div style={{ fontWeight:700, fontSize:15, color:t.text, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:4 }}>
+                Connect your Anthropic API Key
+              </div>
+              <div style={{ fontSize:13, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", lineHeight:1.6 }}>
+                To use the AI Assistant you need an Anthropic API key. Your key is stored only in this browser session — it's never sent anywhere except directly to Anthropic's API.
+                <br/>Get a key at <a href="https://console.anthropic.com/keys" target="_blank" rel="noreferrer"
+                  style={{ color:ACTIVE_COLOR, textDecoration:"none", fontWeight:600 }}>console.anthropic.com/keys</a>
+              </div>
+            </div>
+          </div>
+          {showKeyInput ? (
+            <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
+              <input
+                type="password"
+                placeholder="sk-ant-api03-…"
+                value={keyInput}
+                onChange={e=>setKeyInput(e.target.value)}
+                onKeyDown={e=>e.key==="Enter" && saveKey()}
+                style={{ flex:1, minWidth:260, background: isDark(mode)?"rgba(255,255,255,0.07)":t.surfaceAlt,
+                  border:`1px solid ${t.border}`, borderRadius:9, padding:"10px 14px",
+                  color:t.text, fontFamily:"monospace", fontSize:13, outline:"none" }}
+              />
+              <button onClick={saveKey} style={{ padding:"10px 20px", borderRadius:9, border:"none",
+                background:ACTIVE_COLOR, color:"#fff", fontFamily:"'Trebuchet MS',sans-serif",
+                fontWeight:700, fontSize:13, cursor:"pointer" }}>Save Key</button>
+              <button onClick={()=>setShowKeyInput(false)} style={{ padding:"10px 14px", borderRadius:9,
+                border:`1px solid ${t.border}`, background:"transparent", color:t.textMuted,
+                fontFamily:"'Trebuchet MS',sans-serif", fontSize:13, cursor:"pointer" }}>Cancel</button>
+            </div>
+          ) : (
+            <button onClick={()=>setShowKeyInput(true)} style={{ alignSelf:"flex-start", padding:"10px 22px",
+              borderRadius:9, border:`1px solid ${ACTIVE_COLOR}`, background:ACTIVE_COLOR,
+              color:"#fff", fontFamily:"'Trebuchet MS',sans-serif", fontWeight:700, fontSize:13, cursor:"pointer" }}>
+              + Enter API Key
+            </button>
+          )}
+        </div>
+      ) : (
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16,
+          padding:"8px 14px", borderRadius:9, background: t.success+"18",
+          border:`1px solid ${t.success}44`, width:"fit-content" }}>
+          <span style={{ color:t.success, fontSize:13 }}>✓</span>
+          <span style={{ fontSize:12, color:t.success, fontFamily:"'Trebuchet MS',sans-serif", fontWeight:600 }}>
+            API key connected
+          </span>
+          <span style={{ fontSize:12, color:t.textMuted, fontFamily:"monospace" }}>
+            {apiKey.slice(0,14)}…
+          </span>
+          <button onClick={forgetKey} style={{ padding:"3px 10px", borderRadius:6, border:`1px solid ${t.danger}44`,
+            background:t.danger+"11", color:t.danger, fontFamily:"'Trebuchet MS',sans-serif",
+            fontSize:11, cursor:"pointer" }}>Remove</button>
+        </div>
+      )}
+
       {/* Tabs */}
       <div style={{ display:"flex", gap:4, marginBottom:16, background:t.surfaceAlt, borderRadius:10, padding:4, width:"fit-content" }}>
         {tabBtn("chat",     "💬 Chat")}
@@ -4481,10 +4616,11 @@ Give clear, pastoral, ministry-focused insights. Use emojis sparingly. Be concis
               { label:"All-time First Timers",value:records.reduce((s,r)=>s+(Number(r.first_timers)||0),0), sub:"total", color:ACTIVE_COLOR },
               { label:"Total Visitors",       value:records.reduce((s,r)=>s+(Number(r.visitors)||0),0), sub:"all time", color:"#E67E22" },
             ].map(k=>(
-              <div key={k.label} style={{ ...card, padding:"14px 18px" }}>
-                <div style={{ fontSize:10, color:t.textMuted, textTransform:"uppercase", letterSpacing:1, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:4 }}>{k.label}</div>
-                <div style={{ fontSize:24, fontWeight:800, color:k.color, fontFamily:"'Georgia',serif" }}>{k.value}</div>
-                <div style={{ fontSize:11, color:t.textFaint, fontFamily:"'Trebuchet MS',sans-serif", marginTop:2 }}>{k.sub}</div>
+              <div key={k.label} style={{ ...card, padding:"16px 18px", borderTop:`3px solid ${k.color}` }}>
+                <div style={{ fontSize:13, fontWeight:800, color:t.text, fontFamily:"'Trebuchet MS',sans-serif",
+                  marginBottom:8, lineHeight:1.3, letterSpacing:0.2 }}>{k.label}</div>
+                <div style={{ fontSize:30, fontWeight:900, color:k.color, fontFamily:"'Georgia',serif", lineHeight:1 }}>{k.value}</div>
+                <div style={{ fontSize:11, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginTop:5 }}>{k.sub}</div>
               </div>
             ))}
           </div>
@@ -4565,11 +4701,13 @@ Give clear, pastoral, ministry-focused insights. Use emojis sparingly. Be concis
 
           {/* Input area */}
           <div style={{ ...card, marginTop:12, display:"flex", gap:10, alignItems:"flex-end" }}>
-            <textarea id="ai-input" rows={2} style={{ ...inp, flex:1, minHeight:52 }}
-              placeholder="Ask about attendance trends, class performance, recommendations…"
+            <textarea id="ai-input" rows={2} style={{ ...inp, flex:1, minHeight:52,
+              opacity: apiKey ? 1 : 0.5 }}
+              placeholder={apiKey ? "Ask about attendance trends, class performance, recommendations…" : "Enter your API key above to start chatting…"}
               value={input} onChange={e=>setInput(e.target.value)}
+              disabled={!apiKey}
               onKeyDown={e=>{ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); sendMessage(); } }} />
-            <button onClick={sendMessage} disabled={loading || !input.trim()}
+            <button onClick={sendMessage} disabled={loading || !input.trim() || !apiKey}
               style={{ padding:"12px 22px", borderRadius:12, border:"none", cursor:"pointer",
                 background: (loading||!input.trim()) ? t.surfaceAlt : `linear-gradient(135deg,${t.sidebar},${t.goldLight||t.sidebar})`,
                 color: (loading||!input.trim()) ? t.textFaint : "#FFFFFF",
@@ -4992,6 +5130,7 @@ export default function App() {
   const [collapsed, setCollapsed]   = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [toasts, setToasts]         = useState([]);
+  const [editingRecord, setEditingRecord] = useState(null); // record being edited
   const db     = useSupabaseDB();
   const users  = useUsers();
   const mobile = useIsMobile();
@@ -5039,7 +5178,8 @@ export default function App() {
 
   const pages = {
     dashboard: guard("dashboard",  <DashboardPage db={db} />),
-    attendance:guard("attendance", <AttendancePage db={db} user={user} />),
+    attendance:guard("attendance", <AttendancePage db={db} user={user}
+      onEditRecord={r=>{ setEditingRecord(r); setPage("submit"); }} />),
     church:    guard("church",     <ChurchAttendancePage db={db} user={user} />),
     analytics: guard("analytics",  <AnalyticsPage db={db} />),
     teachers:  guard("teachers",   <TeachersPage db={db} />),
@@ -5049,7 +5189,10 @@ export default function App() {
     roles:     user?.role==="admin" ? <RolesPage /> : <AccessDenied />,
     branding:  user?.role==="admin" ? <BrandingPage /> : <AccessDenied />,
     export:    guard("export",     <ExportPage db={db} />),
-    submit:    guard("submit",     <SubmitPage db={db} user={user} onSuccess={()=>toast("Report saved!","success")} />),
+    submit:    guard("submit",     <SubmitPage db={db} user={user}
+      onSuccess={()=>toast(editingRecord?"Record updated!":"Report saved!","success")}
+      editRecord={editingRecord}
+      onCancelEdit={()=>{ setEditingRecord(null); setPage("attendance"); }} />),
     ssreport:  guard("attendance", <SSReportPage db={db} />),
     ai:        <AIAssistantPage db={db} user={user} />,
   };
