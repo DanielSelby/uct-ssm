@@ -1174,7 +1174,7 @@ const KpiCard = ({ label, value, sub, icon, color }) => {
       padding:"18px 20px", borderTop:`3px solid ${c}` }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
         <div>
-          <div style={{ fontSize:14, fontWeight:800, color:t.text,
+          <div style={{ fontSize:16, fontWeight:800, color:t.text,
             fontFamily:"'Trebuchet MS',sans-serif", marginBottom:8, lineHeight:1.3 }}>{label}</div>
           <div style={{ fontSize:30, fontWeight:900, color:c, fontFamily:"'Georgia',serif", lineHeight:1 }}>{value}</div>
           {sub && <div style={{ fontSize:11, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginTop:5 }}>{sub}</div>}
@@ -5103,8 +5103,8 @@ const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => 
 
   const allAdminNav = [
     {id:"dashboard",  label:"Dashboard",      icon:"dashboard",  perm:"dashboard"},
-    {id:"attendance", label:"SS Records",     icon:"attendance", perm:"attendance"},
-    {id:"ssreport",   label:"SS Report",      icon:"ssreport",   perm:"ssreport"},
+    {id:"attendance", label:"Sunday Sch. Records", icon:"attendance", perm:"attendance"},
+    {id:"ssreport",   label:"Sunday Sch. Attend.", icon:"ssreport",   perm:"ssreport"},
     {id:"church",     label:"Church Attend.", icon:"cross",      perm:"church"},
     {id:"analytics",  label:"Analytics",      icon:"analytics",  perm:"analytics"},
     {id:"ai",         label:"AI Assistant",   icon:"ai",         perm:"ai"},
@@ -5119,7 +5119,7 @@ const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => 
   ];
   const allTeacherNav = [
     {id:"submit",     label:"Submit Report",  icon:"submit",     perm:"submit"},
-    {id:"ssreport",   label:"SS Report",      icon:"analytics",  perm:"ssreport"},
+    {id:"ssreport",   label:"Sunday Sch. Attend.", icon:"analytics",  perm:"ssreport"},
     {id:"church",     label:"Church Attend.", icon:"cross",      perm:"church"},
     {id:"attendance", label:"My Records",     icon:"attendance", perm:"attendance"},
     {id:"analytics",  label:"Analytics",      icon:"analytics",  perm:"analytics"},
@@ -5141,13 +5141,13 @@ const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => 
     borderLeft: active ? `3px solid ${ACTIVE_COLOR}` : "3px solid transparent",
     background: active ? t.sidebarActive : "transparent",
     color: active ? "#FFFFFF" : t.sidebarMuted,
-    fontSize:13, fontFamily:"'Trebuchet MS',sans-serif", transition:"all 0.15s", whiteSpace:"nowrap",
+    fontSize:15, fontFamily:"'Trebuchet MS',sans-serif", transition:"all 0.15s", whiteSpace:"nowrap",
   });
 
   const modeLabel = mode==="light"?"☀ Light":mode==="navy"?"🌊 Navy":mode==="dark"?"🌙 Dark":mode==="darkBlue"?"🌊🌙 Dark Blue":mode==="orange"?"🔥 Orange":"🔥🌙 Dark Orange";
 
   return (
-    <div style={{ width:collapsed?60:230, background:t.sidebar, borderRight:`1px solid ${t.sidebarBorder}`,
+    <div style={{ width:collapsed?60:260, background:t.sidebar, borderRight:`1px solid ${t.sidebarBorder}`,
       display:"flex", flexDirection:"column", flexShrink:0, transition:"width 0.22s", overflow:"hidden", minHeight:"100vh" }}>
       {/* Header with animated bible */}
       <div style={{ padding:collapsed?"18px 8px":"18px 18px 14px", borderBottom:`1px solid ${t.sidebarBorder}`,
@@ -5387,29 +5387,29 @@ const MobileDrawer = ({ open, onClose, page, setPage, user, onLogout, db }) => {
   const can = (key) => isAdmin || perms.includes(key);
 
   const allNav = isAdmin ? [
-    {id:"dashboard",  label:"Dashboard",      icon:"dashboard"},
-    {id:"attendance", label:"SS Records",     icon:"attendance"},
-    {id:"ssreport",   label:"SS Report",      icon:"ssreport"},
-    {id:"church",     label:"Church Attend.", icon:"cross"},
-    {id:"analytics",  label:"Analytics",      icon:"analytics"},
-    {id:"ai",         label:"AI Assistant",   icon:"ai"},
-    {id:"lessons",    label:"Lesson Register", icon:"lesson"},
-    {id:"teachers",   label:"Teachers",       icon:"teachers"},
-    {id:"classes",    label:"Classes",        icon:"classes"},
-    {id:"programs",   label:"Programs",       icon:"settings"},
-    {id:"users",      label:"Users & Access", icon:"users"},
-    {id:"roles",      label:"Roles",          icon:"edit"},
-    {id:"branding",   label:"Logo & Name",    icon:"bible"},
-    {id:"export",     label:"Export",         icon:"export"},
+    {id:"dashboard",  label:"Dashboard",           icon:"dashboard"},
+    {id:"attendance", label:"Sunday Sch. Records", icon:"attendance"},
+    {id:"ssreport",   label:"Sunday Sch. Attend.", icon:"ssreport"},
+    {id:"church",     label:"Church Attend.",      icon:"cross"},
+    {id:"analytics",  label:"Analytics",           icon:"analytics"},
+    {id:"ai",         label:"AI Assistant",        icon:"ai"},
+    {id:"lessons",    label:"Lesson Register",     icon:"lesson"},
+    {id:"teachers",   label:"Teachers",            icon:"teachers"},
+    {id:"classes",    label:"Classes",             icon:"classes"},
+    {id:"programs",   label:"Programs",            icon:"settings"},
+    {id:"users",      label:"Users & Access",      icon:"users"},
+    {id:"roles",      label:"Roles",               icon:"edit"},
+    {id:"branding",   label:"Logo & Name",         icon:"bible"},
+    {id:"export",     label:"Export",              icon:"export"},
   ] : [
-    {id:"submit",     label:"Submit Report",  icon:"submit",    perm:"submit"},
-    {id:"ssreport",   label:"SS Report",      icon:"ssreport",  perm:"ssreport"},
-    {id:"church",     label:"Church Attend.", icon:"cross",     perm:"church"},
-    {id:"attendance", label:"My Records",     icon:"attendance",perm:"attendance"},
-    {id:"analytics",  label:"Analytics",      icon:"analytics", perm:"analytics"},
-    {id:"ai",         label:"AI Assistant",   icon:"ai",        perm:"ai"},
-    {id:"lessons",    label:"Lesson Register", icon:"lesson",    perm:"lessons"},
-    {id:"export",     label:"Export",         icon:"export",    perm:"export"},
+    {id:"submit",     label:"Submit Report",       icon:"submit",    perm:"submit"},
+    {id:"ssreport",   label:"Sunday Sch. Attend.", icon:"ssreport",  perm:"ssreport"},
+    {id:"church",     label:"Church Attend.",      icon:"cross",     perm:"church"},
+    {id:"attendance", label:"My Records",          icon:"attendance",perm:"attendance"},
+    {id:"analytics",  label:"Analytics",           icon:"analytics", perm:"analytics"},
+    {id:"ai",         label:"AI Assistant",        icon:"ai",        perm:"ai"},
+    {id:"lessons",    label:"Lesson Register",     icon:"lesson",    perm:"lessons"},
+    {id:"export",     label:"Export",              icon:"export",    perm:"export"},
   ].filter(n => can(n.perm||n.id));
 
   if (!open) return null;
@@ -5453,7 +5453,7 @@ const MobileDrawer = ({ open, onClose, page, setPage, user, onLogout, db }) => {
                   background: active ? t.sidebarActive : "transparent",
                   borderLeft: active ? `3px solid ${ACTIVE_COLOR}` : "3px solid transparent",
                   color: active ? "#FFFFFF" : t.sidebarMuted,
-                  fontFamily:"'Trebuchet MS',sans-serif", fontSize:14 }}>
+                  fontFamily:"'Trebuchet MS',sans-serif", fontSize:15 }}>
                 <Icon name={n.icon} size={18} color={active ? ACTIVE_COLOR : "rgba(255,255,255,0.5)"} />
                 {n.label}
               </div>
