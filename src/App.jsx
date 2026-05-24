@@ -4344,13 +4344,13 @@ const SSReportPage = ({ db }) => {
             {/* Column headers */}
             <tr style={{ background:t.surfaceAlt }}>
               <th style={{ ...thS, color:t.gold, minWidth:160 }}>Class</th>
-              <th style={{ ...thS, color:t.info }}>SS - Attend. Begin</th>
-              <th style={{ ...thS, color:t.gold }}>SS - Attend. Close</th>
-              <th style={{ ...thS, color:"#9B59B6" }}>Bible Begin</th>
+              <th style={{ ...thS, color:t.info }}>Attend. Begin</th>
+              <th style={{ ...thS, color:t.gold }}>Attend. Close</th>
+              <th style={{ ...thS, color:"#225546" }}>Bible Begin</th>
               <th style={{ ...thS, color:"#7B3FBE", borderRight:`2px solid ${t.border}` }}>Bible Close</th>
-              <th style={{ ...thS, color:t.info }}>Prev. SS - Attend. Begin</th>
-              <th style={{ ...thS, color:t.gold }}>Prev. SS - Attend. Close</th>
-              <th style={{ ...thS, color:"#9B59B6" }}>Prev.Bible Begin</th>
+              <th style={{ ...thS, color:t.info }}>Prev.  Attend. Begin</th>
+              <th style={{ ...thS, color:t.gold }}>Prev.  Attend. Close</th>
+              <th style={{ ...thS, color:"#395c18" }}>Prev.Bible Begin</th>
               <th style={{ ...thS, color:"#7B3FBE", borderRight:`2px solid ${t.border}` }}>Prev.Bible Close</th>
               <th style={{ ...thS, color:"#E67E22" }}>Male / Female</th>
               <th style={{ ...thS, color:t.success }}>1st T / Visitors</th>
