@@ -853,68 +853,64 @@ const useSupabaseDB = () => {
     const mc = Number(data.male_closing)||0,   fc = Number(data.female_closing)||0;
     const rec = { ...data, id:`C${Date.now()}`,
       total_beginning: String(mb+fb), total_closing: String(mc+fc),
+      ministered_by: data.ministered_by||"",
+      song_leader: data.song_leader||"",
+      available_ministers: data.available_ministers||"",
       created_at: new Date().toISOString() };
-    try {
-      await sbFetch("uct_church", { method:"POST", body:JSON.stringify(rec) });
-      setChurchRecs(c => [rec, ...c]);
-    } catch(e) { alert("Save failed: " + e.message); }
+    setChurchRecs(c => [rec, ...c]);
+    if (SUPABASE_READY) {
+      try { await sbFetch("uct_church", { method:"POST", body:JSON.stringify(rec) }); }
+      catch(e) { console.warn("Church add failed (local kept):", e.message); }
+    }
     return rec;
   }, []);
 
   const updateChurchRec = useCallback(async (id, updates) => {
     const merged = { ...updates };
-    merged.total_beginning = String((Number(merged.male_beginning)||0)+(Number(merged.female_beginning)||0));
-    merged.total_closing   = String((Number(merged.male_closing)||0)+(Number(merged.female_closing)||0));
-    try {
-      await sbFetch(`uct_church?id=eq.${id}`, { method:"PATCH", body:JSON.stringify(merged) });
-      setChurchRecs(c => c.map(x => x.id===id ? {...x,...merged} : x));
-    } catch(e) { alert("Update failed: " + e.message); }
+    merged.total_beginning       = String((Number(merged.male_beginning)||0)+(Number(merged.female_beginning)||0));
+    merged.total_closing         = String((Number(merged.male_closing)||0)+(Number(merged.female_closing)||0));
+    merged.ministered_by         = updates.ministered_by||"";
+    merged.song_leader           = updates.song_leader||"";
+    merged.available_ministers   = updates.available_ministers||"";
+    setChurchRecs(c => c.map(x => x.id===id ? {...x,...merged} : x));
+    if (SUPABASE_READY) {
+      try { await sbFetch(`uct_church?id=eq.${id}`, { method:"PATCH", body:JSON.stringify(merged) }); }
+      catch(e) { console.warn("Church update failed (local kept):", e.message); }
+    }
   }, []);
 
   const deleteChurchRec = useCallback(async (id) => {
-    try {
-      await sbFetch(`uct_church?id=eq.${id}`, { method:"DELETE" });
-      setChurchRecs(c => c.filter(x => x.id!==id));
-    } catch(e) { alert("Delete failed: " + e.message); }
+    setChurchRecs(c => c.filter(x => x.id!==id));
+    if (SUPABASE_READY) {
+      try { await sbFetch(`uct_church?id=eq.${id}`, { method:"DELETE" }); }
+      catch(e) { console.warn("Church delete failed (local kept):", e.message); }
+    }
   }, []);
 
   // ── Programs ──────────────────────────────────────────────
   const addProgram = useCallback(async (name) => {
     const newP = { id:`P${Date.now()}`, name:name.trim(), is_active:"YES",
       sort_order: String(programs.length+1) };
-    // Update local state IMMEDIATELY so UI reacts right away
     setPrograms(p => [...p, newP]);
-    // Then persist to Supabase (non-blocking, silent on failure)
     if (SUPABASE_READY) {
-      try {
-        await sbFetch("uct_programs", { method:"POST", body:JSON.stringify(newP) });
-      } catch(e) {
-        console.warn("Supabase program save failed (local state kept):", e.message);
-      }
+      try { await sbFetch("uct_programs", { method:"POST", body:JSON.stringify(newP) }); }
+      catch(e) { console.warn("Program add failed (local kept):", e.message); }
     }
   }, [programs]);
 
   const updateProgram = useCallback(async (id, updates) => {
-    // Update local state immediately
     setPrograms(p => p.map(x => x.id===id ? {...x,...updates} : x));
     if (SUPABASE_READY) {
-      try {
-        await sbFetch(`uct_programs?id=eq.${id}`, { method:"PATCH", body:JSON.stringify(updates) });
-      } catch(e) {
-        console.warn("Supabase program update failed (local state kept):", e.message);
-      }
+      try { await sbFetch(`uct_programs?id=eq.${id}`, { method:"PATCH", body:JSON.stringify(updates) }); }
+      catch(e) { console.warn("Program update failed (local kept):", e.message); }
     }
   }, []);
 
   const deleteProgram = useCallback(async (id) => {
-    // Remove locally immediately
     setPrograms(p => p.filter(x => x.id!==id));
     if (SUPABASE_READY) {
-      try {
-        await sbFetch(`uct_programs?id=eq.${id}`, { method:"DELETE" });
-      } catch(e) {
-        console.warn("Supabase program delete failed (local state kept):", e.message);
-      }
+      try { await sbFetch(`uct_programs?id=eq.${id}`, { method:"DELETE" }); }
+      catch(e) { console.warn("Program delete failed (local kept):", e.message); }
     }
   }, []);
 
@@ -927,11 +923,47 @@ const useSupabaseDB = () => {
   const downloadWorkbook = useCallback(() => {
     const wb = XLSX.utils.book_new();
     const toSheet = (rows) => XLSX.utils.json_to_sheet(rows.length ? rows : [{}]);
-    XLSX.utils.book_append_sheet(wb, toSheet(records),    "SS Attendance");
-    XLSX.utils.book_append_sheet(wb, toSheet(churchRecs), "Church Attendance");
-    XLSX.utils.book_append_sheet(wb, toSheet(teachers),   "Teachers");
-    XLSX.utils.book_append_sheet(wb, toSheet(classes),    "Classes");
-    XLSX.utils.book_append_sheet(wb, toSheet(programs),   "Programs");
+
+    XLSX.utils.book_append_sheet(wb, toSheet(records), "SS Attendance");
+
+    // Church Attendance — clean column names
+    const churchRows = churchRecs.map(r => ({
+      "Date":                  r.date||"",
+      "Day":                   r.day_of_week||"",
+      "Program":               r.program||"",
+      "Male (Beginning)":      r.male_beginning||0,
+      "Female (Beginning)":    r.female_beginning||0,
+      "SS - Attend. Begin":    r.total_beginning||0,
+      "Male (Closing)":        r.male_closing||0,
+      "Female (Closing)":      r.female_closing||0,
+      "SS - Attend. Close":    r.total_closing||0,
+      "First Timers":          r.first_timers||0,
+      "Visitors":              r.visitors||0,
+      "Song Leader":           r.song_leader||"",
+      "Ministered By":         r.ministered_by||"",
+      "Ministers Available":   r.available_ministers||"",
+      "Notes":                 r.notes||"",
+      "Submitted By":          r.submitted_by||"",
+    }));
+    XLSX.utils.book_append_sheet(wb, toSheet(churchRows), "Church Attendance");
+
+    // Ministry Team — one row per role per service
+    const ministryRows = [];
+    churchRecs.forEach(r => {
+      const base = { Date:r.date, Program:r.program, Day:r.day_of_week };
+      (r.song_leader||"").split(",").map(n=>n.trim()).filter(Boolean).forEach(name =>
+        ministryRows.push({ ...base, Role:"Song Leader", Name:name }));
+      (r.ministered_by||"").split(",").map(n=>n.trim()).filter(Boolean).forEach(name =>
+        ministryRows.push({ ...base, Role:"Ministered", Name:name }));
+      (r.available_ministers||"").split(",").map(n=>n.trim()).filter(Boolean).forEach(name =>
+        ministryRows.push({ ...base, Role:"Available", Name:name }));
+    });
+    if (ministryRows.length)
+      XLSX.utils.book_append_sheet(wb, toSheet(ministryRows), "Ministry Team");
+
+    XLSX.utils.book_append_sheet(wb, toSheet(teachers),  "Teachers");
+    XLSX.utils.book_append_sheet(wb, toSheet(classes),   "Classes");
+    XLSX.utils.book_append_sheet(wb, toSheet(programs),  "Programs");
     XLSX.writeFile(wb, `UCT_Report_${new Date().toISOString().slice(0,10)}.xlsx`);
   }, [records, churchRecs, teachers, classes, programs]);
 
@@ -1674,8 +1706,8 @@ const DashboardPage = ({ db }) => {
         Sunday School
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:12, marginBottom:16 }}>
-        <KpiCard label="SS - Attend. Begin"   value={ssBeginTotal} sub="At opening"        icon="attendance" color={t.info} />
-        <KpiCard label="SS - Attend. Close" value={ssTotal}      sub="At close"          icon="attendance" color={t.gold} />
+        <KpiCard label="SS - SS - Attend. Begin"   value={ssBeginTotal} sub="At opening"        icon="attendance" color={t.info} />
+        <KpiCard label="SS - SS - Attend. Close" value={ssTotal}      sub="At close"          icon="attendance" color={t.gold} />
         <KpiCard label="Bibles at Begin"    value={biblesBegin}  sub="Brought at start"  icon="bible"      color="#9B59B6" />
         <KpiCard label="Bibles at Closing"  value={bibles}       sub={`${bibleRate}% rate`} icon="bible"   color="#7B3FBE" />
         <KpiCard label="First Timers"       value={fRec.reduce((s,r)=>s+(Number(r.first_timers)||0),0)} sub="SS only" icon="plus" color="#E67E22" />
@@ -2964,6 +2996,9 @@ const ChurchAttendancePage = ({ db, user }) => {
     male_closing:   "", female_closing:   "",
     first_timers: "", visitors: "",
     notes: "", submitted_by: user?.name || "",
+    ministered_by: "",
+    song_leader: "",
+    available_ministers: "",
   };
 
   const [form, setForm]       = useState(blank);
@@ -2971,14 +3006,6 @@ const ChurchAttendancePage = ({ db, user }) => {
   const [showForm, setShowForm] = useState(false);
   const [filter, setFilter]   = useState({ program:"", month:"" });
   const [loading, setLoading] = useState(false);
-
-  // Auto-set default program when programs list loads/changes and form is blank
-  useEffect(() => {
-    if (!form.program && activePrograms.length > 0) {
-      setForm(f => ({ ...f, program: activePrograms[0].name }));
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activePrograms.length]);
 
   // Stable handler — prevents focus loss on each keystroke
   const handleChange = useCallback((e) => {
@@ -2990,13 +3017,22 @@ const ChurchAttendancePage = ({ db, user }) => {
   const totalBegin  = (Number(form.male_beginning)||0) + (Number(form.female_beginning)||0);
   const totalClose  = (Number(form.male_closing)||0)   + (Number(form.female_closing)||0);
 
+  const [saveToast, setSaveToast] = useState("");
+  const showSaveToast = (msg) => { setSaveToast(msg); setTimeout(()=>setSaveToast(""),3500); };
+
   const handleSave = () => {
-    if (!form.program) { alert("Please select a program."); return; }
-    if (!form.date)    { alert("Please select a date."); return; }
+    if (!form.program) { showSaveToast("⚠️ Please select a program."); return; }
+    if (!form.date)    { showSaveToast("⚠️ Please select a date."); return; }
     setLoading(true);
     setTimeout(() => {
-      if (editId) { updateChurchRec(editId, form); setEditId(null); }
-      else        { addChurchRec(form); }
+      if (editId) {
+        updateChurchRec(editId, form);
+        showSaveToast(`✅ Record updated — ${form.program} · ${form.date}`);
+        setEditId(null);
+      } else {
+        addChurchRec(form);
+        showSaveToast(`✅ Attendance saved — ${form.program} · ${form.date}`);
+      }
       setForm(blank); setShowForm(false); setLoading(false);
     }, 300);
   };
@@ -3009,6 +3045,13 @@ const ChurchAttendancePage = ({ db, user }) => {
   };
 
   const handleCancel = () => { setForm(blank); setEditId(null); setShowForm(false); };
+
+  // Auto-set default program when list loads and form is blank
+  useEffect(() => {
+    if (!form.program && activePrograms.length > 0)
+      setForm(f => ({ ...f, program: activePrograms[0].name }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePrograms.length]);
 
   const filtered = churchRecs.filter(r =>
     (!filter.program || r.program === filter.program) &&
@@ -3034,6 +3077,16 @@ const ChurchAttendancePage = ({ db, user }) => {
 
   return (
     <div>
+      {/* Save toast */}
+      {saveToast && (
+        <div style={{ position:"fixed", top:24, right:24, zIndex:9999,
+          background: saveToast.startsWith("✅") ? "#0A7A45" : "#C87A0A",
+          color:"#fff", padding:"12px 20px", borderRadius:10,
+          fontFamily:"'Trebuchet MS',sans-serif", fontSize:14, fontWeight:600,
+          boxShadow:"0 4px 20px rgba(0,0,0,0.35)", maxWidth:380 }}>
+          {saveToast}
+        </div>
+      )}
       {/* Header */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:24 }}>
         <div>
@@ -3141,6 +3194,54 @@ const ChurchAttendancePage = ({ db, user }) => {
             <textarea style={{ ...inp, minHeight:55, resize:"vertical" }} value={form.notes} name="notes" onChange={handleChange} />
           </div>
 
+          {/* ── MINISTRY TEAM ── */}
+          <div style={{ border:`2px solid ${t.gold}44`, borderRadius:14, padding:18, marginBottom:20, background:t.surfaceAlt }}>
+            <div style={{ fontSize:11, fontWeight:700, color:t.gold, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1.5, marginBottom:16, display:"flex", alignItems:"center", gap:8 }}>
+              <span style={{fontSize:16}}>🎙️</span> Ministry Team
+            </div>
+
+            {/* Song Leader */}
+            <div style={{ display:"flex", flexDirection:"column", gap:5, marginBottom:14 }}>
+              <label style={{ ...lbl, display:"flex", alignItems:"center", gap:6 }}>
+                <span style={{fontSize:14}}>🎵</span> Song Leader
+              </label>
+              <input style={{ ...inp, borderColor:`${t.gold}66` }} type="text" name="song_leader"
+                placeholder="e.g. Bro. Emmanuel Asante"
+                value={form.song_leader} onChange={handleChange} />
+            </div>
+
+            {/* Ministered By */}
+            <div style={{ display:"flex", flexDirection:"column", gap:5, marginBottom:14 }}>
+              <label style={{ ...lbl, display:"flex", alignItems:"center", gap:6 }}>
+                <span style={{fontSize:14}}>✝️</span> Ministered By
+                <span style={{ fontSize:11, color:t.textMuted, fontWeight:400 }}>(separate multiple with commas)</span>
+              </label>
+              <textarea style={{ ...inp, minHeight:52, resize:"vertical", borderColor:`${t.gold}66` }}
+                name="ministered_by"
+                placeholder="e.g. Pastor John Mensah, Deacon Kwame Boateng"
+                value={form.ministered_by} onChange={handleChange} />
+            </div>
+
+            {/* Ministers Available */}
+            <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+              <label style={{ ...lbl, display:"flex", alignItems:"center", gap:6 }}>
+                <span style={{fontSize:14}}>👥</span> Ministers Available
+                <span style={{ fontSize:11, color:t.textMuted, fontWeight:400 }}>(present that day)</span>
+              </label>
+              <textarea style={{ ...inp, minHeight:52, resize:"vertical", borderColor:`${t.gold}44` }}
+                name="available_ministers"
+                placeholder="e.g. Elder Samuel Owusu, Deaconess Grace Adu"
+                value={form.available_ministers} onChange={handleChange} />
+              {form.available_ministers.trim() && (
+                <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginTop:4 }}>
+                  {form.available_ministers.split(",").map(n=>n.trim()).filter(Boolean).map((n,i)=>(
+                    <span key={i} style={{ padding:"3px 10px", borderRadius:20, background:`${t.gold}22`, border:`1px solid ${t.gold}44`, fontSize:12, color:t.text, fontFamily:"'Trebuchet MS',sans-serif" }}>{n}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
           <div style={{ display:"flex", gap:10 }}>
             <button style={{ ...btnGold, padding:"12px 32px" }} onClick={handleSave} disabled={loading}>
               {loading ? "Saving…" : editId ? "Save Changes" : "Save Record"}
@@ -3164,12 +3265,88 @@ const ChurchAttendancePage = ({ db, user }) => {
         <span style={{ fontSize:12, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginLeft:"auto" }}>{filtered.length} records</span>
       </div>
 
+      {/* ── MINISTRY SUMMARY PANEL ── */}
+      {(() => {
+        const allSongLeaders = churchRecs.flatMap(r=>(r.song_leader||"").split(",").map(n=>n.trim()).filter(Boolean));
+        const allMinistered  = churchRecs.flatMap(r=>(r.ministered_by||"").split(",").map(n=>n.trim()).filter(Boolean));
+        const allAvailable   = churchRecs.flatMap(r=>(r.available_ministers||"").split(",").map(n=>n.trim()).filter(Boolean));
+        const countBy = arr => arr.reduce((acc,n)=>{ acc[n]=(acc[n]||0)+1; return acc; },{});
+        const slCounts  = countBy(allSongLeaders);
+        const minCounts = countBy(allMinistered);
+        const avCounts  = countBy(allAvailable);
+        if (!allSongLeaders.length && !allMinistered.length && !allAvailable.length) return null;
+        const maxVal = obj => Math.max(...Object.values(obj), 1);
+        return (
+          <div style={{ marginBottom:20 }}>
+            <div style={{ fontSize:11, fontWeight:700, color:t.gold, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1.5, marginBottom:14, display:"flex", alignItems:"center", gap:8 }}>
+              <span style={{fontSize:16}}>🎙️</span> Ministry Team Overview
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))", gap:14 }}>
+
+              {Object.keys(slCounts).length > 0 && (
+                <div style={{ ...card, padding:16, border:`1px solid ${t.gold}33` }}>
+                  <div style={{ fontSize:12, fontWeight:700, color:t.gold, marginBottom:12, fontFamily:"'Trebuchet MS',sans-serif" }}>
+                    🎵 Song Leaders <span style={{ fontWeight:400, color:t.textMuted }}>({Object.keys(slCounts).length})</span>
+                  </div>
+                  {Object.entries(slCounts).sort((a,b)=>b[1]-a[1]).map(([name,count])=>(
+                    <div key={name} style={{ marginBottom:8 }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:3 }}>
+                        <span style={{color:t.text}}>{name}</span>
+                        <span style={{color:t.gold,fontWeight:700}}>×{count}</span>
+                      </div>
+                      <div style={{ height:4, background:t.border, borderRadius:2 }}>
+                        <div style={{ height:"100%", borderRadius:2, background:t.gold, width:`${(count/maxVal(slCounts))*100}%`, transition:"width .4s" }}/>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {Object.keys(minCounts).length > 0 && (
+                <div style={{ ...card, padding:16, border:`1px solid ${t.gold}33` }}>
+                  <div style={{ fontSize:12, fontWeight:700, color:t.gold, marginBottom:12, fontFamily:"'Trebuchet MS',sans-serif" }}>
+                    ✝️ Ministered By <span style={{ fontWeight:400, color:t.textMuted }}>({Object.keys(minCounts).length})</span>
+                  </div>
+                  {Object.entries(minCounts).sort((a,b)=>b[1]-a[1]).map(([name,count])=>(
+                    <div key={name} style={{ marginBottom:8 }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:3 }}>
+                        <span style={{color:t.text}}>{name}</span>
+                        <span style={{color:t.success,fontWeight:700}}>×{count}</span>
+                      </div>
+                      <div style={{ height:4, background:t.border, borderRadius:2 }}>
+                        <div style={{ height:"100%", borderRadius:2, background:`linear-gradient(90deg,${t.gold},${t.success})`, width:`${(count/maxVal(minCounts))*100}%`, transition:"width .4s" }}/>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {Object.keys(avCounts).length > 0 && (
+                <div style={{ ...card, padding:16, border:`1px solid ${t.info}33` }}>
+                  <div style={{ fontSize:12, fontWeight:700, color:t.info, marginBottom:12, fontFamily:"'Trebuchet MS',sans-serif" }}>
+                    👥 Ministers Available <span style={{ fontWeight:400, color:t.textMuted }}>({Object.keys(avCounts).length})</span>
+                  </div>
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+                    {Object.entries(avCounts).sort((a,b)=>b[1]-a[1]).map(([name,count])=>(
+                      <span key={name} style={{ padding:"4px 11px", borderRadius:20, background:`${t.info}18`, border:`1px solid ${t.info}33`, fontSize:12, color:t.text, fontFamily:"'Trebuchet MS',sans-serif", display:"flex", alignItems:"center", gap:5 }}>
+                        {name} <span style={{fontSize:10,fontWeight:700,color:t.info}}>×{count}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Records Table */}
       <div style={{ ...card, padding:0, overflow:"auto" }}>
         <table style={{ width:"100%", borderCollapse:"collapse", minWidth:820 }}>
           <thead>
             <tr style={{ background:t.surfaceAlt }}>
-              {["Date","Day","Program","Begin (M/F)","Begin Total","Closing (M/F)","Closing Total","1st Timers","Visitors","Actions"].map(h=>(
+              {["Date","Day","Program","Begin (M/F)","Begin Total","Closing (M/F)","Closing Total","1st Timers","Visitors","Song Leader","Ministered By","Ministers Available","Actions"].map(h=>(
                 <th key={h} style={th}>{h}</th>
               ))}
             </tr>
@@ -3204,6 +3381,32 @@ const ChurchAttendancePage = ({ db, user }) => {
                 </td>
                 <td style={{ ...td, color:t.textMuted }}>{r.first_timers||0}</td>
                 <td style={{ ...td, color:t.textMuted }}>{r.visitors||0}</td>
+                {/* Song Leader */}
+                <td style={{ ...td, maxWidth:140 }}>
+                  {r.song_leader
+                    ? <span style={{ fontSize:12, color:t.gold }}>{r.song_leader}</span>
+                    : <span style={{ color:t.textFaint, fontSize:11 }}>—</span>}
+                </td>
+                {/* Ministered By */}
+                <td style={{ ...td, maxWidth:190 }}>
+                  {r.ministered_by
+                    ? <div style={{ display:"flex", flexWrap:"wrap", gap:3 }}>
+                        {r.ministered_by.split(",").map(n=>n.trim()).filter(Boolean).map((n,i)=>(
+                          <span key={i} style={{ padding:"2px 8px", borderRadius:12, background:`${t.gold}22`, border:`1px solid ${t.gold}44`, fontSize:11, color:t.text, whiteSpace:"nowrap" }}>{n}</span>
+                        ))}
+                      </div>
+                    : <span style={{ color:t.textFaint, fontSize:11 }}>—</span>}
+                </td>
+                {/* Ministers Available */}
+                <td style={{ ...td, maxWidth:210 }}>
+                  {r.available_ministers
+                    ? <div style={{ display:"flex", flexWrap:"wrap", gap:3 }}>
+                        {r.available_ministers.split(",").map(n=>n.trim()).filter(Boolean).map((n,i)=>(
+                          <span key={i} style={{ padding:"2px 8px", borderRadius:12, background:`${t.info}18`, border:`1px solid ${t.info}33`, fontSize:11, color:t.text, whiteSpace:"nowrap" }}>{n}</span>
+                        ))}
+                      </div>
+                    : <span style={{ color:t.textFaint, fontSize:11 }}>—</span>}
+                </td>
                 <td style={td}>
                   <div style={{ display:"flex", gap:5 }}>
                     <button style={btnGhost} title="Edit" onClick={()=>handleEdit(r)}>
@@ -3219,7 +3422,7 @@ const ChurchAttendancePage = ({ db, user }) => {
               </tr>
             ))}
             {!filtered.length && (
-              <tr><td colSpan={10} style={{ ...td, textAlign:"center", padding:52, color:t.textMuted }}>
+              <tr><td colSpan={13} style={{ ...td, textAlign:"center", padding:52, color:t.textMuted }}>
                 No church attendance records yet. Click "Record Attendance" to add one.
               </td></tr>
             )}
@@ -3235,19 +3438,16 @@ const ProgramsPage = ({ db }) => {
   const { t, card, btnGold, btnOutline, btnGhost, inp, lbl } = useThemeStyles();
   const { programs, addProgram, updateProgram, deleteProgram, toggleProgramActive } = db;
 
-  const [newName, setNewName]     = useState("");
-  const [editId, setEditId]       = useState(null);
-  const [editName, setEditName]   = useState("");
-  const [toast, setToast]         = useState("");
-  const [adding, setAdding]       = useState(false);
+  const [newName, setNewName]   = useState("");
+  const [editId, setEditId]     = useState(null);
+  const [editName, setEditName] = useState("");
+  const [toast, setToast]       = useState("");
+  const [adding, setAdding]     = useState(false);
 
   const sorted = [...programs].sort((a,b)=>Number(a.sort_order)-Number(b.sort_order));
   const active = programs.filter(p=>p.is_active==="YES").length;
 
-  const showToast = (msg) => {
-    setToast(msg);
-    setTimeout(() => setToast(""), 3000);
-  };
+  const showToast = (msg) => { setToast(msg); setTimeout(()=>setToast(""),3000); };
 
   const handleAdd = async () => {
     if (!newName.trim()) { showToast("⚠️ Please enter a program name."); return; }
@@ -3256,17 +3456,16 @@ const ProgramsPage = ({ db }) => {
     }
     setAdding(true);
     await addProgram(newName.trim());
-    setNewName("");
-    setAdding(false);
-    showToast(`✅ "${newName.trim()}" added successfully!`);
+    showToast(`✅ "${newName.trim()}" added!`);
+    setNewName(""); setAdding(false);
   };
 
   const handleSaveEdit = async (id) => {
     if (!editName.trim()) return;
-    const oldName = programs.find(p=>p.id===id)?.name || "";
+    const oldName = programs.find(p=>p.id===id)?.name||"";
     await updateProgram(id, { name: editName.trim() });
-    setEditId(null); setEditName("");
     showToast(`✅ "${oldName}" renamed to "${editName.trim()}"`);
+    setEditId(null); setEditName("");
   };
 
   return (
@@ -3279,45 +3478,31 @@ const ProgramsPage = ({ db }) => {
         {" "}{active} active of {programs.length} total.
       </div>
 
-      {/* Toast notification */}
       {toast && (
-        <div style={{
-          position:"fixed", top:24, right:24, zIndex:9999,
+        <div style={{ position:"fixed", top:24, right:24, zIndex:9999,
           background: toast.startsWith("✅") ? "#0A7A45" : "#C87A0A",
           color:"#fff", padding:"12px 20px", borderRadius:10,
           fontFamily:"'Trebuchet MS',sans-serif", fontSize:14, fontWeight:600,
-          boxShadow:"0 4px 20px rgba(0,0,0,0.25)",
-          animation:"fadeIn .2s ease"
-        }}>{toast}</div>
+          boxShadow:"0 4px 20px rgba(0,0,0,0.25)" }}>
+          {toast}
+        </div>
       )}
 
       {/* Add new */}
       <div style={{ ...card, marginBottom:24 }}>
-        <div style={{ fontSize:14, fontWeight:700, color:t.text, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:14 }}>
-          Add New Program
-        </div>
+        <div style={{ fontSize:14, fontWeight:700, color:t.text, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:12 }}>Add New Program</div>
         <div style={{ display:"flex", gap:12, alignItems:"flex-end", flexWrap:"wrap" }}>
           <div style={{ flex:1, minWidth:240 }}>
             <label style={{ ...lbl, display:"block", marginBottom:6 }}>Program Name</label>
-            <input style={{ ...inp, borderColor: newName.trim() ? t.borderStrong : undefined }}
+            <input style={{ ...inp, borderColor: newName.trim()?t.borderStrong:undefined }}
               placeholder="e.g. Anniversary Sunday Service"
               value={newName} onChange={e=>setNewName(e.target.value)}
               onKeyDown={e=>e.key==="Enter"&&handleAdd()} />
           </div>
-          <button
-            style={{
-              ...btnGold, padding:"10px 24px",
-              opacity: adding ? 0.7 : 1,
-              cursor: adding ? "not-allowed" : "pointer",
-              minWidth: 140,
-            }}
-            onClick={handleAdd}
-            disabled={adding}>
+          <button style={{ ...btnGold, padding:"10px 24px", opacity:adding?.7:1, cursor:adding?"not-allowed":"pointer", minWidth:140 }}
+            onClick={handleAdd} disabled={adding}>
             <span style={{ display:"flex", alignItems:"center", gap:7 }}>
-              {adding
-                ? <span style={{fontSize:12}}>Adding…</span>
-                : <><Icon name="plus" size={15} color="#fff" /> Add Program</>
-              }
+              {adding ? "Adding…" : <><Icon name="plus" size={15} color="#fff"/> Add Program</>}
             </span>
           </button>
         </div>
@@ -4261,7 +4446,7 @@ const SSReportPage = ({ db }) => {
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:20, flexWrap:"wrap", gap:12 }}>
         <div>
           <div style={{ fontSize:23, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif", marginBottom:3 }}>
-            Sunday School Comparison Report
+            SS Comparison Report
           </div>
           <div style={{ fontSize:13, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}>
             Current session vs previous session · auto-updates when new reports are submitted
@@ -4344,13 +4529,13 @@ const SSReportPage = ({ db }) => {
             {/* Column headers */}
             <tr style={{ background:t.surfaceAlt }}>
               <th style={{ ...thS, color:t.gold, minWidth:160 }}>Class</th>
-              <th style={{ ...thS, color:t.info }}>Attend. Begin</th>
-              <th style={{ ...thS, color:t.gold }}>Attend. Close</th>
-              <th style={{ ...thS, color:"#225546" }}>Bible Begin</th>
+              <th style={{ ...thS, color:t.info }}>SS - Attend. Begin</th>
+              <th style={{ ...thS, color:t.gold }}>SS - Attend. Close</th>
+              <th style={{ ...thS, color:"#9B59B6" }}>Bible Begin</th>
               <th style={{ ...thS, color:"#7B3FBE", borderRight:`2px solid ${t.border}` }}>Bible Close</th>
-              <th style={{ ...thS, color:t.info }}>Prev.  Attend. Begin</th>
-              <th style={{ ...thS, color:t.gold }}>Prev.  Attend. Close</th>
-              <th style={{ ...thS, color:"#395c18" }}>Prev.Bible Begin</th>
+              <th style={{ ...thS, color:t.info }}>Prev. SS - Attend. Begin</th>
+              <th style={{ ...thS, color:t.gold }}>Prev. SS - Attend. Close</th>
+              <th style={{ ...thS, color:"#9B59B6" }}>Prev.Bible Begin</th>
               <th style={{ ...thS, color:"#7B3FBE", borderRight:`2px solid ${t.border}` }}>Prev.Bible Close</th>
               <th style={{ ...thS, color:"#E67E22" }}>Male / Female</th>
               <th style={{ ...thS, color:t.success }}>1st T / Visitors</th>
@@ -6197,7 +6382,7 @@ const MobileDrawer = ({ open, onClose, page, setPage, user, onLogout, db }) => {
             <AnimatedBible size={42} />
             <div>
               <div style={{ fontSize:10, fontWeight:700, color:"#FFFFFF", fontFamily:"'Trebuchet MS',sans-serif", letterSpacing:1.2 }}>{CHURCH_NAME.toUpperCase()}</div>
-              <div style={{ fontSize:8.5, color:"rgba(255,255,255,0.5)", fontFamily:"'Trebuchet MS',sans-serif" }}>SSM SYSTEM by De-Word</div>
+              <div style={{ fontSize:8.5, color:"rgba(255,255,255,0.5)", fontFamily:"'Trebuchet MS',sans-serif" }}>SSM SYSTEM</div>
             </div>
           </div>
           <button onClick={onClose} style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.2)", borderRadius:7, padding:"6px 8px", cursor:"pointer" }}>
