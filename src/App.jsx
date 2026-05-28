@@ -969,6 +969,7 @@ const useSupabaseDB = () => {
 
   return {
     records, teachers, classes, churchRecs, programs, loading, loadAll,
+    setClasses,
     addRecord, updateRecord, deleteRecord, approveRecord,
     addTeacher, updateTeacher, deleteTeacher, toggleTeacherActive,
     addChurchRec, updateChurchRec, deleteChurchRec,
@@ -2944,36 +2945,448 @@ const ExportPage = ({ db }) => {
 
 // ─── CLASSES PAGE ─────────────────────────────────────────────────────────────
 const ClassesPage = ({ db }) => {
-  const { t, card } = useThemeStyles();
-  const { classes, records } = db;
+  const { t, card, btnGold, btnOutline, btnGhost, inp, lbl, th, td, sel } = useThemeStyles();
+  const { classes, records, teachers } = db;
+
+  const [selected,   setSelected]   = useState(null); // class name being viewed
+  const [view,       setView]       = useState("overview"); // overview | detail
+  const [addModal,   setAddModal]   = useState(false);
+  const [editModal,  setEditModal]  = useState(null); // class obj being edited
+  const [newName,    setNewName]    = useState("");
+  const [editName,   setEditName]   = useState("");
+  const [toast,      setToast]      = useState("");
+  const [filterMonth,setFilterMonth]= useState("");
+  const [search,     setSearch]     = useState("");
+
+  const showToast = (msg) => { setToast(msg); setTimeout(()=>setToast(""),3200); };
+
+  // ── derived data ──
+  const allMonths = [...new Set(records.map(r=>(r.date||"").slice(0,7)).filter(Boolean))].sort().reverse();
+
+  const classStats = classes.map((cls, i) => {
+    const clrIdx = i % CLASS_COLORS.length;
+    const color  = CLASS_COLORS[clrIdx];
+    const recs   = records.filter(r => r.class_name === cls.name &&
+      (!filterMonth || (r.date||"").slice(0,7) === filterMonth));
+    const allRecs= records.filter(r => r.class_name === cls.name);
+    const avgAtt = recs.length ? Math.round(recs.reduce((s,r)=>s+(Number(r.total_closing)||0),0)/recs.length) : 0;
+    const best   = recs.length ? Math.max(...recs.map(r=>Number(r.total_closing)||0)) : 0;
+    const last   = [...allRecs].sort((a,b)=>(b.date||"").localeCompare(a.date||""))[0];
+    const clsTeachers = teachers.filter(t2 => t2.class_name === cls.name && t2.is_active === "YES");
+    const trend  = recs.length >= 2
+      ? (Number(recs[recs.length-1]?.total_closing)||0) - (Number(recs[0]?.total_closing)||0)
+      : 0;
+    return { cls, color, recs, allRecs, avgAtt, best, last, clsTeachers, trend };
+  });
+
+  const filtered = classStats.filter(({ cls }) =>
+    !search || cls.name.toLowerCase().includes(search.toLowerCase()));
+
+  const selStats = selected ? classStats.find(s => s.cls.name === selected) : null;
+
+  // ── handlers ──
+  const handleAddClass = () => {
+    if (!newName.trim()) { showToast("⚠️ Enter a class name."); return; }
+    if (classes.find(c=>c.name.toLowerCase()===newName.trim().toLowerCase())) {
+      showToast("⚠️ Class already exists."); return;
+    }
+    // optimistic local add (Supabase persistence via db hook if wired)
+    db.setClasses && db.setClasses(p=>[...p,{id:`CL${Date.now()}`,name:newName.trim(),is_active:"YES"}]);
+    showToast(`✅ Class "${newName.trim()}" added!`);
+    setNewName(""); setAddModal(false);
+  };
+
+  const handleEditClass = () => {
+    if (!editName.trim()) { showToast("⚠️ Enter a name."); return; }
+    db.setClasses && db.setClasses(p=>p.map(c=>c.id===editModal.id?{...c,name:editName.trim()}:c));
+    showToast(`✅ Renamed to "${editName.trim()}"`);
+    setEditModal(null); setEditName("");
+  };
+
+  const handleToggleClass = (cls) => {
+    const next = cls.is_active==="YES"?"NO":"YES";
+    db.setClasses && db.setClasses(p=>p.map(c=>c.id===cls.id?{...c,is_active:next}:c));
+    showToast(`${next==="YES"?"✅ Activated":"⚠️ Deactivated"}: ${cls.name}`);
+  };
+
+  const FF = "'Trebuchet MS',sans-serif";
+  const GF = "'Georgia',serif";
+
+  if (view === "detail" && selStats) {
+    const { cls, color, recs, clsTeachers, avgAtt, best, last } = selStats;
+    const sorted = [...recs].sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+    const maleTotal   = recs.reduce((s,r)=>s+(Number(r.male_closing)||0),0);
+    const femaleTotal = recs.reduce((s,r)=>s+(Number(r.female_closing)||0),0);
+    const ftTotal     = recs.reduce((s,r)=>s+(Number(r.first_timers)||0),0);
+    const visTotal    = recs.reduce((s,r)=>s+(Number(r.visitors)||0),0);
+    return (
+      <div>
+        {toast && <div style={{position:"fixed",top:24,right:24,zIndex:9999,background:toast.startsWith("✅")?"#0A7A45":"#C87A0A",color:"#fff",padding:"12px 20px",borderRadius:10,fontFamily:FF,fontSize:14,fontWeight:600,boxShadow:"0 4px 20px rgba(0,0,0,.3)"}}>{toast}</div>}
+        {/* Back + header */}
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
+          <button style={{...btnGhost,padding:"6px 14px",fontSize:13}} onClick={()=>{setView("overview");setSelected(null);}}>
+            ← Back
+          </button>
+          <div style={{width:4,height:28,borderRadius:2,background:color}}/>
+          <div>
+            <div style={{fontSize:22,fontWeight:700,color,fontFamily:GF}}>{cls.name}</div>
+            <div style={{fontSize:12,color:t.textMuted,fontFamily:FF}}>{recs.length} records{filterMonth?" this month":""} · {clsTeachers.length} active teacher{clsTeachers.length!==1?"s":""}</div>
+          </div>
+        </div>
+
+        {/* KPI strip */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:10,marginBottom:18}}>
+          {[
+            {l:"Total Records",  v:recs.length,   c:color},
+            {l:"Avg Attendance", v:avgAtt,         c:t.text},
+            {l:"Best Session",   v:best,           c:t.success},
+            {l:"Total Male",     v:maleTotal,      c:t.info},
+            {l:"Total Female",   v:femaleTotal,    c:"#E67E22"},
+            {l:"First Timers",   v:ftTotal,        c:t.gold},
+            {l:"Visitors",       v:visTotal,       c:"#9B59B6"},
+          ].map(k=>(
+            <div key={k.l} style={{...card,padding:12,position:"relative",overflow:"hidden"}}>
+              <div style={{fontSize:9,textTransform:"uppercase",letterSpacing:1,color:t.textMuted,fontFamily:FF,marginBottom:4}}>{k.l}</div>
+              <div style={{fontSize:20,fontWeight:700,color:k.c,fontFamily:GF}}>{k.v}</div>
+              <div style={{position:"absolute",bottom:-10,right:-10,width:44,height:44,borderRadius:"50%",background:k.c,opacity:.08}}/>
+            </div>
+          ))}
+        </div>
+
+        {/* Teachers assigned */}
+        <div style={{...card,marginBottom:14,padding:16}}>
+          <div style={{fontSize:11,fontWeight:700,color:t.gold,fontFamily:FF,textTransform:"uppercase",letterSpacing:1.2,marginBottom:12}}>
+            👨‍🏫 Assigned Teachers
+          </div>
+          {clsTeachers.length === 0
+            ? <div style={{fontSize:13,color:t.textMuted,fontFamily:FF}}>No teachers assigned to this class yet.</div>
+            : <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                {clsTeachers.map(t2=>(
+                  <div key={t2.id} style={{padding:"6px 14px",borderRadius:20,background:color+"18",border:`1px solid ${color}44`,fontSize:13,color:t.text,fontFamily:FF,display:"flex",alignItems:"center",gap:7}}>
+                    <span style={{fontSize:15}}>👤</span>
+                    <span>{t2.name}</span>
+                    <span style={{fontSize:10,color,fontWeight:700,padding:"1px 7px",borderRadius:10,background:color+"22"}}>{t2.role}</span>
+                  </div>
+                ))}
+              </div>
+          }
+        </div>
+
+        {/* Attendance mini chart */}
+        {recs.length > 0 && (
+          <div style={{...card,marginBottom:14,padding:16}}>
+            <div style={{fontSize:11,fontWeight:700,color:t.gold,fontFamily:FF,textTransform:"uppercase",letterSpacing:1.2,marginBottom:14}}>
+              📈 Attendance Trend (last {Math.min(recs.length,10)} sessions)
+            </div>
+            {(() => {
+              const pts = [...recs].sort((a,b)=>(a.date||"").localeCompare(b.date||"")).slice(-10);
+              const maxV = Math.max(...pts.map(r=>Number(r.total_closing)||0),1);
+              return (
+                <div style={{display:"flex",alignItems:"flex-end",gap:6,height:80}}>
+                  {pts.map((r,i)=>{
+                    const v = Number(r.total_closing)||0;
+                    const h = Math.max(4,Math.round((v/maxV)*72));
+                    return (
+                      <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
+                        <div style={{fontSize:9,color:t.textMuted,fontFamily:FF}}>{v}</div>
+                        <div style={{width:"100%",height:h,borderRadius:"4px 4px 0 0",background:`linear-gradient(180deg,${color},${color}88)`,transition:"height .4s"}}/>
+                        <div style={{fontSize:8,color:t.textMuted,fontFamily:FF,writingMode:"vertical-lr",transform:"rotate(180deg)",maxHeight:28,overflow:"hidden"}}>
+                          {(r.date||"").slice(5)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
+        {/* Attendance records table */}
+        <div style={{...card,padding:0,overflow:"auto"}}>
+          <div style={{padding:"12px 16px",borderBottom:`1px solid ${t.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <span style={{fontSize:13,fontWeight:700,color:t.text,fontFamily:FF}}>Attendance Records</span>
+            <span style={{fontSize:12,color:t.textMuted,fontFamily:FF}}>{recs.length} total</span>
+          </div>
+          <table style={{width:"100%",borderCollapse:"collapse",minWidth:500}}>
+            <thead>
+              <tr style={{background:t.surfaceAlt}}>
+                {["Date","Day","Service","Teacher","M","F","Total","1st Timers","Visitors","Status"].map(h=>(
+                  <th key={h} style={th}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.length === 0 && (
+                <tr><td colSpan={10} style={{...td,textAlign:"center",padding:40,color:t.textMuted}}>No records for this class yet.</td></tr>
+              )}
+              {sorted.map(r=>(
+                <tr key={r.id}
+                  onMouseEnter={e=>e.currentTarget.style.background=t.surfaceHover}
+                  onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                  <td style={td}>{r.date||"—"}</td>
+                  <td style={{...td,color:t.textMuted}}>{r.day_of_week||"—"}</td>
+                  <td style={{...td,color:t.textMuted,fontSize:11}}>{r.service_type||"—"}</td>
+                  <td style={td}><span style={{color:color,fontWeight:600}}>{r.teacher_name||"—"}</span></td>
+                  <td style={{...td,color:t.info}}>{r.male_closing||0}</td>
+                  <td style={{...td,color:"#E67E22"}}>{r.female_closing||0}</td>
+                  <td style={td}><span style={{fontWeight:700,color:t.text}}>{r.total_closing||0}</span></td>
+                  <td style={{...td,color:t.gold}}>{r.first_timers||0}</td>
+                  <td style={{...td,color:t.textMuted}}>{r.visitors||0}</td>
+                  <td style={td}>
+                    <span style={{fontSize:10,padding:"2px 8px",borderRadius:12,
+                      background: r.status==="Approved"?t.success+"18":t.gold+"18",
+                      color: r.status==="Approved"?t.success:t.gold,
+                      fontFamily:FF,fontWeight:700}}>
+                      {r.status||"Pending"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  // ── OVERVIEW ──
   return (
     <div>
-      <div style={{ fontSize:23, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif", marginBottom:20 }}>Class Management</div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(210px,1fr))", gap:16 }}>
-        {classes.map((cls,i)=>{
-          const c = CLASS_COLORS[i%CLASS_COLORS.length];
-          const recs = records.filter(r=>r.class_name===cls.name);
-          const avgAtt = recs.length ? Math.round(recs.reduce((s,r)=>s+(Number(r.total_closing)||0),0)/recs.length) : 0;
-          return (
-            <div key={cls.name} style={{ ...card, borderTop:`3px solid ${c}` }}>
-              <div style={{ fontSize:15, fontWeight:700, color:c, fontFamily:"'Georgia',serif", marginBottom:4 }}>{cls.name}</div>
-              <div style={{ display:"flex", gap:14, marginTop:10 }}>
-                <div>
-                  <div style={{ fontSize:10, textTransform:"uppercase", letterSpacing:1, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:3 }}>Records</div>
-                  <div style={{ fontSize:18, color:c, fontWeight:700, fontFamily:"'Georgia',serif" }}>{recs.length}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize:10, textTransform:"uppercase", letterSpacing:1, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:3 }}>Avg Att.</div>
-                  <div style={{ fontSize:18, color:t.text, fontWeight:700, fontFamily:"'Georgia',serif" }}>{avgAtt}</div>
-                </div>
-                <div style={{ marginLeft:"auto", alignSelf:"flex-end" }}>
-                  <span style={{ fontSize:10, padding:"3px 8px", borderRadius:20, background:t.success+"18", color:t.success, fontFamily:"'Trebuchet MS',sans-serif", fontWeight:700 }}>Active</span>
+      {toast && <div style={{position:"fixed",top:24,right:24,zIndex:9999,background:toast.startsWith("✅")?"#0A7A45":"#C87A0A",color:"#fff",padding:"12px 20px",borderRadius:10,fontFamily:FF,fontSize:14,fontWeight:600,boxShadow:"0 4px 20px rgba(0,0,0,.3)"}}>{toast}</div>}
+
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20,flexWrap:"wrap",gap:10}}>
+        <div>
+          <div style={{fontSize:23,fontWeight:700,color:t.gold,fontFamily:GF,marginBottom:3}}>Class Management</div>
+          <div style={{fontSize:13,color:t.textMuted,fontFamily:FF}}>{classes.length} classes · {teachers.filter(t2=>t2.is_active==="YES").length} active teachers · {records.length} total records</div>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          <button style={{...btnGold,padding:"8px 20px"}} onClick={()=>setAddModal(true)}>
+            <span style={{display:"flex",alignItems:"center",gap:6}}><Icon name="plus" size={14} color="#0B1628"/> Add Class</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div style={{...card,marginBottom:16,display:"flex",gap:10,flexWrap:"wrap",alignItems:"center",padding:"10px 14px"}}>
+        <input style={{...inp,maxWidth:200,padding:"7px 12px"}} placeholder="Search class…"
+          value={search} onChange={e=>setSearch(e.target.value)}/>
+        <select style={{...sel}} value={filterMonth} onChange={e=>setFilterMonth(e.target.value)}>
+          <option value="">All Time</option>
+          {allMonths.map(m=><option key={m} value={m}>{new Date(m+"-01").toLocaleDateString("en-GB",{month:"long",year:"numeric"})}</option>)}
+        </select>
+        {filterMonth && <button style={{...btnGhost,padding:"6px 12px",fontSize:12}} onClick={()=>setFilterMonth("")}>✕ Clear</button>}
+        <span style={{fontSize:12,color:t.textMuted,fontFamily:FF,marginLeft:"auto"}}>{filtered.length} class{filtered.length!==1?"es":""} shown</span>
+      </div>
+
+      {/* Summary KPIs */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:10,marginBottom:18}}>
+        {[
+          {l:"Total Classes",   v:classes.length,                                              c:t.gold},
+          {l:"Active Classes",  v:classes.filter(c=>c.is_active==="YES").length,               c:t.success},
+          {l:"Total Records",   v:records.length,                                              c:t.info},
+          {l:"Active Teachers", v:teachers.filter(t2=>t2.is_active==="YES").length,            c:"#9B59B6"},
+          {l:"Best Class Avg",  v:Math.max(0,...classStats.map(s=>s.avgAtt)),                  c:t.text},
+          {l:"This Month",      v:records.filter(r=>(r.date||"").startsWith(new Date().toISOString().slice(0,7))).length, c:t.gold},
+        ].map(k=>(
+          <div key={k.l} style={{...card,padding:12,position:"relative",overflow:"hidden"}}>
+            <div style={{fontSize:9,textTransform:"uppercase",letterSpacing:1,color:t.textMuted,fontFamily:FF,marginBottom:4}}>{k.l}</div>
+            <div style={{fontSize:22,fontWeight:700,color:k.c,fontFamily:GF}}>{k.v}</div>
+            <div style={{position:"absolute",bottom:-10,right:-10,width:44,height:44,borderRadius:"50%",background:k.c,opacity:.07}}/>
+          </div>
+        ))}
+      </div>
+
+      {/* Class cards grid */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(270px,1fr))",gap:14,marginBottom:18}}>
+        {filtered.map(({ cls, color, recs, allRecs, avgAtt, best, last, clsTeachers, trend })=>(
+          <div key={cls.id||cls.name} style={{...card,borderLeft:`4px solid ${color}`,padding:0,overflow:"hidden",transition:"transform .18s,box-shadow .18s",cursor:"pointer"}}
+            onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow=`0 6px 24px ${color}22`;}}
+            onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="none";}}>
+
+            {/* Card header */}
+            <div style={{padding:"14px 16px 10px",borderBottom:`1px solid ${t.border}18`}}>
+              <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8}}>
+                <div style={{fontSize:15,fontWeight:700,color,fontFamily:GF,lineHeight:1.2}}>{cls.name}</div>
+                <div style={{display:"flex",gap:5,flexShrink:0}}>
+                  <span style={{fontSize:10,padding:"2px 8px",borderRadius:12,
+                    background: cls.is_active==="YES"?t.success+"18":t.danger+"18",
+                    color: cls.is_active==="YES"?t.success:t.danger,
+                    fontFamily:FF,fontWeight:700}}>
+                    {cls.is_active==="YES"?"Active":"Inactive"}
+                  </span>
                 </div>
               </div>
+              {/* Teacher tags */}
+              {clsTeachers.length > 0 && (
+                <div style={{display:"flex",flexWrap:"wrap",gap:4,marginTop:7}}>
+                  {clsTeachers.slice(0,2).map(t2=>(
+                    <span key={t2.id} style={{fontSize:10,padding:"2px 8px",borderRadius:12,background:color+"15",color:t.textSec||t.textMuted,fontFamily:FF}}>
+                      👤 {t2.name.split(" ").slice(-1)[0]} · {t2.role}
+                    </span>
+                  ))}
+                  {clsTeachers.length > 2 && <span style={{fontSize:10,color:t.textMuted,fontFamily:FF,alignSelf:"center"}}>+{clsTeachers.length-2} more</span>}
+                </div>
+              )}
+              {clsTeachers.length === 0 && (
+                <div style={{fontSize:10,color:t.danger,fontFamily:FF,marginTop:5}}>⚠️ No teacher assigned</div>
+              )}
             </div>
-          );
-        })}
+
+            {/* Stats row */}
+            <div style={{display:"flex",padding:"10px 16px",gap:0}}>
+              {[
+                {l:"Records",  v:recs.length,    c:color},
+                {l:"Avg Att.", v:avgAtt,          c:t.text},
+                {l:"Best",     v:best,            c:t.success},
+                {l:"Teachers", v:clsTeachers.length, c:"#9B59B6"},
+              ].map((s,i)=>(
+                <div key={s.l} style={{flex:1,textAlign:"center",borderLeft:i>0?`1px solid ${t.border}18`:"none",padding:"0 4px"}}>
+                  <div style={{fontSize:17,fontWeight:700,color:s.c,fontFamily:GF}}>{s.v}</div>
+                  <div style={{fontSize:9,color:t.textMuted,fontFamily:FF,textTransform:"uppercase",letterSpacing:.8}}>{s.l}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Mini attendance sparkline */}
+            {allRecs.length > 1 && (() => {
+              const pts = [...allRecs].sort((a,b)=>(a.date||"").localeCompare(b.date||"")).slice(-8);
+              const mx  = Math.max(...pts.map(r=>Number(r.total_closing)||0),1);
+              return (
+                <div style={{padding:"0 16px 10px",display:"flex",alignItems:"flex-end",gap:3,height:32}}>
+                  {pts.map((r,i)=>{
+                    const v = Number(r.total_closing)||0;
+                    const h = Math.max(2,Math.round((v/mx)*24));
+                    return <div key={i} style={{flex:1,height:h,borderRadius:2,background:color,opacity:.5+(.5*v/mx)}}/>;
+                  })}
+                </div>
+              );
+            })()}
+
+            {/* Last record + action buttons */}
+            <div style={{padding:"8px 16px 12px",borderTop:`1px solid ${t.border}18`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div style={{fontSize:10,color:t.textMuted,fontFamily:FF}}>
+                {last ? `Last: ${last.date}` : "No records yet"}
+                {trend > 0 && <span style={{color:t.success,marginLeft:5}}>▲{trend}</span>}
+                {trend < 0 && <span style={{color:t.danger,marginLeft:5}}>▼{Math.abs(trend)}</span>}
+              </div>
+              <div style={{display:"flex",gap:5}}>
+                <button style={{...btnGhost,padding:"4px 10px",fontSize:11}}
+                  onClick={e=>{e.stopPropagation();setSelected(cls.name);setView("detail");}}>
+                  View →
+                </button>
+                <button style={{...btnGhost,padding:"4px 8px",fontSize:11}}
+                  onClick={e=>{e.stopPropagation();setEditModal(cls);setEditName(cls.name);}}>
+                  ✏️
+                </button>
+                <button style={{...btnGhost,padding:"4px 8px",fontSize:11}}
+                  onClick={e=>{e.stopPropagation();handleToggleClass(cls);}}>
+                  {cls.is_active==="YES"?"🔒":"✅"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {filtered.length === 0 && (
+          <div style={{gridColumn:"1/-1",textAlign:"center",padding:48,color:t.textMuted,fontFamily:FF,fontSize:13}}>
+            {search ? `No classes match "${search}"` : "No classes yet. Click Add Class to get started."}
+          </div>
+        )}
       </div>
+
+      {/* Teacher distribution table */}
+      {teachers.length > 0 && (
+        <div style={{...card,padding:0,overflow:"hidden",marginBottom:18}}>
+          <div style={{padding:"12px 16px",borderBottom:`1px solid ${t.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <span style={{fontSize:13,fontWeight:700,color:t.text,fontFamily:FF}}>👨‍🏫 Teacher Assignment Overview</span>
+            <span style={{fontSize:12,color:t.textMuted,fontFamily:FF}}>{teachers.filter(t2=>t2.is_active==="YES").length} active</span>
+          </div>
+          <table style={{width:"100%",borderCollapse:"collapse",minWidth:400}}>
+            <thead>
+              <tr style={{background:t.surfaceAlt}}>
+                {["Class","Teacher","Role","Status","Records"].map(h=>(
+                  <th key={h} style={th}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {classes.flatMap((cls,ci) => {
+                const clsTeachers = teachers.filter(t2=>t2.class_name===cls.name);
+                const color = CLASS_COLORS[ci%CLASS_COLORS.length];
+                return clsTeachers.length > 0
+                  ? clsTeachers.map((t2,ti)=>(
+                    <tr key={t2.id}
+                      onMouseEnter={e=>e.currentTarget.style.background=t.surfaceHover}
+                      onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                      {ti===0 && (
+                        <td style={{...td,fontWeight:700,color,verticalAlign:"top"}} rowSpan={clsTeachers.length}>
+                          {cls.name}
+                        </td>
+                      )}
+                      <td style={td}>{t2.name}</td>
+                      <td style={{...td,color:t.textMuted,fontSize:12}}>{t2.role}</td>
+                      <td style={td}>
+                        <span style={{fontSize:10,padding:"2px 8px",borderRadius:12,
+                          background:t2.is_active==="YES"?t.success+"18":t.danger+"18",
+                          color:t2.is_active==="YES"?t.success:t.danger,fontFamily:FF,fontWeight:700}}>
+                          {t2.is_active==="YES"?"Active":"Inactive"}
+                        </span>
+                      </td>
+                      <td style={{...td,color:t.textMuted,fontSize:12}}>
+                        {records.filter(r=>r.class_name===cls.name&&r.teacher_name===t2.name).length}
+                      </td>
+                    </tr>
+                  ))
+                  : [(
+                    <tr key={cls.id||cls.name}>
+                      <td style={{...td,color,fontWeight:700}}>{cls.name}</td>
+                      <td colSpan={4} style={{...td,color:t.danger,fontSize:12,fontStyle:"italic"}}>⚠️ No teacher assigned</td>
+                    </tr>
+                  )];
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Add Class Modal */}
+      {addModal && (
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:900,display:"flex",alignItems:"center",justifyContent:"center"}}
+          onClick={()=>setAddModal(false)}>
+          <div style={{...card,width:"100%",maxWidth:400,padding:24}} onClick={e=>e.stopPropagation()}>
+            <div style={{fontSize:16,fontWeight:700,color:t.gold,fontFamily:GF,marginBottom:16}}>Add New Class</div>
+            <label style={{...lbl,display:"block",marginBottom:6}}>Class Name</label>
+            <input style={{...inp,width:"100%",marginBottom:14}}
+              placeholder="e.g. Young Adults (16–25)"
+              value={newName} onChange={e=>setNewName(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&handleAddClass()} autoFocus/>
+            <div style={{display:"flex",gap:8}}>
+              <button style={{...btnGold,flex:1}} onClick={handleAddClass}>Add Class</button>
+              <button style={{...btnOutline,flex:1}} onClick={()=>setAddModal(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Class Modal */}
+      {editModal && (
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:900,display:"flex",alignItems:"center",justifyContent:"center"}}
+          onClick={()=>setEditModal(null)}>
+          <div style={{...card,width:"100%",maxWidth:400,padding:24}} onClick={e=>e.stopPropagation()}>
+            <div style={{fontSize:16,fontWeight:700,color:t.gold,fontFamily:GF,marginBottom:16}}>Rename Class</div>
+            <label style={{...lbl,display:"block",marginBottom:6}}>New Name</label>
+            <input style={{...inp,width:"100%",marginBottom:14}}
+              value={editName} onChange={e=>setEditName(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&handleEditClass()} autoFocus/>
+            <div style={{display:"flex",gap:8}}>
+              <button style={{...btnGold,flex:1}} onClick={handleEditClass}>Save</button>
+              <button style={{...btnOutline,flex:1}} onClick={()=>setEditModal(null)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
