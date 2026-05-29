@@ -729,12 +729,15 @@ const initWorkbook = () => {
 
 // ─── SUPABASE DATA HOOK ───────────────────────────────────────────────────────
 const useSupabaseDB = () => {
-  const [records,    setRecords]    = useState([]);
-  const [teachers,   setTeachers]   = useState([]);
-  const [classes,    setClasses]    = useState([]);
-  const [churchRecs, setChurchRecs] = useState([]);
-  const [programs,   setPrograms]   = useState([]);
-  const [loading,    setLoading]    = useState(true);
+  const [records,      setRecords]      = useState([]);
+  const [teachers,     setTeachers]     = useState([]);
+  const [classes,      setClasses]      = useState([]);
+  const [churchRecs,   setChurchRecs]   = useState([]);
+  const [programs,     setPrograms]     = useState([]);
+  const [youthRecs,    setYouthRecs]    = useState([]);
+  const [youthMembers, setYouthMembers] = useState([]);
+  const [baptismRecs,  setBaptismRecs]  = useState([]);
+  const [loading,      setLoading]      = useState(true);
 
   // ── Generic fetch ────────────────────────────────────────
   const sbGet = useCallback(async (table, order = "created_at.asc") => {
@@ -920,6 +923,87 @@ const useSupabaseDB = () => {
   }, [programs, updateProgram]);
 
   // ── Export to Excel (download only, not storage) ──────────
+  // ── Youth Attendance CRUD ──────────────────────────────────
+  const addYouthRec = useCallback(async (data) => {
+    const rec = { ...data, id:`Y${Date.now()}`, created_at: new Date().toISOString() };
+    setYouthRecs(p => [rec, ...p]);
+    if (SUPABASE_READY) {
+      try { await sbFetch("uct_youth", { method:"POST", body:JSON.stringify(rec) }); }
+      catch(e) { console.warn("Youth rec save failed:", e.message); }
+    }
+    return rec;
+  }, []);
+
+  const updateYouthRec = useCallback(async (id, updates) => {
+    setYouthRecs(p => p.map(x => x.id===id ? {...x,...updates} : x));
+    if (SUPABASE_READY) {
+      try { await sbFetch(`uct_youth?id=eq.${id}`, { method:"PATCH", body:JSON.stringify(updates) }); }
+      catch(e) { console.warn("Youth rec update failed:", e.message); }
+    }
+  }, []);
+
+  const deleteYouthRec = useCallback(async (id) => {
+    setYouthRecs(p => p.filter(x => x.id!==id));
+    if (SUPABASE_READY) {
+      try { await sbFetch(`uct_youth?id=eq.${id}`, { method:"DELETE" }); }
+      catch(e) { console.warn("Youth rec delete failed:", e.message); }
+    }
+  }, []);
+
+  // ── Youth Members CRUD ──────────────────────────────────────
+  const addYouthMember = useCallback(async (data) => {
+    const rec = { ...data, id:`YM${Date.now()}`, created_at: new Date().toISOString() };
+    setYouthMembers(p => [rec, ...p]);
+    if (SUPABASE_READY) {
+      try { await sbFetch("uct_youth_members", { method:"POST", body:JSON.stringify(rec) }); }
+      catch(e) { console.warn("Youth member save failed:", e.message); }
+    }
+    return rec;
+  }, []);
+
+  const updateYouthMember = useCallback(async (id, updates) => {
+    setYouthMembers(p => p.map(x => x.id===id ? {...x,...updates} : x));
+    if (SUPABASE_READY) {
+      try { await sbFetch(`uct_youth_members?id=eq.${id}`, { method:"PATCH", body:JSON.stringify(updates) }); }
+      catch(e) { console.warn("Youth member update failed:", e.message); }
+    }
+  }, []);
+
+  const deleteYouthMember = useCallback(async (id) => {
+    setYouthMembers(p => p.filter(x => x.id!==id));
+    if (SUPABASE_READY) {
+      try { await sbFetch(`uct_youth_members?id=eq.${id}`, { method:"DELETE" }); }
+      catch(e) { console.warn("Youth member delete failed:", e.message); }
+    }
+  }, []);
+
+  // ── Baptism CRUD ──────────────────────────────────────────
+  const addBaptismRec = useCallback(async (data) => {
+    const rec = { ...data, id:`B${Date.now()}`, created_at: new Date().toISOString() };
+    setBaptismRecs(p => [rec, ...p]);
+    if (SUPABASE_READY) {
+      try { await sbFetch("uct_baptism", { method:"POST", body:JSON.stringify(rec) }); }
+      catch(e) { console.warn("Baptism save failed:", e.message); }
+    }
+    return rec;
+  }, []);
+
+  const updateBaptismRec = useCallback(async (id, updates) => {
+    setBaptismRecs(p => p.map(x => x.id===id ? {...x,...updates} : x));
+    if (SUPABASE_READY) {
+      try { await sbFetch(`uct_baptism?id=eq.${id}`, { method:"PATCH", body:JSON.stringify(updates) }); }
+      catch(e) { console.warn("Baptism update failed:", e.message); }
+    }
+  }, []);
+
+  const deleteBaptismRec = useCallback(async (id) => {
+    setBaptismRecs(p => p.filter(x => x.id!==id));
+    if (SUPABASE_READY) {
+      try { await sbFetch(`uct_baptism?id=eq.${id}`, { method:"DELETE" }); }
+      catch(e) { console.warn("Baptism delete failed:", e.message); }
+    }
+  }, []);
+
   const downloadWorkbook = useCallback(() => {
     const wb = XLSX.utils.book_new();
     const toSheet = (rows) => XLSX.utils.json_to_sheet(rows.length ? rows : [{}]);
@@ -961,15 +1045,20 @@ const useSupabaseDB = () => {
     if (ministryRows.length)
       XLSX.utils.book_append_sheet(wb, toSheet(ministryRows), "Ministry Team");
 
-    XLSX.utils.book_append_sheet(wb, toSheet(teachers),  "Teachers");
-    XLSX.utils.book_append_sheet(wb, toSheet(classes),   "Classes");
-    XLSX.utils.book_append_sheet(wb, toSheet(programs),  "Programs");
+    XLSX.utils.book_append_sheet(wb, toSheet(teachers),     "Teachers");
+    XLSX.utils.book_append_sheet(wb, toSheet(classes),      "Classes");
+    XLSX.utils.book_append_sheet(wb, toSheet(programs),     "Programs");
+    if (youthRecs.length)    XLSX.utils.book_append_sheet(wb, toSheet(youthRecs),    "Youth Attendance");
+    if (youthMembers.length) XLSX.utils.book_append_sheet(wb, toSheet(youthMembers), "Youth Members");
+    if (baptismRecs.length)  XLSX.utils.book_append_sheet(wb, toSheet(baptismRecs),  "Baptism Records");
     XLSX.writeFile(wb, `UCT_Report_${new Date().toISOString().slice(0,10)}.xlsx`);
-  }, [records, churchRecs, teachers, classes, programs]);
+  }, [records, churchRecs, teachers, classes, programs, youthRecs, youthMembers, baptismRecs]);
 
   return {
-    records, teachers, classes, churchRecs, programs, loading, loadAll,
-    setClasses,
+    records, teachers, classes, churchRecs, programs,
+    youthRecs, setYouthRecs, youthMembers, setYouthMembers,
+    baptismRecs, setBaptismRecs,
+    loading, loadAll, setClasses,
     addRecord, updateRecord, deleteRecord, approveRecord,
     addTeacher, updateTeacher, deleteTeacher, toggleTeacherActive,
     addChurchRec, updateChurchRec, deleteChurchRec,
@@ -2943,6 +3032,701 @@ const ExportPage = ({ db }) => {
   );
 };
 
+// ─── YOUTH PROGRAMS PAGE ──────────────────────────────────────────────────────
+const YouthPage = ({ db }) => {
+  const { t, card, btnGold, btnOutline, btnGhost, inp, lbl, th, td, sel } = useThemeStyles();
+  const {
+    youthRecs = [], youthMembers = [],
+    addYouthRec, updateYouthRec, deleteYouthRec,
+    addYouthMember, updateYouthMember, deleteYouthMember,
+  } = db;
+
+  const FF = "'Trebuchet MS',sans-serif";
+  const GF = "'Georgia',serif";
+
+  // ── Tab ──
+  const [mainTab, setMainTab] = useState("attendance"); // attendance | members
+
+  // ── Attendance state ──
+  const attBlank = {
+    date: new Date().toISOString().slice(0,10),
+    day_of_week: ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][new Date().getDay()],
+    program_name: "", topic: "", facilitator: "",
+    speakers: "", male_count: "", female_count: "",
+    first_timers: "", visitors: "", notes: "",
+  };
+  const [attForm,    setAttForm]    = useState(attBlank);
+  const [attEditId,  setAttEditId]  = useState(null);
+  const [showAttForm,setShowAttForm]= useState(false);
+  const [attFilter,  setAttFilter]  = useState({ facilitator:"", month:"", program:"" });
+  const [attToast,   setAttToast]   = useState("");
+  const [attLoading, setAttLoading] = useState(false);
+
+  // ── Members state ──
+  const memBlank = {
+    name:"", gender:"", dob:"", phone:"", email:"",
+    occupation:"", profession:"", education_level:"",
+    location:"", region:"", nationality:"Ghana",
+    marital_status:"", joined_date: new Date().toISOString().slice(0,10),
+    status:"Active", notes:"",
+  };
+  const [memForm,    setMemForm]    = useState(memBlank);
+  const [memEditId,  setMemEditId]  = useState(null);
+  const [showMemForm,setShowMemForm]= useState(false);
+  const [memSearch,  setMemSearch]  = useState("");
+  const [memFilter,  setMemFilter]  = useState({ gender:"", status:"", education:"" });
+  const [memToast,   setMemToast]   = useState("");
+  const [memLoading, setMemLoading] = useState(false);
+  const [viewMember, setViewMember] = useState(null);
+
+  // ── Helpers ──
+  const showAToast = (m) => { setAttToast(m); setTimeout(()=>setAttToast(""),3200); };
+  const showMToast = (m) => { setMemToast(m); setTimeout(()=>setMemToast(""),3200); };
+
+  const Toast = ({ msg }) => msg ? (
+    <div style={{position:"fixed",top:24,right:24,zIndex:9999,
+      background:msg.startsWith("✅")?"#0A7A45":"#C87A0A",
+      color:"#fff",padding:"12px 20px",borderRadius:10,
+      fontFamily:FF,fontSize:14,fontWeight:600,
+      boxShadow:"0 4px 20px rgba(0,0,0,.3)",maxWidth:380}}>{msg}</div>
+  ) : null;
+
+  // ── Attendance computed ──
+  const attMonths    = [...new Set(youthRecs.map(r=>(r.date||"").slice(0,7)).filter(Boolean))].sort().reverse();
+  const attPrograms  = [...new Set(youthRecs.map(r=>r.program_name).filter(Boolean))].sort();
+  const attFacilits  = [...new Set(youthRecs.map(r=>r.facilitator).filter(Boolean))].sort();
+  const filteredAtt  = youthRecs.filter(r => {
+    if (attFilter.facilitator && r.facilitator !== attFilter.facilitator) return false;
+    if (attFilter.month && !(r.date||"").startsWith(attFilter.month)) return false;
+    if (attFilter.program && r.program_name !== attFilter.program) return false;
+    return true;
+  });
+  const sortedAtt = [...filteredAtt].sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+  const totalMale   = filteredAtt.reduce((s,r)=>s+(Number(r.male_count)||0),0);
+  const totalFemale = filteredAtt.reduce((s,r)=>s+(Number(r.female_count)||0),0);
+  const totalFT     = filteredAtt.reduce((s,r)=>s+(Number(r.first_timers)||0),0);
+  const totalVis    = filteredAtt.reduce((s,r)=>s+(Number(r.visitors)||0),0);
+  const avgAtt      = filteredAtt.length ? Math.round(filteredAtt.reduce((s,r)=>s+(Number(r.male_count)||0)+(Number(r.female_count)||0),0)/filteredAtt.length) : 0;
+  const topics      = [...new Set(filteredAtt.map(r=>r.topic).filter(Boolean))];
+
+  // Per facilitator stats
+  const perFacilit = attFacilits.map(name => {
+    const recs = filteredAtt.filter(r=>r.facilitator===name);
+    const avg  = recs.length ? Math.round(recs.reduce((s,r)=>s+(Number(r.male_count)||0)+(Number(r.female_count)||0),0)/recs.length) : 0;
+    return { name, sessions:recs.length, avg, topics:[...new Set(recs.map(r=>r.topic).filter(Boolean))] };
+  }).filter(p=>p.sessions>0).sort((a,b)=>b.avg-a.avg);
+
+  // Line chart data
+  const attChartData = [...youthRecs]
+    .sort((a,b)=>(a.date||"").localeCompare(b.date||""))
+    .slice(-20)
+    .map(r=>({
+      date: (r.date||"").slice(5),
+      Total: (Number(r.male_count)||0)+(Number(r.female_count)||0),
+      Male:  Number(r.male_count)||0,
+      Female:Number(r.female_count)||0,
+      topic: r.topic||"",
+    }));
+
+  // ── Attendance handlers ──
+  const handleAttSave = () => {
+    if (!attForm.date)         { showAToast("⚠️ Please select a date."); return; }
+    if (!attForm.program_name) { showAToast("⚠️ Please enter a program name."); return; }
+    setAttLoading(true);
+    const payload = {
+      ...attForm,
+      total_count: String((Number(attForm.male_count)||0)+(Number(attForm.female_count)||0)),
+    };
+    setTimeout(() => {
+      if (attEditId) { updateYouthRec(attEditId, payload); showAToast(`✅ Record updated — ${attForm.date}`); setAttEditId(null); }
+      else           { addYouthRec(payload); showAToast(`✅ Record saved — ${attForm.program_name} · ${attForm.date}`); }
+      setAttForm(attBlank); setShowAttForm(false); setAttLoading(false);
+    }, 280);
+  };
+  const handleAttEdit = (r) => { setAttForm({...attBlank,...r}); setAttEditId(r.id); setShowAttForm(true); };
+  const handleAttCancel = () => { setAttForm(attBlank); setAttEditId(null); setShowAttForm(false); };
+
+  // ── Members computed ──
+  const filteredMem = youthMembers.filter(m => {
+    const q = memSearch.toLowerCase();
+    if (q && !(m.name||"").toLowerCase().includes(q) && !(m.occupation||"").toLowerCase().includes(q) && !(m.location||"").toLowerCase().includes(q)) return false;
+    if (memFilter.gender && m.gender !== memFilter.gender) return false;
+    if (memFilter.status && m.status !== memFilter.status) return false;
+    if (memFilter.education && m.education_level !== memFilter.education) return false;
+    return true;
+  });
+  const maleMembers   = youthMembers.filter(m=>m.gender==="Male").length;
+  const femaleMembers = youthMembers.filter(m=>m.gender==="Female").length;
+  const activeMembers = youthMembers.filter(m=>m.status==="Active").length;
+  const eduLevels     = [...new Set(youthMembers.map(m=>m.education_level).filter(Boolean))].sort();
+  const occupations   = [...new Set(youthMembers.map(m=>m.occupation).filter(Boolean))].sort();
+
+  // ── Member handlers ──
+  const handleMemSave = () => {
+    if (!memForm.name.trim()) { showMToast("⚠️ Please enter member name."); return; }
+    setMemLoading(true);
+    setTimeout(() => {
+      if (memEditId) { updateYouthMember(memEditId, memForm); showMToast(`✅ ${memForm.name} updated.`); setMemEditId(null); }
+      else           { addYouthMember(memForm); showMToast(`✅ ${memForm.name} added!`); }
+      setMemForm(memBlank); setShowMemForm(false); setMemLoading(false);
+    }, 280);
+  };
+  const handleMemEdit = (m) => { setMemForm({...memBlank,...m}); setMemEditId(m.id); setShowMemForm(true); setViewMember(null); };
+  const handleMemCancel = () => { setMemForm(memBlank); setMemEditId(null); setShowMemForm(false); };
+
+  const customTip = ({ active, payload, label }) => {
+    if (!active||!payload?.length) return null;
+    const d = attChartData.find(x=>x.date===label);
+    return (
+      <div style={{background:t.surface,border:`1px solid ${t.border}`,borderRadius:8,padding:"10px 14px",fontFamily:FF,fontSize:12,boxShadow:"0 4px 16px rgba(0,0,0,.15)"}}>
+        <div style={{fontWeight:700,color:t.text,marginBottom:5}}>{label}{d?.topic?` — ${d.topic}`:""}</div>
+        {payload.map((p,i)=><div key={i} style={{color:p.color,marginBottom:2}}>{p.name}: <strong>{p.value}</strong></div>)}
+      </div>
+    );
+  };
+
+  const inpRow = (label, name, type="text", opts=null, placeholder="") => (
+    <div style={{display:"flex",flexDirection:"column",gap:4}}>
+      <label style={{...lbl,display:"block"}}>{label}</label>
+      {opts
+        ? <select style={sel} value={(memEditId?memForm:attForm)[name]||""}
+            onChange={e=>(memEditId||mainTab==="members"?setMemForm:setAttForm)(f=>({...f,[name]:e.target.value}))}>
+            <option value="">— Select —</option>
+            {opts.map(o=><option key={o} value={o}>{o}</option>)}
+          </select>
+        : <input style={inp} type={type} placeholder={placeholder}
+            value={(mainTab==="members"?memForm:attForm)[name]||""}
+            onChange={e=>(mainTab==="members"?setMemForm:setAttForm)(f=>({...f,[name]:e.target.value}))} />
+      }
+    </div>
+  );
+
+  // ── RENDER ──
+  return (
+    <div>
+      <Toast msg={attToast||memToast} />
+
+      {/* Page header */}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20,flexWrap:"wrap",gap:10}}>
+        <div>
+          <div style={{fontSize:23,fontWeight:700,color:t.gold,fontFamily:GF,marginBottom:3}}>🌟 Youth Programs</div>
+          <div style={{fontSize:13,color:t.textMuted,fontFamily:FF}}>
+            {youthRecs.length} attendance records · {youthMembers.length} members
+          </div>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          {mainTab==="attendance" && !showAttForm && (
+            <button style={{...btnGold,padding:"8px 20px"}} onClick={()=>setShowAttForm(true)}>
+              <span style={{display:"flex",alignItems:"center",gap:6}}><Icon name="plus" size={14} color="#fff"/> Record Attendance</span>
+            </button>
+          )}
+          {mainTab==="members" && !showMemForm && (
+            <button style={{...btnGold,padding:"8px 20px"}} onClick={()=>setShowMemForm(true)}>
+              <span style={{display:"flex",alignItems:"center",gap:6}}><Icon name="plus" size={14} color="#fff"/> Add Member</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Main tabs */}
+      <div style={{display:"flex",gap:5,marginBottom:18,borderBottom:`1px solid ${t.border}`,paddingBottom:0}}>
+        {[["attendance","📋 Attendance"],["members","👥 Members"]].map(([k,l])=>(
+          <button key={k} onClick={()=>{setMainTab(k);setShowAttForm(false);setShowMemForm(false);}}
+            style={{padding:"9px 20px",borderRadius:"10px 10px 0 0",fontSize:13,fontWeight:600,cursor:"pointer",
+              fontFamily:FF,border:"none",borderBottom:mainTab===k?`2px solid ${t.gold}`:"2px solid transparent",
+              background:mainTab===k?t.surfaceAlt:"transparent",
+              color:mainTab===k?t.gold:t.textMuted,transition:"all .18s"}}>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {/* ═══════════════════ ATTENDANCE TAB ═══════════════════ */}
+      {mainTab==="attendance" && (
+        <div>
+          {/* KPIs */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:9,marginBottom:16}}>
+            {[
+              {l:"Sessions",      v:filteredAtt.length,   c:t.gold},
+              {l:"Total Male",    v:totalMale,            c:t.info},
+              {l:"Total Female",  v:totalFemale,          c:"#E67E22"},
+              {l:"Avg Attendance",v:avgAtt,               c:t.text},
+              {l:"First Timers",  v:totalFT,              c:t.success},
+              {l:"Visitors",      v:totalVis,             c:"#9B59B6"},
+              {l:"Topics",        v:topics.length,        c:"#0891B2"},
+              {l:"Facilitators",  v:attFacilits.length,   c:t.gold},
+            ].map(k=>(
+              <div key={k.l} style={{...card,padding:11,position:"relative",overflow:"hidden"}}>
+                <div style={{fontSize:9,textTransform:"uppercase",letterSpacing:.9,color:t.textMuted,fontFamily:FF,marginBottom:3}}>{k.l}</div>
+                <div style={{fontSize:20,fontWeight:700,color:k.c,fontFamily:GF}}>{k.v}</div>
+                <div style={{position:"absolute",bottom:-10,right:-10,width:40,height:40,borderRadius:"50%",background:k.c,opacity:.07}}/>
+              </div>
+            ))}
+          </div>
+
+          {/* Attendance Form */}
+          {showAttForm && (
+            <div style={{...card,marginBottom:18,border:`2px solid ${t.gold}44`,background:t.surfaceAlt}}>
+              <div style={{fontSize:15,fontWeight:700,color:t.gold,fontFamily:GF,marginBottom:16}}>
+                {attEditId ? "✏️ Edit Record" : "📋 New Attendance Record"}
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:12,marginBottom:14}}>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  <label style={{...lbl,display:"block"}}>Date</label>
+                  <input type="date" style={inp} value={attForm.date} onChange={e=>setAttForm(f=>({...f,date:e.target.value,day_of_week:["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][new Date(e.target.value).getDay()]}))}/>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  <label style={{...lbl,display:"block"}}>Day</label>
+                  <input style={{...inp,background:t.surfaceAlt,color:t.textMuted}} value={attForm.day_of_week} readOnly/>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  <label style={{...lbl,display:"block"}}>Program Name *</label>
+                  <input style={inp} placeholder="e.g. Youth Sunday Service" value={attForm.program_name} onChange={e=>setAttForm(f=>({...f,program_name:e.target.value}))}/>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  <label style={{...lbl,display:"block"}}>Topic Discussed</label>
+                  <input style={inp} placeholder="e.g. Purpose in Christ" value={attForm.topic} onChange={e=>setAttForm(f=>({...f,topic:e.target.value}))}/>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  <label style={{...lbl,display:"block"}}>Facilitator</label>
+                  <input style={inp} placeholder="Lead facilitator name" value={attForm.facilitator} onChange={e=>setAttForm(f=>({...f,facilitator:e.target.value}))}/>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  <label style={{...lbl,display:"block"}}>Speakers <span style={{fontSize:11,color:t.textMuted,fontWeight:400}}>(comma-separated)</span></label>
+                  <input style={inp} placeholder="e.g. Bro. Kwame, Sis. Abena" value={attForm.speakers} onChange={e=>setAttForm(f=>({...f,speakers:e.target.value}))}/>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  <label style={{...lbl,display:"block"}}>Men Present</label>
+                  <input type="number" min="0" style={inp} placeholder="0" value={attForm.male_count} onChange={e=>setAttForm(f=>({...f,male_count:e.target.value}))}/>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  <label style={{...lbl,display:"block"}}>Women Present</label>
+                  <input type="number" min="0" style={inp} placeholder="0" value={attForm.female_count} onChange={e=>setAttForm(f=>({...f,female_count:e.target.value}))}/>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  <label style={{...lbl,display:"block"}}>First Timers</label>
+                  <input type="number" min="0" style={inp} placeholder="0" value={attForm.first_timers} onChange={e=>setAttForm(f=>({...f,first_timers:e.target.value}))}/>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  <label style={{...lbl,display:"block"}}>Visitors</label>
+                  <input type="number" min="0" style={inp} placeholder="0" value={attForm.visitors} onChange={e=>setAttForm(f=>({...f,visitors:e.target.value}))}/>
+                </div>
+              </div>
+
+              {/* Live total */}
+              <div style={{...card,background:t.surface,padding:"10px 14px",marginBottom:14,display:"inline-flex",alignItems:"center",gap:16}}>
+                <div style={{fontSize:12,color:t.textMuted,fontFamily:FF}}>Total Present:</div>
+                <div style={{fontSize:22,fontWeight:700,color:t.gold,fontFamily:GF}}>
+                  {(Number(attForm.male_count)||0)+(Number(attForm.female_count)||0)}
+                </div>
+                <div style={{fontSize:11,color:t.info,fontFamily:FF}}>👨 {attForm.male_count||0} Men</div>
+                <div style={{fontSize:11,color:"#E67E22",fontFamily:FF}}>👩 {attForm.female_count||0} Women</div>
+              </div>
+
+              {/* Speakers preview */}
+              {attForm.speakers.trim() && (
+                <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:12}}>
+                  {attForm.speakers.split(",").map(s=>s.trim()).filter(Boolean).map((s,i)=>(
+                    <span key={i} style={{padding:"3px 10px",borderRadius:20,background:`${t.gold}22`,border:`1px solid ${t.gold}44`,fontSize:12,color:t.text,fontFamily:FF}}>🎤 {s}</span>
+                  ))}
+                </div>
+              )}
+
+              <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:14}}>
+                <label style={{...lbl,display:"block"}}>Notes</label>
+                <textarea style={{...inp,minHeight:50,resize:"vertical"}} placeholder="Any remarks…" value={attForm.notes} onChange={e=>setAttForm(f=>({...f,notes:e.target.value}))}/>
+              </div>
+
+              <div style={{display:"flex",gap:8}}>
+                <button style={{...btnGold,padding:"10px 28px",opacity:attLoading?0.7:1}} onClick={handleAttSave} disabled={attLoading}>
+                  {attLoading?"Saving…":attEditId?"Save Changes":"Save Record"}
+                </button>
+                <button style={{...btnOutline,padding:"10px 20px"}} onClick={handleAttCancel}>Cancel</button>
+              </div>
+            </div>
+          )}
+
+          {/* Filters */}
+          <div style={{...card,marginBottom:14,padding:"10px 14px",display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
+            <select style={{...sel,minWidth:160}} value={attFilter.facilitator} onChange={e=>setAttFilter(f=>({...f,facilitator:e.target.value}))}>
+              <option value="">All Facilitators</option>
+              {attFacilits.map(n=><option key={n} value={n}>{n}</option>)}
+            </select>
+            <select style={{...sel,minWidth:160}} value={attFilter.program} onChange={e=>setAttFilter(f=>({...f,program:e.target.value}))}>
+              <option value="">All Programs</option>
+              {attPrograms.map(n=><option key={n} value={n}>{n}</option>)}
+            </select>
+            <select style={{...sel,minWidth:140}} value={attFilter.month} onChange={e=>setAttFilter(f=>({...f,month:e.target.value}))}>
+              <option value="">All Time</option>
+              {attMonths.map(m=><option key={m} value={m}>{new Date(m+"-01").toLocaleDateString("en-GB",{month:"long",year:"numeric"})}</option>)}
+            </select>
+            {(attFilter.facilitator||attFilter.month||attFilter.program) &&
+              <button style={{...btnGhost,padding:"5px 12px",fontSize:12}} onClick={()=>setAttFilter({facilitator:"",month:"",program:""})}>✕ Clear</button>}
+            <span style={{marginLeft:"auto",fontSize:12,color:t.textMuted,fontFamily:FF}}>{filteredAtt.length} records</span>
+          </div>
+
+          {/* Line chart */}
+          {attChartData.length > 1 && (
+            <div style={{...card,marginBottom:14,padding:16}}>
+              <div style={{fontSize:11,fontWeight:700,color:t.gold,fontFamily:FF,textTransform:"uppercase",letterSpacing:1.2,marginBottom:14}}>
+                📈 Attendance Trend — Men vs Women (last {attChartData.length} sessions)
+              </div>
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={attChartData} margin={{top:5,right:20,left:0,bottom:5}}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={t.border}/>
+                  <XAxis dataKey="date" tick={{fontSize:10,fill:t.textMuted,fontFamily:FF}}/>
+                  <YAxis tick={{fontSize:10,fill:t.textMuted,fontFamily:FF}}/>
+                  <Tooltip content={customTip}/>
+                  <Legend wrapperStyle={{fontSize:11,fontFamily:FF}}/>
+                  <Line type="monotone" dataKey="Total"  stroke={t.gold}    strokeWidth={2.5} dot={{r:4}} name="Total"/>
+                  <Line type="monotone" dataKey="Male"   stroke="#1565C0"   strokeWidth={1.5} dot={{r:3}} name="Men" strokeDasharray="4 2"/>
+                  <Line type="monotone" dataKey="Female" stroke="#E67E22"   strokeWidth={1.5} dot={{r:3}} name="Women" strokeDasharray="4 2"/>
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* Facilitator performance */}
+          {perFacilit.length > 0 && (
+            <div style={{marginBottom:14}}>
+              <div style={{fontSize:11,fontWeight:700,color:t.gold,fontFamily:FF,textTransform:"uppercase",letterSpacing:1.2,marginBottom:10}}>
+                🎤 Facilitator Performance
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(210px,1fr))",gap:10}}>
+                {perFacilit.map((p,i)=>(
+                  <div key={p.name} style={{...card,padding:14,borderLeft:`4px solid ${["#2563EB","#059669","#D97706","#DC2626","#7C3AED"][i%5]}`}}>
+                    <div style={{fontSize:13,fontWeight:700,color:t.text,fontFamily:FF,marginBottom:8}}>{p.name}</div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:8}}>
+                      {[{l:"Sessions",v:p.sessions,c:t.gold},{l:"Avg Att.",v:p.avg,c:t.text}].map(s=>(
+                        <div key={s.l} style={{textAlign:"center",background:t.surfaceAlt,borderRadius:8,padding:"6px 4px"}}>
+                          <div style={{fontSize:17,fontWeight:700,color:s.c,fontFamily:GF}}>{s.v}</div>
+                          <div style={{fontSize:9,color:t.textMuted,fontFamily:FF,textTransform:"uppercase"}}>{s.l}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{fontSize:10,color:t.textMuted,fontFamily:FF,marginBottom:5}}>Topics: <strong style={{color:t.gold}}>{p.topics.length}</strong></div>
+                    {p.topics.length > 0 && (
+                      <div style={{display:"flex",flexWrap:"wrap",gap:3}}>
+                        {p.topics.slice(0,3).map((tp,j)=>(
+                          <span key={j} style={{fontSize:9,padding:"1px 6px",borderRadius:10,background:t.surfaceAlt,color:t.textMuted,fontFamily:FF,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:80}}>{tp}</span>
+                        ))}
+                        {p.topics.length>3&&<span style={{fontSize:9,color:t.textMuted}}> +{p.topics.length-3}</span>}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Records table */}
+          <div style={{...card,padding:0,overflow:"auto"}}>
+            <div style={{padding:"12px 16px",borderBottom:`1px solid ${t.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <span style={{fontSize:13,fontWeight:700,color:t.text,fontFamily:FF}}>Attendance Records</span>
+              <span style={{fontSize:12,color:t.textMuted,fontFamily:FF}}>{sortedAtt.length} shown</span>
+            </div>
+            <table style={{width:"100%",borderCollapse:"collapse",minWidth:700}}>
+              <thead>
+                <tr style={{background:t.surfaceAlt}}>
+                  {["Date","Day","Program","Topic","Facilitator","Speakers","Men","Women","Total","1st Timers","Visitors","Actions"].map(h=>(
+                    <th key={h} style={th}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {sortedAtt.length===0 && (
+                  <tr><td colSpan={12} style={{...td,textAlign:"center",padding:48,color:t.textMuted,fontFamily:FF}}>
+                    No records yet. Click "Record Attendance" to add one.
+                  </td></tr>
+                )}
+                {sortedAtt.map(r=>(
+                  <tr key={r.id}
+                    onMouseEnter={e=>e.currentTarget.style.background=t.surfaceHover}
+                    onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                    <td style={td}>{r.date||"—"}</td>
+                    <td style={{...td,color:t.textMuted,fontSize:11}}>{r.day_of_week||"—"}</td>
+                    <td style={{...td,fontWeight:600,color:t.gold}}>{r.program_name||"—"}</td>
+                    <td style={{...td,maxWidth:150}}>
+                      {r.topic ? <span style={{fontSize:11}} title={r.topic}>{r.topic.length>20?r.topic.slice(0,20)+"…":r.topic}</span> : <span style={{color:t.textFaint,fontSize:11}}>—</span>}
+                    </td>
+                    <td style={td}>{r.facilitator||<span style={{color:t.textFaint,fontSize:11}}>—</span>}</td>
+                    <td style={{...td,maxWidth:160}}>
+                      {r.speakers
+                        ? <div style={{display:"flex",flexWrap:"wrap",gap:2}}>
+                            {r.speakers.split(",").map(s=>s.trim()).filter(Boolean).slice(0,2).map((s,i)=>(
+                              <span key={i} style={{fontSize:10,padding:"1px 7px",borderRadius:10,background:`${t.gold}18`,color:t.text,fontFamily:FF,whiteSpace:"nowrap"}}>{s}</span>
+                            ))}
+                            {r.speakers.split(",").filter(Boolean).length>2 && <span style={{fontSize:10,color:t.textMuted}}>+{r.speakers.split(",").length-2}</span>}
+                          </div>
+                        : <span style={{color:t.textFaint,fontSize:11}}>—</span>}
+                    </td>
+                    <td style={{...td,color:t.info,fontWeight:600}}>{r.male_count||0}</td>
+                    <td style={{...td,color:"#E67E22",fontWeight:600}}>{r.female_count||0}</td>
+                    <td style={td}><span style={{fontWeight:700,color:t.text}}>{(Number(r.male_count)||0)+(Number(r.female_count)||0)}</span></td>
+                    <td style={{...td,color:t.success}}>{r.first_timers||0}</td>
+                    <td style={{...td,color:t.textMuted}}>{r.visitors||0}</td>
+                    <td style={td}>
+                      <div style={{display:"flex",gap:4}}>
+                        <button style={btnGhost} onClick={()=>handleAttEdit(r)} title="Edit"><Icon name="edit" size={13} color={t.gold}/></button>
+                        <button style={btnGhost} onClick={()=>{if(window.confirm("Delete this record?"))deleteYouthRec(r.id);}} title="Delete"><Icon name="trash" size={13} color={t.danger}/></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════ MEMBERS TAB ═══════════════════ */}
+      {mainTab==="members" && (
+        <div>
+          {/* Member KPIs */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:9,marginBottom:16}}>
+            {[
+              {l:"Total Members", v:youthMembers.length, c:t.gold},
+              {l:"Active",        v:activeMembers,        c:t.success},
+              {l:"Male",          v:maleMembers,          c:t.info},
+              {l:"Female",        v:femaleMembers,        c:"#E67E22"},
+              {l:"Occupations",   v:occupations.length,   c:"#9B59B6"},
+              {l:"Edu. Levels",   v:eduLevels.length,     c:"#0891B2"},
+            ].map(k=>(
+              <div key={k.l} style={{...card,padding:11,position:"relative",overflow:"hidden"}}>
+                <div style={{fontSize:9,textTransform:"uppercase",letterSpacing:.9,color:t.textMuted,fontFamily:FF,marginBottom:3}}>{k.l}</div>
+                <div style={{fontSize:20,fontWeight:700,color:k.c,fontFamily:GF}}>{k.v}</div>
+                <div style={{position:"absolute",bottom:-10,right:-10,width:40,height:40,borderRadius:"50%",background:k.c,opacity:.07}}/>
+              </div>
+            ))}
+          </div>
+
+          {/* Member form */}
+          {showMemForm && (
+            <div style={{...card,marginBottom:18,border:`2px solid ${t.gold}44`,background:t.surfaceAlt}}>
+              <div style={{fontSize:15,fontWeight:700,color:t.gold,fontFamily:GF,marginBottom:16}}>
+                {memEditId ? "✏️ Edit Member" : "👤 Add New Member"}
+              </div>
+
+              {/* Personal */}
+              <div style={{fontSize:11,fontWeight:700,color:t.gold,fontFamily:FF,textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>Personal Information</div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))",gap:12,marginBottom:16}}>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  <label style={{...lbl,display:"block"}}>Full Name *</label>
+                  <input style={inp} placeholder="e.g. Emmanuel Mensah" value={memForm.name} onChange={e=>setMemForm(f=>({...f,name:e.target.value}))}/>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  <label style={{...lbl,display:"block"}}>Gender</label>
+                  <select style={sel} value={memForm.gender} onChange={e=>setMemForm(f=>({...f,gender:e.target.value}))}>
+                    <option value="">— Select —</option>
+                    {["Male","Female","Other"].map(o=><option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  <label style={{...lbl,display:"block"}}>Date of Birth</label>
+                  <input type="date" style={inp} value={memForm.dob} onChange={e=>setMemForm(f=>({...f,dob:e.target.value}))}/>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  <label style={{...lbl,display:"block"}}>Marital Status</label>
+                  <select style={sel} value={memForm.marital_status} onChange={e=>setMemForm(f=>({...f,marital_status:e.target.value}))}>
+                    <option value="">— Select —</option>
+                    {["Single","Married","Divorced","Widowed","Separated"].map(o=><option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  <label style={{...lbl,display:"block"}}>Phone</label>
+                  <input style={inp} type="tel" placeholder="e.g. 024 123 4567" value={memForm.phone} onChange={e=>setMemForm(f=>({...f,phone:e.target.value}))}/>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  <label style={{...lbl,display:"block"}}>Email</label>
+                  <input style={inp} type="email" placeholder="e.g. name@gmail.com" value={memForm.email} onChange={e=>setMemForm(f=>({...f,email:e.target.value}))}/>
+                </div>
+              </div>
+
+              {/* Location */}
+              <div style={{fontSize:11,fontWeight:700,color:t.gold,fontFamily:FF,textTransform:"uppercase",letterSpacing:1,marginBottom:10,borderTop:`1px solid ${t.border}`,paddingTop:14}}>Location</div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))",gap:12,marginBottom:16}}>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  <label style={{...lbl,display:"block"}}>Location / Area</label>
+                  <input style={inp} placeholder="e.g. Accra, Tema" value={memForm.location} onChange={e=>setMemForm(f=>({...f,location:e.target.value}))}/>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  <label style={{...lbl,display:"block"}}>Region</label>
+                  <select style={sel} value={memForm.region} onChange={e=>setMemForm(f=>({...f,region:e.target.value}))}>
+                    <option value="">— Select —</option>
+                    {["Greater Accra","Ashanti","Western","Central","Eastern","Volta","Northern","Upper East","Upper West","Brong-Ahafo","Savannah","Ahafo","Bono East","Oti","North East","Western North","Outside Ghana"].map(r=><option key={r} value={r}>{r}</option>)}
+                  </select>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  <label style={{...lbl,display:"block"}}>Nationality</label>
+                  <input style={inp} placeholder="e.g. Ghana" value={memForm.nationality} onChange={e=>setMemForm(f=>({...f,nationality:e.target.value}))}/>
+                </div>
+              </div>
+
+              {/* Education & Career */}
+              <div style={{fontSize:11,fontWeight:700,color:t.gold,fontFamily:FF,textTransform:"uppercase",letterSpacing:1,marginBottom:10,borderTop:`1px solid ${t.border}`,paddingTop:14}}>Education & Career</div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))",gap:12,marginBottom:16}}>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  <label style={{...lbl,display:"block"}}>Education Level</label>
+                  <select style={sel} value={memForm.education_level} onChange={e=>setMemForm(f=>({...f,education_level:e.target.value}))}>
+                    <option value="">— Select —</option>
+                    {["Primary","JHS","SHS","Vocational / Technical","HND","Diploma","Bachelor's Degree","Master's Degree","PhD / Doctorate","Professional Cert.","None"].map(o=><option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  <label style={{...lbl,display:"block"}}>Occupation</label>
+                  <select style={sel} value={memForm.occupation} onChange={e=>setMemForm(f=>({...f,occupation:e.target.value}))}>
+                    <option value="">— Select —</option>
+                    {["Student","Employed","Self-Employed","Civil Servant","Business Owner","Unemployed","Apprentice","Retired","Other"].map(o=><option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  <label style={{...lbl,display:"block"}}>Profession / Field</label>
+                  <input style={inp} placeholder="e.g. Engineer, Nurse, Teacher" value={memForm.profession} onChange={e=>setMemForm(f=>({...f,profession:e.target.value}))}/>
+                </div>
+              </div>
+
+              {/* Membership */}
+              <div style={{fontSize:11,fontWeight:700,color:t.gold,fontFamily:FF,textTransform:"uppercase",letterSpacing:1,marginBottom:10,borderTop:`1px solid ${t.border}`,paddingTop:14}}>Membership</div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))",gap:12,marginBottom:16}}>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  <label style={{...lbl,display:"block"}}>Date Joined</label>
+                  <input type="date" style={inp} value={memForm.joined_date} onChange={e=>setMemForm(f=>({...f,joined_date:e.target.value}))}/>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  <label style={{...lbl,display:"block"}}>Status</label>
+                  <select style={sel} value={memForm.status} onChange={e=>setMemForm(f=>({...f,status:e.target.value}))}>
+                    {["Active","Inactive","Transferred","Unknown"].map(o=><option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:4,gridColumn:"span 2"}}>
+                  <label style={{...lbl,display:"block"}}>Notes</label>
+                  <textarea style={{...inp,minHeight:46,resize:"vertical"}} placeholder="Any additional notes…" value={memForm.notes} onChange={e=>setMemForm(f=>({...f,notes:e.target.value}))}/>
+                </div>
+              </div>
+
+              <div style={{display:"flex",gap:8}}>
+                <button style={{...btnGold,padding:"10px 28px",opacity:memLoading?0.7:1}} onClick={handleMemSave} disabled={memLoading}>
+                  {memLoading?"Saving…":memEditId?"Save Changes":"Add Member"}
+                </button>
+                <button style={{...btnOutline,padding:"10px 20px"}} onClick={handleMemCancel}>Cancel</button>
+              </div>
+            </div>
+          )}
+
+          {/* Member profile view */}
+          {viewMember && !showMemForm && (() => {
+            const m = viewMember;
+            const age = m.dob ? Math.floor((new Date()-new Date(m.dob))/(365.25*24*3600*1000)) : null;
+            return (
+              <div style={{...card,marginBottom:16,border:`2px solid ${t.gold}44`}}>
+                <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+                  <div style={{width:52,height:52,borderRadius:"50%",background:`${t.gold}22`,border:`2px solid ${t.gold}44`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,fontWeight:700,color:t.gold,flexShrink:0}}>
+                    {m.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <div style={{fontSize:18,fontWeight:700,color:t.text,fontFamily:GF}}>{m.name}</div>
+                    <div style={{fontSize:12,color:t.textMuted,fontFamily:FF}}>
+                      {m.gender} {age?`· ${age} yrs`:""} · {m.status}
+                    </div>
+                  </div>
+                  <div style={{marginLeft:"auto",display:"flex",gap:6}}>
+                    <button style={{...btnGold,padding:"6px 14px",fontSize:12}} onClick={()=>handleMemEdit(m)}>✏️ Edit</button>
+                    <button style={{...btnGhost,padding:"6px 12px",fontSize:12}} onClick={()=>setViewMember(null)}>✕ Close</button>
+                  </div>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:10}}>
+                  {[
+                    ["📞 Phone",          m.phone],
+                    ["📧 Email",          m.email],
+                    ["📍 Location",       m.location],
+                    ["🌍 Region",         m.region],
+                    ["🇬🇭 Nationality",   m.nationality],
+                    ["💍 Marital Status", m.marital_status],
+                    ["🎓 Education",      m.education_level],
+                    ["💼 Occupation",     m.occupation],
+                    ["🔧 Profession",     m.profession],
+                    ["📅 Joined",         m.joined_date],
+                  ].map(([k,v])=> v ? (
+                    <div key={k} style={{...card,padding:"9px 12px",background:t.surfaceAlt}}>
+                      <div style={{fontSize:10,color:t.textMuted,fontFamily:FF,marginBottom:2}}>{k}</div>
+                      <div style={{fontSize:13,color:t.text,fontFamily:FF,fontWeight:500}}>{v}</div>
+                    </div>
+                  ) : null)}
+                </div>
+                {m.notes && <div style={{marginTop:12,padding:"10px 14px",background:t.surfaceAlt,borderRadius:8,fontSize:12,color:t.textSec||t.textMuted,fontFamily:FF}}>{m.notes}</div>}
+              </div>
+            );
+          })()}
+
+          {/* Member search + filters */}
+          <div style={{...card,marginBottom:12,padding:"10px 14px",display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
+            <input style={{...inp,maxWidth:200,padding:"7px 12px"}} placeholder="Search name, job, location…" value={memSearch} onChange={e=>setMemSearch(e.target.value)}/>
+            <select style={{...sel,minWidth:120}} value={memFilter.gender} onChange={e=>setMemFilter(f=>({...f,gender:e.target.value}))}>
+              <option value="">All Genders</option>
+              {["Male","Female","Other"].map(o=><option key={o} value={o}>{o}</option>)}
+            </select>
+            <select style={{...sel,minWidth:130}} value={memFilter.status} onChange={e=>setMemFilter(f=>({...f,status:e.target.value}))}>
+              <option value="">All Statuses</option>
+              {["Active","Inactive","Transferred","Unknown"].map(o=><option key={o} value={o}>{o}</option>)}
+            </select>
+            <select style={{...sel,minWidth:150}} value={memFilter.education} onChange={e=>setMemFilter(f=>({...f,education:e.target.value}))}>
+              <option value="">All Edu. Levels</option>
+              {eduLevels.map(e=><option key={e} value={e}>{e}</option>)}
+            </select>
+            {(memSearch||memFilter.gender||memFilter.status||memFilter.education) &&
+              <button style={{...btnGhost,padding:"5px 12px",fontSize:12}} onClick={()=>{setMemSearch("");setMemFilter({gender:"",status:"",education:""});}}>✕ Clear</button>}
+            <span style={{marginLeft:"auto",fontSize:12,color:t.textMuted,fontFamily:FF}}>{filteredMem.length} / {youthMembers.length} members</span>
+          </div>
+
+          {/* Members grid */}
+          {filteredMem.length === 0 ? (
+            <div style={{textAlign:"center",padding:52,color:t.textMuted,fontFamily:FF,fontSize:13}}>
+              {youthMembers.length===0 ? "No members yet. Click "Add Member" to get started." : `No members match the filters.`}
+            </div>
+          ) : (
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:12}}>
+              {filteredMem.map(m=>(
+                <div key={m.id} style={{...card,padding:0,overflow:"hidden",cursor:"pointer",transition:"transform .18s,box-shadow .18s",borderTop:`3px solid ${m.gender==="Female"?"#E67E22":m.gender==="Male"?t.info:t.gold}`}}
+                  onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 6px 20px rgba(0,0,0,.12)";}}
+                  onMouseLeave={e=>{e.currentTarget.style.transform="none";e.currentTarget.style.boxShadow="none";}}
+                  onClick={()=>setViewMember(m)}>
+                  <div style={{padding:"14px 16px 10px"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+                      <div style={{width:36,height:36,borderRadius:"50%",
+                        background:m.gender==="Female"?"#E67E2222":m.gender==="Male"?`${t.info}22`:`${t.gold}22`,
+                        border:`2px solid ${m.gender==="Female"?"#E67E22":m.gender==="Male"?t.info:t.gold}44`,
+                        display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:700,
+                        color:m.gender==="Female"?"#E67E22":m.gender==="Male"?t.info:t.gold,flexShrink:0}}>
+                        {m.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:13,fontWeight:700,color:t.text,fontFamily:FF,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{m.name}</div>
+                        <div style={{fontSize:11,color:t.textMuted,fontFamily:FF}}>{m.gender||"—"} · {m.status||"—"}</div>
+                      </div>
+                    </div>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+                      {m.occupation && <span style={{fontSize:10,padding:"2px 7px",borderRadius:10,background:`${t.gold}18`,color:t.textMuted,fontFamily:FF}}>💼 {m.occupation}</span>}
+                      {m.education_level && <span style={{fontSize:10,padding:"2px 7px",borderRadius:10,background:"#0891B218",color:t.textMuted,fontFamily:FF}}>🎓 {m.education_level}</span>}
+                      {m.location && <span style={{fontSize:10,padding:"2px 7px",borderRadius:10,background:t.surfaceAlt,color:t.textMuted,fontFamily:FF}}>📍 {m.location}</span>}
+                    </div>
+                  </div>
+                  <div style={{padding:"8px 16px",borderTop:`1px solid ${t.border}18`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <span style={{fontSize:10,color:t.textMuted,fontFamily:FF}}>Joined: {m.joined_date||"—"}</span>
+                    <div style={{display:"flex",gap:4}} onClick={e=>e.stopPropagation()}>
+                      <button style={btnGhost} title="Edit" onClick={()=>handleMemEdit(m)}><Icon name="edit" size={12} color={t.gold}/></button>
+                      <button style={btnGhost} title="Delete" onClick={()=>{if(window.confirm(`Remove ${m.name}?`))deleteYouthMember(m.id);}}><Icon name="trash" size={12} color={t.danger}/></button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── CLASSES PAGE ─────────────────────────────────────────────────────────────
 const ClassesPage = ({ db }) => {
   const { t, card, btnGold, btnOutline, btnGhost, inp, lbl, th, td, sel } = useThemeStyles();
@@ -2951,12 +3735,17 @@ const ClassesPage = ({ db }) => {
   const [selected,   setSelected]   = useState(null); // class name being viewed
   const [view,       setView]       = useState("overview"); // overview | detail
   const [addModal,   setAddModal]   = useState(false);
-  const [editModal,  setEditModal]  = useState(null); // class obj being edited
+  const [editModal,  setEditModal]  = useState(null);
   const [newName,    setNewName]    = useState("");
   const [editName,   setEditName]   = useState("");
   const [toast,      setToast]      = useState("");
   const [filterMonth,setFilterMonth]= useState("");
   const [search,     setSearch]     = useState("");
+  // Detail view filters (always declared — hooks must not be conditional)
+  const [dTeacher,   setDTeacher]   = useState("all");
+  const [dDateFrom,  setDDateFrom]  = useState("");
+  const [dDateTo,    setDDateTo]    = useState("");
+  const [dChartTab,  setDChartTab]  = useState("member");
 
   const showToast = (msg) => { setToast(msg); setTimeout(()=>setToast(""),3200); };
 
@@ -3013,136 +3802,411 @@ const ClassesPage = ({ db }) => {
   const GF = "'Georgia',serif";
 
   if (view === "detail" && selStats) {
-    const { cls, color, recs, clsTeachers, avgAtt, best, last } = selStats;
-    const sorted = [...recs].sort((a,b)=>(b.date||"").localeCompare(a.date||""));
-    const maleTotal   = recs.reduce((s,r)=>s+(Number(r.male_closing)||0),0);
-    const femaleTotal = recs.reduce((s,r)=>s+(Number(r.female_closing)||0),0);
-    const ftTotal     = recs.reduce((s,r)=>s+(Number(r.first_timers)||0),0);
-    const visTotal    = recs.reduce((s,r)=>s+(Number(r.visitors)||0),0);
+    const { cls, color, clsTeachers, allRecs } = selStats;
+
+    const teacherNames = [...new Set(allRecs.map(r=>r.teacher_name).filter(Boolean))].sort();
+    const TCOLS = ["#2563EB","#059669","#D97706","#DC2626","#7C3AED","#0891B2","#DB2777","#65A30D"];
+    const teacherColor = (name) => TCOLS[teacherNames.indexOf(name) % TCOLS.length];
+
+    const filtered2 = allRecs.filter(r => {
+      if (dTeacher !== "all" && r.teacher_name !== dTeacher) return false;
+      if (dDateFrom && (r.date||"") < dDateFrom) return false;
+      if (dDateTo   && (r.date||"") > dDateTo)   return false;
+      return true;
+    });
+
+    const sortedF = [...filtered2].sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+
+    // ── Aggregated KPIs from filtered set ──
+    const avgAtt2    = filtered2.length ? Math.round(filtered2.reduce((s,r)=>s+(Number(r.total_closing)||0),0)/filtered2.length) : 0;
+    const best2      = filtered2.length ? Math.max(...filtered2.map(r=>Number(r.total_closing)||0)) : 0;
+    const maleTotal  = filtered2.reduce((s,r)=>s+(Number(r.male_closing)||0),0);
+    const femaleTotal= filtered2.reduce((s,r)=>s+(Number(r.female_closing)||0),0);
+    const ftTotal    = filtered2.reduce((s,r)=>s+(Number(r.first_timers)||0),0);
+    const visTotal   = filtered2.reduce((s,r)=>s+(Number(r.visitors)||0),0);
+    const topicsSet  = [...new Set(filtered2.map(r=>r.topic).filter(Boolean))];
+
+    // ── Per-teacher stats ──
+    const perTeacher = teacherNames.map(name => {
+      const tr = filtered2.filter(r=>r.teacher_name===name);
+      const topics = [...new Set(tr.map(r=>r.topic).filter(Boolean))];
+      const avgM   = tr.length ? Math.round(tr.reduce((s,r)=>s+(Number(r.total_closing)||0),0)/tr.length) : 0;
+      const sessions = tr.length;
+      const best   = tr.length ? Math.max(...tr.map(r=>Number(r.total_closing)||0)) : 0;
+      return { name, sessions, avgM, best, topics, color: teacherColor(name) };
+    }).filter(p=>p.sessions>0).sort((a,b)=>b.avgM-a.avgM);
+
+    // ── Line chart data — member attendance over time, one line per teacher ──
+    const memberChartData = (() => {
+      const dates = [...new Set(filtered2.map(r=>r.date).filter(Boolean))].sort();
+      return dates.map(date => {
+        const row = { date: date.slice(5) };
+        teacherNames.forEach(name => {
+          const rec = filtered2.find(r=>r.date===date && r.teacher_name===name);
+          if (rec) row[name] = Number(rec.total_closing)||0;
+        });
+        // Overall total for that date
+        const dayRecs = filtered2.filter(r=>r.date===date);
+        row["Total"] = dayRecs.reduce((s,r)=>s+(Number(r.total_closing)||0),0);
+        return row;
+      });
+    })();
+
+    // ── Teacher attendance line — sessions taught over time ──
+    const teacherChartData = (() => {
+      const months = [...new Set(filtered2.map(r=>(r.date||"").slice(0,7)).filter(Boolean))].sort();
+      return months.map(mo => {
+        const row = { month: mo };
+        teacherNames.forEach(name => {
+          row[name] = filtered2.filter(r=>r.teacher_name===name && (r.date||"").startsWith(mo)).length;
+        });
+        return row;
+      });
+    })();
+
+    // ── Topic impact — avg attendance per topic ──
+    const topicChartData = (() => {
+      const topicMap = {};
+      filtered2.forEach(r => {
+        const topic = r.topic || "(No topic)";
+        if (!topicMap[topic]) topicMap[topic] = { total:0, count:0, teacher:r.teacher_name||"" };
+        topicMap[topic].total += Number(r.total_closing)||0;
+        topicMap[topic].count++;
+      });
+      return Object.entries(topicMap)
+        .map(([topic,d]) => ({ topic: topic.length>22?topic.slice(0,22)+"…":topic, avg: d.count?Math.round(d.total/d.count):0, sessions:d.count, fullTopic:topic }))
+        .sort((a,b)=>b.avg-a.avg)
+        .slice(0,12);
+    })();
+
+    const customTooltip = ({ active, payload, label }) => {
+      if (!active || !payload?.length) return null;
+      return (
+        <div style={{background:t.surface,border:`1px solid ${t.border}`,borderRadius:8,padding:"10px 14px",fontFamily:FF,fontSize:12,boxShadow:"0 4px 16px rgba(0,0,0,.15)"}}>
+          <div style={{fontWeight:700,marginBottom:6,color:t.text}}>{label}</div>
+          {payload.map((p,i)=>(
+            <div key={i} style={{color:p.color,marginBottom:2}}>{p.name}: <strong>{p.value}</strong></div>
+          ))}
+        </div>
+      );
+    };
+
     return (
       <div>
         {toast && <div style={{position:"fixed",top:24,right:24,zIndex:9999,background:toast.startsWith("✅")?"#0A7A45":"#C87A0A",color:"#fff",padding:"12px 20px",borderRadius:10,fontFamily:FF,fontSize:14,fontWeight:600,boxShadow:"0 4px 20px rgba(0,0,0,.3)"}}>{toast}</div>}
-        {/* Back + header */}
-        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
-          <button style={{...btnGhost,padding:"6px 14px",fontSize:13}} onClick={()=>{setView("overview");setSelected(null);}}>
-            ← Back
-          </button>
+
+        {/* ── Back + Header ── */}
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:18}}>
+          <button style={{...btnGhost,padding:"6px 14px",fontSize:13}} onClick={()=>{setView("overview");setSelected(null);}}>← Back</button>
           <div style={{width:4,height:28,borderRadius:2,background:color}}/>
           <div>
             <div style={{fontSize:22,fontWeight:700,color,fontFamily:GF}}>{cls.name}</div>
-            <div style={{fontSize:12,color:t.textMuted,fontFamily:FF}}>{recs.length} records{filterMonth?" this month":""} · {clsTeachers.length} active teacher{clsTeachers.length!==1?"s":""}</div>
+            <div style={{fontSize:12,color:t.textMuted,fontFamily:FF}}>
+              {filtered2.length} record{filtered2.length!==1?"s":""} shown · {allRecs.length} total · {clsTeachers.length} teacher{clsTeachers.length!==1?"s":""}
+            </div>
           </div>
         </div>
 
-        {/* KPI strip */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:10,marginBottom:18}}>
+        {/* ── Filters bar ── */}
+        <div style={{...card,marginBottom:16,padding:"12px 14px",display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
+          <div style={{fontSize:11,fontWeight:700,color:t.gold,fontFamily:FF,textTransform:"uppercase",letterSpacing:1,marginRight:4}}>🔍 Filter</div>
+
+          {/* Teacher */}
+          <select style={{...sel,minWidth:160}} value={dTeacher} onChange={e=>setDTeacher(e.target.value)}>
+            <option value="all">All Teachers</option>
+            {teacherNames.map(n=><option key={n} value={n}>{n}</option>)}
+          </select>
+
+          {/* Date range */}
+          <input type="date" style={{...inp,padding:"6px 10px",maxWidth:140}} value={dDateFrom} onChange={e=>setDDateFrom(e.target.value)}/>
+          <span style={{color:t.textMuted,fontSize:12}}>to</span>
+          <input type="date" style={{...inp,padding:"6px 10px",maxWidth:140}} value={dDateTo}   onChange={e=>setDDateTo(e.target.value)}/>
+
+          {(dTeacher!=="all"||dDateFrom||dDateTo) && (
+            <button style={{...btnGhost,padding:"5px 12px",fontSize:12}} onClick={()=>{setDTeacher("all");setDDateFrom("");setDDateTo("");}}>✕ Clear</button>
+          )}
+
+          <span style={{marginLeft:"auto",fontSize:12,color:t.textMuted,fontFamily:FF}}>
+            {filtered2.length} / {allRecs.length} records
+          </span>
+        </div>
+
+        {/* ── KPI strip ── */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:9,marginBottom:16}}>
           {[
-            {l:"Total Records",  v:recs.length,   c:color},
-            {l:"Avg Attendance", v:avgAtt,         c:t.text},
-            {l:"Best Session",   v:best,           c:t.success},
-            {l:"Total Male",     v:maleTotal,      c:t.info},
-            {l:"Total Female",   v:femaleTotal,    c:"#E67E22"},
-            {l:"First Timers",   v:ftTotal,        c:t.gold},
-            {l:"Visitors",       v:visTotal,       c:"#9B59B6"},
+            {l:"Records",      v:filtered2.length, c:color},
+            {l:"Avg Members",  v:avgAtt2,           c:t.text},
+            {l:"Best Session", v:best2,             c:t.success},
+            {l:"Total Male",   v:maleTotal,         c:t.info},
+            {l:"Total Female", v:femaleTotal,       c:"#E67E22"},
+            {l:"First Timers", v:ftTotal,           c:t.gold},
+            {l:"Visitors",     v:visTotal,          c:"#9B59B6"},
+            {l:"Topics",       v:topicsSet.length,  c:"#0891B2"},
           ].map(k=>(
-            <div key={k.l} style={{...card,padding:12,position:"relative",overflow:"hidden"}}>
-              <div style={{fontSize:9,textTransform:"uppercase",letterSpacing:1,color:t.textMuted,fontFamily:FF,marginBottom:4}}>{k.l}</div>
+            <div key={k.l} style={{...card,padding:11,position:"relative",overflow:"hidden"}}>
+              <div style={{fontSize:9,textTransform:"uppercase",letterSpacing:.9,color:t.textMuted,fontFamily:FF,marginBottom:3}}>{k.l}</div>
               <div style={{fontSize:20,fontWeight:700,color:k.c,fontFamily:GF}}>{k.v}</div>
-              <div style={{position:"absolute",bottom:-10,right:-10,width:44,height:44,borderRadius:"50%",background:k.c,opacity:.08}}/>
+              <div style={{position:"absolute",bottom:-10,right:-10,width:40,height:40,borderRadius:"50%",background:k.c,opacity:.07}}/>
             </div>
           ))}
         </div>
 
-        {/* Teachers assigned */}
-        <div style={{...card,marginBottom:14,padding:16}}>
-          <div style={{fontSize:11,fontWeight:700,color:t.gold,fontFamily:FF,textTransform:"uppercase",letterSpacing:1.2,marginBottom:12}}>
-            👨‍🏫 Assigned Teachers
-          </div>
-          {clsTeachers.length === 0
-            ? <div style={{fontSize:13,color:t.textMuted,fontFamily:FF}}>No teachers assigned to this class yet.</div>
-            : <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-                {clsTeachers.map(t2=>(
-                  <div key={t2.id} style={{padding:"6px 14px",borderRadius:20,background:color+"18",border:`1px solid ${color}44`,fontSize:13,color:t.text,fontFamily:FF,display:"flex",alignItems:"center",gap:7}}>
-                    <span style={{fontSize:15}}>👤</span>
-                    <span>{t2.name}</span>
-                    <span style={{fontSize:10,color,fontWeight:700,padding:"1px 7px",borderRadius:10,background:color+"22"}}>{t2.role}</span>
-                  </div>
-                ))}
-              </div>
-          }
-        </div>
-
-        {/* Attendance mini chart */}
-        {recs.length > 0 && (
-          <div style={{...card,marginBottom:14,padding:16}}>
-            <div style={{fontSize:11,fontWeight:700,color:t.gold,fontFamily:FF,textTransform:"uppercase",letterSpacing:1.2,marginBottom:14}}>
-              📈 Attendance Trend (last {Math.min(recs.length,10)} sessions)
+        {/* ── Per-teacher performance cards ── */}
+        {perTeacher.length > 0 && (
+          <div style={{marginBottom:16}}>
+            <div style={{fontSize:11,fontWeight:700,color:t.gold,fontFamily:FF,textTransform:"uppercase",letterSpacing:1.2,marginBottom:10}}>
+              👨‍🏫 Teacher Performance
             </div>
-            {(() => {
-              const pts = [...recs].sort((a,b)=>(a.date||"").localeCompare(b.date||"")).slice(-10);
-              const maxV = Math.max(...pts.map(r=>Number(r.total_closing)||0),1);
-              return (
-                <div style={{display:"flex",alignItems:"flex-end",gap:6,height:80}}>
-                  {pts.map((r,i)=>{
-                    const v = Number(r.total_closing)||0;
-                    const h = Math.max(4,Math.round((v/maxV)*72));
-                    return (
-                      <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
-                        <div style={{fontSize:9,color:t.textMuted,fontFamily:FF}}>{v}</div>
-                        <div style={{width:"100%",height:h,borderRadius:"4px 4px 0 0",background:`linear-gradient(180deg,${color},${color}88)`,transition:"height .4s"}}/>
-                        <div style={{fontSize:8,color:t.textMuted,fontFamily:FF,writingMode:"vertical-lr",transform:"rotate(180deg)",maxHeight:28,overflow:"hidden"}}>
-                          {(r.date||"").slice(5)}
-                        </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:10}}>
+              {perTeacher.map(p=>(
+                <div key={p.name} style={{...card,padding:14,borderLeft:`4px solid ${p.color}`}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                    <div style={{width:32,height:32,borderRadius:"50%",background:p.color+"22",border:`2px solid ${p.color}44`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:p.color,fontWeight:700}}>
+                      {p.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:13,fontWeight:700,color:t.text,fontFamily:FF,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</div>
+                    </div>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:10}}>
+                    {[{l:"Sessions",v:p.sessions,c:p.color},{l:"Avg Att.",v:p.avgM,c:t.text},{l:"Best",v:p.best,c:t.success}].map(s=>(
+                      <div key={s.l} style={{textAlign:"center",background:t.surfaceAlt,borderRadius:8,padding:"6px 4px"}}>
+                        <div style={{fontSize:16,fontWeight:700,color:s.c,fontFamily:GF}}>{s.v}</div>
+                        <div style={{fontSize:9,color:t.textMuted,fontFamily:FF,textTransform:"uppercase",letterSpacing:.7}}>{s.l}</div>
                       </div>
-                    );
-                  })}
+                    ))}
+                  </div>
+                  {/* Topics taught */}
+                  <div style={{fontSize:10,color:t.textMuted,fontFamily:FF,marginBottom:5}}>
+                    Topics taught: <strong style={{color:p.color}}>{p.topics.length}</strong>
+                  </div>
+                  {p.topics.length > 0 && (
+                    <div style={{display:"flex",flexWrap:"wrap",gap:3}}>
+                      {p.topics.slice(0,3).map((tp,i)=>(
+                        <span key={i} style={{fontSize:9,padding:"1px 6px",borderRadius:10,background:p.color+"15",color:t.textMuted,fontFamily:FF,maxWidth:90,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                          {tp}
+                        </span>
+                      ))}
+                      {p.topics.length > 3 && <span style={{fontSize:9,color:t.textMuted,fontFamily:FF}}>+{p.topics.length-3} more</span>}
+                    </div>
+                  )}
+                  {/* Attendance bar relative to best teacher */}
+                  <div style={{marginTop:10,height:4,background:t.border,borderRadius:2}}>
+                    <div style={{height:"100%",borderRadius:2,background:p.color,width:`${perTeacher[0].avgM?Math.round((p.avgM/perTeacher[0].avgM)*100):0}%`,transition:"width .5s"}}/>
+                  </div>
+                  <div style={{fontSize:9,color:t.textMuted,fontFamily:FF,marginTop:3}}>
+                    {perTeacher[0].name===p.name ? "🏆 Highest avg attendance" : `${perTeacher[0].avgM?Math.round((p.avgM/perTeacher[0].avgM)*100):0}% of top performer`}
+                  </div>
                 </div>
-              );
-            })()}
+              ))}
+            </div>
           </div>
         )}
 
-        {/* Attendance records table */}
+        {/* ── Charts ── */}
+        {filtered2.length > 0 && (
+          <div style={{...card,marginBottom:16,padding:16}}>
+            {/* Chart tab switcher */}
+            <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap",alignItems:"center",justifyContent:"space-between"}}>
+              <div style={{fontSize:11,fontWeight:700,color:t.gold,fontFamily:FF,textTransform:"uppercase",letterSpacing:1.2}}>
+                📈 Analytics Charts
+              </div>
+              <div style={{display:"flex",gap:5}}>
+                {[["member","👥 Member Attendance"],["teacher","👨‍🏫 Teacher Sessions"],["topic","📚 Topic Impact"]].map(([v,l])=>(
+                  <button key={v}
+                    style={{padding:"5px 12px",borderRadius:20,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:FF,border:"none",
+                      background:dChartTab===v?color:t.surfaceAlt,
+                      color:dChartTab===v?"#fff":t.textMuted,
+                      boxShadow:dChartTab===v?`0 2px 8px ${color}44`:"none",
+                      transition:"all .18s"}}
+                    onClick={()=>setDChartTab(v)}>{l}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Member attendance line chart — one line per teacher */}
+            {dChartTab==="member" && memberChartData.length > 0 && (
+              <>
+                <div style={{fontSize:12,color:t.textMuted,fontFamily:FF,marginBottom:12}}>
+                  Member attendance per session — each line represents a teacher. Hover a point to see topic.
+                </div>
+                <ResponsiveContainer width="100%" height={280}>
+                  <LineChart data={memberChartData} margin={{top:5,right:20,left:0,bottom:5}}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={t.border}/>
+                    <XAxis dataKey="date" tick={{fontSize:10,fill:t.textMuted,fontFamily:FF}} />
+                    <YAxis tick={{fontSize:10,fill:t.textMuted,fontFamily:FF}} />
+                    <Tooltip content={customTooltip}/>
+                    <Legend wrapperStyle={{fontSize:11,fontFamily:FF}}/>
+                    {/* Overall total line */}
+                    <Line key="Total" type="monotone" dataKey="Total" stroke={color} strokeWidth={2.5} dot={{r:4,fill:color}} name="Class Total"/>
+                    {/* Per-teacher lines */}
+                    {teacherNames.map(name=>(
+                      <Line key={name} type="monotone" dataKey={name} stroke={teacherColor(name)} strokeWidth={1.5}
+                        strokeDasharray="4 2" dot={{r:3}} name={name}
+                        connectNulls={false}/>
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+
+                {/* Insight callout */}
+                {perTeacher.length > 1 && (
+                  <div style={{marginTop:12,padding:"10px 14px",borderRadius:10,background:t.surfaceAlt,border:`1px solid ${t.border}`,fontSize:12,fontFamily:FF,color:t.text,lineHeight:1.6}}>
+                    💡 <strong>{perTeacher[0].name}</strong> drives the highest average member attendance
+                    ({perTeacher[0].avgM} avg) vs <strong>{perTeacher[perTeacher.length-1].name}</strong> ({perTeacher[perTeacher.length-1].avgM} avg).
+                    {perTeacher[0].avgM > perTeacher[perTeacher.length-1].avgM + 5
+                      ? ` Consider reviewing what topics or teaching style ${perTeacher[0].name} uses to replicate the impact.`
+                      : " Teacher attendance performance is fairly consistent."}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Teacher sessions bar chart */}
+            {dChartTab==="teacher" && teacherChartData.length > 0 && (
+              <>
+                <div style={{fontSize:12,color:t.textMuted,fontFamily:FF,marginBottom:12}}>
+                  Sessions taught per teacher per month — shows teacher availability and consistency.
+                </div>
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={teacherChartData} margin={{top:5,right:20,left:0,bottom:5}}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={t.border}/>
+                    <XAxis dataKey="month" tick={{fontSize:10,fill:t.textMuted,fontFamily:FF}}/>
+                    <YAxis tick={{fontSize:10,fill:t.textMuted,fontFamily:FF}} allowDecimals={false}/>
+                    <Tooltip content={customTooltip}/>
+                    <Legend wrapperStyle={{fontSize:11,fontFamily:FF}}/>
+                    {teacherNames.map(name=>(
+                      <Bar key={name} dataKey={name} fill={teacherColor(name)} name={name} radius={[3,3,0,0]}/>
+                    ))}
+                  </BarChart>
+                </ResponsiveContainer>
+
+                {/* Teacher session counts summary */}
+                <div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:12}}>
+                  {perTeacher.map(p=>(
+                    <div key={p.name} style={{padding:"5px 12px",borderRadius:20,background:p.color+"15",border:`1px solid ${p.color}33`,fontSize:11,fontFamily:FF,color:t.text,display:"flex",alignItems:"center",gap:6}}>
+                      <div style={{width:8,height:8,borderRadius:"50%",background:p.color,flexShrink:0}}/>
+                      {p.name}: <strong style={{color:p.color}}>{p.sessions} sessions</strong>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Topic impact chart */}
+            {dChartTab==="topic" && (
+              <>
+                <div style={{fontSize:12,color:t.textMuted,fontFamily:FF,marginBottom:12}}>
+                  Average member attendance per topic — reveals which topics drive higher or lower turnout.
+                </div>
+                {topicChartData.length === 0
+                  ? <div style={{textAlign:"center",padding:40,color:t.textMuted,fontFamily:FF,fontSize:13}}>No topic data recorded yet. Add topics to attendance records to see this chart.</div>
+                  : (
+                    <>
+                      <ResponsiveContainer width="100%" height={280}>
+                        <BarChart data={topicChartData} layout="vertical" margin={{top:5,right:40,left:10,bottom:5}}>
+                          <CartesianGrid strokeDasharray="3 3" stroke={t.border} horizontal={false}/>
+                          <XAxis type="number" tick={{fontSize:10,fill:t.textMuted,fontFamily:FF}}/>
+                          <YAxis type="category" dataKey="topic" tick={{fontSize:10,fill:t.textMuted,fontFamily:FF}} width={120}/>
+                          <Tooltip content={({active,payload,label})=>{
+                            if(!active||!payload?.length) return null;
+                            const d = topicChartData.find(x=>x.topic===label);
+                            return (
+                              <div style={{background:t.surface,border:`1px solid ${t.border}`,borderRadius:8,padding:"10px 14px",fontFamily:FF,fontSize:12}}>
+                                <div style={{fontWeight:700,marginBottom:4,color:t.text}}>{d?.fullTopic||label}</div>
+                                <div style={{color:color}}>Avg Attendance: <strong>{payload[0].value}</strong></div>
+                                <div style={{color:t.textMuted}}>Sessions: {d?.sessions}</div>
+                              </div>
+                            );
+                          }}/>
+                          <Bar dataKey="avg" name="Avg Attendance" radius={[0,4,4,0]}>
+                            {topicChartData.map((entry,i)=>(
+                              <Cell key={i} fill={i===0?t.success:i===topicChartData.length-1?t.danger:color}/>
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+
+                      {/* Top / bottom topic insight */}
+                      {topicChartData.length >= 2 && (
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:12}}>
+                          <div style={{padding:"10px 14px",borderRadius:10,background:t.success+"10",border:`1px solid ${t.success}33`,fontSize:12,fontFamily:FF}}>
+                            <div style={{fontWeight:700,color:t.success,marginBottom:3}}>🏆 Top Topic</div>
+                            <div style={{color:t.text,fontWeight:600}}>{topicChartData[0].fullTopic}</div>
+                            <div style={{color:t.textMuted,marginTop:2}}>{topicChartData[0].avg} avg · {topicChartData[0].sessions} session{topicChartData[0].sessions!==1?"s":""}</div>
+                          </div>
+                          <div style={{padding:"10px 14px",borderRadius:10,background:t.danger+"10",border:`1px solid ${t.danger}33`,fontSize:12,fontFamily:FF}}>
+                            <div style={{fontWeight:700,color:t.danger,marginBottom:3}}>⚠️ Lowest Topic</div>
+                            <div style={{color:t.text,fontWeight:600}}>{topicChartData[topicChartData.length-1].fullTopic}</div>
+                            <div style={{color:t.textMuted,marginTop:2}}>{topicChartData[topicChartData.length-1].avg} avg · {topicChartData[topicChartData.length-1].sessions} session{topicChartData[topicChartData.length-1].sessions!==1?"s":""}</div>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )
+                }
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ── Records table ── */}
         <div style={{...card,padding:0,overflow:"auto"}}>
           <div style={{padding:"12px 16px",borderBottom:`1px solid ${t.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
             <span style={{fontSize:13,fontWeight:700,color:t.text,fontFamily:FF}}>Attendance Records</span>
-            <span style={{fontSize:12,color:t.textMuted,fontFamily:FF}}>{recs.length} total</span>
+            <span style={{fontSize:12,color:t.textMuted,fontFamily:FF}}>{filtered2.length} shown</span>
           </div>
-          <table style={{width:"100%",borderCollapse:"collapse",minWidth:500}}>
+          <table style={{width:"100%",borderCollapse:"collapse",minWidth:640}}>
             <thead>
               <tr style={{background:t.surfaceAlt}}>
-                {["Date","Day","Service","Teacher","M","F","Total","1st Timers","Visitors","Status"].map(h=>(
+                {["Date","Day","Teacher","Topic","M","F","Total","1st Timers","Visitors","Status"].map(h=>(
                   <th key={h} style={th}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {sorted.length === 0 && (
-                <tr><td colSpan={10} style={{...td,textAlign:"center",padding:40,color:t.textMuted}}>No records for this class yet.</td></tr>
+              {sortedF.length === 0 && (
+                <tr><td colSpan={10} style={{...td,textAlign:"center",padding:40,color:t.textMuted,fontFamily:FF}}>
+                  No records match the current filters.
+                </td></tr>
               )}
-              {sorted.map(r=>(
-                <tr key={r.id}
-                  onMouseEnter={e=>e.currentTarget.style.background=t.surfaceHover}
-                  onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                  <td style={td}>{r.date||"—"}</td>
-                  <td style={{...td,color:t.textMuted}}>{r.day_of_week||"—"}</td>
-                  <td style={{...td,color:t.textMuted,fontSize:11}}>{r.service_type||"—"}</td>
-                  <td style={td}><span style={{color:color,fontWeight:600}}>{r.teacher_name||"—"}</span></td>
-                  <td style={{...td,color:t.info}}>{r.male_closing||0}</td>
-                  <td style={{...td,color:"#E67E22"}}>{r.female_closing||0}</td>
-                  <td style={td}><span style={{fontWeight:700,color:t.text}}>{r.total_closing||0}</span></td>
-                  <td style={{...td,color:t.gold}}>{r.first_timers||0}</td>
-                  <td style={{...td,color:t.textMuted}}>{r.visitors||0}</td>
-                  <td style={td}>
-                    <span style={{fontSize:10,padding:"2px 8px",borderRadius:12,
-                      background: r.status==="Approved"?t.success+"18":t.gold+"18",
-                      color: r.status==="Approved"?t.success:t.gold,
-                      fontFamily:FF,fontWeight:700}}>
-                      {r.status||"Pending"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {sortedF.map((r,ri)=>{
+                const tc = r.teacher_name ? teacherColor(r.teacher_name) : color;
+                return (
+                  <tr key={r.id||ri}
+                    onMouseEnter={e=>e.currentTarget.style.background=t.surfaceHover}
+                    onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                    <td style={td}>{r.date||"—"}</td>
+                    <td style={{...td,color:t.textMuted,fontSize:11}}>{r.day_of_week||"—"}</td>
+                    <td style={td}>
+                      <span style={{color:tc,fontWeight:600,display:"flex",alignItems:"center",gap:5}}>
+                        <span style={{width:7,height:7,borderRadius:"50%",background:tc,display:"inline-block",flexShrink:0}}/>
+                        {r.teacher_name||"—"}
+                      </span>
+                    </td>
+                    <td style={{...td,maxWidth:160}}>
+                      {r.topic
+                        ? <span style={{fontSize:11,color:t.text,fontFamily:FF}} title={r.topic}>
+                            {r.topic.length>24?r.topic.slice(0,24)+"…":r.topic}
+                          </span>
+                        : <span style={{color:t.textFaint,fontSize:11}}>—</span>}
+                    </td>
+                    <td style={{...td,color:t.info}}>{r.male_closing||0}</td>
+                    <td style={{...td,color:"#E67E22"}}>{r.female_closing||0}</td>
+                    <td style={td}><span style={{fontWeight:700,color:t.text}}>{r.total_closing||0}</span></td>
+                    <td style={{...td,color:t.gold}}>{r.first_timers||0}</td>
+                    <td style={{...td,color:t.textMuted}}>{r.visitors||0}</td>
+                    <td style={td}>
+                      <span style={{fontSize:10,padding:"2px 8px",borderRadius:12,
+                        background:r.status==="Approved"?t.success+"18":t.gold+"18",
+                        color:r.status==="Approved"?t.success:t.gold,
+                        fontFamily:FF,fontWeight:700}}>
+                        {r.status||"Pending"}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -3912,7 +4976,7 @@ const ProgramsPage = ({ db }) => {
               value={newName} onChange={e=>setNewName(e.target.value)}
               onKeyDown={e=>e.key==="Enter"&&handleAdd()} />
           </div>
-          <button style={{ ...btnGold, padding:"10px 24px", opacity:adding?.7:1, cursor:adding?"not-allowed":"pointer", minWidth:140 }}
+          <button style={{ ...btnGold, padding:"10px 24px", opacity:adding?0.7:1, cursor:adding?"not-allowed":"pointer", minWidth:140 }}
             onClick={handleAdd} disabled={adding}>
             <span style={{ display:"flex", alignItems:"center", gap:7 }}>
               {adding ? "Adding…" : <><Icon name="plus" size={15} color="#fff"/> Add Program</>}
@@ -6481,6 +7545,8 @@ const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => 
     {id:"teachers",   label:"Teachers",       icon:"teachers",   perm:"teachers"},
     {id:"classes",    label:"Classes",        icon:"classes",    perm:"classes"},
     {id:"programs",   label:"Programs",       icon:"settings",   perm:"programs"},
+    {id:"youth",      label:"Youth Programs", icon:"users",      perm:"dashboard"},
+    {id:"baptism",    label:"Baptism Records",icon:"cross",      perm:"dashboard"},
     {id:"users",      label:"Users & Access", icon:"users",      perm:"__admin_only__"},
     {id:"roles",      label:"Roles",          icon:"edit",       perm:"__admin_only__"},
     {id:"branding",   label:"Logo & Name",    icon:"bible",      perm:"__admin_only__"},
@@ -6916,6 +7982,8 @@ export default function App() {
     teachers:  guard("teachers",   <TeachersPage db={db} />),
     classes:   guard("classes",    <ClassesPage db={db} />),
     programs:  guard("programs",   <ProgramsPage db={db} />),
+    youth:     guard("dashboard",  <YouthPage db={db} />),
+    baptism:   guard("dashboard",  <BaptismPage db={db} />),
     users:     user?.role==="admin" ? <UsersPage users={users} db={db} /> : <AccessDenied />,
     roles:     user?.role==="admin" ? <RolesPage /> : <AccessDenied />,
     branding:  user?.role==="admin" ? <BrandingPage /> : <AccessDenied />,
