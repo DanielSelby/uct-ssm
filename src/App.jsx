@@ -3399,7 +3399,7 @@ const BaptismPage = ({ db }) => {
               <tr>
                 <td colSpan={9} style={{...td,textAlign:"center",padding:52,color:t.textMuted,fontFamily:FF}}>
                   {baptismRecs.length===0
-                    ? "No baptism records yet. Click "Add Baptism Record" to get started."
+                    ? "No baptism records yet. Click 'Add Baptism Record' to get started."
                     : "No records match the current filters."}
                 </td>
               </tr>
@@ -4108,7 +4108,7 @@ const YouthPage = ({ db }) => {
           {/* Members grid */}
           {filteredMem.length === 0 ? (
             <div style={{textAlign:"center",padding:52,color:t.textMuted,fontFamily:FF,fontSize:13}}>
-              {youthMembers.length===0 ? "No members yet. Click "Add Member" to get started." : `No members match the filters.`}
+              {youthMembers.length===0 ? "No members yet. Click 'Add Member' to get started." : `No members match the filters.`}
             </div>
           ) : (
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:12}}>
@@ -8259,6 +8259,8 @@ const MobileDrawer = ({ open, onClose, page, setPage, user, onLogout, db }) => {
     {id:"teachers",   label:"Teachers",            icon:"teachers"},
     {id:"classes",    label:"Classes",             icon:"classes"},
     {id:"programs",   label:"Programs",            icon:"settings"},
+    {id:"youth",      label:"Youth Programs",      icon:"users"},
+    {id:"baptism",    label:"Baptism Records",     icon:"cross"},
     {id:"users",      label:"Users & Access",      icon:"users"},
     {id:"roles",      label:"Roles",               icon:"edit"},
     {id:"branding",   label:"Logo & Name",         icon:"bible"},
