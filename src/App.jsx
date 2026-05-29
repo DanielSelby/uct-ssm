@@ -3032,6 +3032,433 @@ const ExportPage = ({ db }) => {
   );
 };
 
+// ─── BAPTISM RECORDS PAGE ────────────────────────────────────────────────────
+const BaptismPage = ({ db }) => {
+  const { t, card, btnGold, btnOutline, btnGhost, inp, lbl, th, td, sel } = useThemeStyles();
+  const { baptismRecs = [], addBaptismRec, updateBaptismRec, deleteBaptismRec } = db;
+
+  const FF = "'Trebuchet MS',sans-serif";
+  const GF = "'Georgia',serif";
+
+  const blank = {
+    name: "", contact: "", location: "", age: "",
+    gender: "", date: new Date().toISOString().slice(0,10),
+    notes: "",
+  };
+
+  const [form,       setForm]       = useState(blank);
+  const [editId,     setEditId]     = useState(null);
+  const [showForm,   setShowForm]   = useState(false);
+  const [toast,      setToast]      = useState("");
+  const [loading,    setLoading]    = useState(false);
+  const [search,     setSearch]     = useState("");
+  const [filter,     setFilter]     = useState({ gender:"", year:"", month:"" });
+  const [viewRec,    setViewRec]    = useState(null);
+
+  const showToast = (m) => { setToast(m); setTimeout(()=>setToast(""),3200); };
+
+  // ── Derived ──
+  const allYears  = [...new Set(baptismRecs.map(r=>(r.date||"").slice(0,4)).filter(Boolean))].sort().reverse();
+  const allMonths = [...new Set(baptismRecs.map(r=>(r.date||"").slice(0,7)).filter(Boolean))].sort().reverse();
+
+  const filtered = baptismRecs.filter(r => {
+    const q = search.toLowerCase();
+    if (q && !(r.name||"").toLowerCase().includes(q) &&
+              !(r.location||"").toLowerCase().includes(q) &&
+              !(r.contact||"").toLowerCase().includes(q)) return false;
+    if (filter.gender && r.gender !== filter.gender) return false;
+    if (filter.year   && !(r.date||"").startsWith(filter.year))  return false;
+    if (filter.month  && !(r.date||"").startsWith(filter.month)) return false;
+    return true;
+  });
+  const sorted = [...filtered].sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+
+  // KPI derived values
+  const maleCount   = filtered.filter(r=>r.gender==="Male").length;
+  const femaleCount = filtered.filter(r=>r.gender==="Female").length;
+  const thisYear    = new Date().getFullYear().toString();
+  const thisYearCnt = baptismRecs.filter(r=>(r.date||"").startsWith(thisYear)).length;
+  const thisMonth   = new Date().toISOString().slice(0,7);
+  const thisMonthCnt= baptismRecs.filter(r=>(r.date||"").startsWith(thisMonth)).length;
+  const avgAge      = (() => {
+    const ages = filtered.map(r=>Number(r.age)).filter(a=>a>0);
+    return ages.length ? Math.round(ages.reduce((s,a)=>s+a,0)/ages.length) : 0;
+  })();
+
+  // ── Bar chart data: baptisms per month ──
+  const chartData = (() => {
+    const map = {};
+    baptismRecs.forEach(r => {
+      const mo = (r.date||"").slice(0,7);
+      if (!mo) return;
+      if (!map[mo]) map[mo] = { month: mo.slice(5), male:0, female:0, total:0 };
+      if (r.gender==="Male")   map[mo].male++;
+      if (r.gender==="Female") map[mo].female++;
+      map[mo].total++;
+    });
+    return Object.values(map).sort((a,b)=>a.month.localeCompare(b.month)).slice(-12);
+  })();
+
+  // ── Gender distribution pie-like bar ──
+  const genderTotal = baptismRecs.length || 1;
+  const malePct     = Math.round((baptismRecs.filter(r=>r.gender==="Male").length / genderTotal)*100);
+  const femalePct   = Math.round((baptismRecs.filter(r=>r.gender==="Female").length / genderTotal)*100);
+
+  // ── Handlers ──
+  const handleSave = () => {
+    if (!form.name.trim()) { showToast("⚠️ Name is required."); return; }
+    if (!form.date)        { showToast("⚠️ Date is required."); return; }
+    setLoading(true);
+    setTimeout(()=>{
+      if (editId) {
+        updateBaptismRec(editId, form);
+        showToast(`✅ ${form.name}'s record updated.`);
+        setEditId(null);
+      } else {
+        addBaptismRec(form);
+        showToast(`✅ ${form.name} added to baptism records.`);
+      }
+      setForm(blank); setShowForm(false); setLoading(false);
+    }, 280);
+  };
+
+  const handleEdit = (r) => { setForm({...blank,...r}); setEditId(r.id); setShowForm(true); setViewRec(null); };
+  const handleCancel = () => { setForm(blank); setEditId(null); setShowForm(false); };
+  const handleDelete = (r) => {
+    if (window.confirm(`Remove ${r.name} from baptism records?`)) {
+      deleteBaptismRec(r.id);
+      showToast(`🗑️ ${r.name} removed.`);
+      if (viewRec?.id===r.id) setViewRec(null);
+    }
+  };
+
+  const customTip = ({ active, payload, label }) => {
+    if (!active||!payload?.length) return null;
+    return (
+      <div style={{background:t.surface,border:`1px solid ${t.border}`,borderRadius:8,padding:"10px 14px",fontFamily:FF,fontSize:12,boxShadow:"0 4px 16px rgba(0,0,0,.15)"}}>
+        <div style={{fontWeight:700,color:t.text,marginBottom:5}}>{label}</div>
+        {payload.map((p,i)=><div key={i} style={{color:p.color,marginBottom:2}}>{p.name}: <strong>{p.value}</strong></div>)}
+      </div>
+    );
+  };
+
+  return (
+    <div>
+      {/* Toast */}
+      {toast && (
+        <div style={{position:"fixed",top:24,right:24,zIndex:9999,
+          background:toast.startsWith("✅")?"#0A7A45":toast.startsWith("🗑️")?"#444":"#C87A0A",
+          color:"#fff",padding:"12px 20px",borderRadius:10,
+          fontFamily:FF,fontSize:14,fontWeight:600,
+          boxShadow:"0 4px 20px rgba(0,0,0,.3)",maxWidth:380}}>
+          {toast}
+        </div>
+      )}
+
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20,flexWrap:"wrap",gap:10}}>
+        <div>
+          <div style={{fontSize:23,fontWeight:700,color:t.gold,fontFamily:GF,marginBottom:3}}>
+            ✝ Baptism Records
+          </div>
+          <div style={{fontSize:13,color:t.textMuted,fontFamily:FF}}>
+            {baptismRecs.length} total · {thisYearCnt} this year · {thisMonthCnt} this month
+          </div>
+        </div>
+        {!showForm && (
+          <button style={{...btnGold,padding:"8px 20px"}} onClick={()=>setShowForm(true)}>
+            <span style={{display:"flex",alignItems:"center",gap:6}}>
+              <Icon name="plus" size={14} color="#fff"/> Add Baptism Record
+            </span>
+          </button>
+        )}
+      </div>
+
+      {/* KPI strip */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:9,marginBottom:16}}>
+        {[
+          {l:"Total Baptisms", v:baptismRecs.length, c:t.gold},
+          {l:"This Year",      v:thisYearCnt,         c:t.success},
+          {l:"This Month",     v:thisMonthCnt,         c:t.info},
+          {l:"Male",           v:baptismRecs.filter(r=>r.gender==="Male").length,   c:"#1565C0"},
+          {l:"Female",         v:baptismRecs.filter(r=>r.gender==="Female").length, c:"#E67E22"},
+          {l:"Avg Age",        v:avgAge||"—",          c:t.text},
+        ].map(k=>(
+          <div key={k.l} style={{...card,padding:11,position:"relative",overflow:"hidden"}}>
+            <div style={{fontSize:9,textTransform:"uppercase",letterSpacing:.9,color:t.textMuted,fontFamily:FF,marginBottom:3}}>{k.l}</div>
+            <div style={{fontSize:20,fontWeight:700,color:k.c,fontFamily:GF}}>{k.v}</div>
+            <div style={{position:"absolute",bottom:-10,right:-10,width:40,height:40,borderRadius:"50%",background:k.c,opacity:.07}}/>
+          </div>
+        ))}
+      </div>
+
+      {/* Form */}
+      {showForm && (
+        <div style={{...card,marginBottom:18,border:`2px solid ${t.gold}44`,background:t.surfaceAlt}}>
+          <div style={{fontSize:15,fontWeight:700,color:t.gold,fontFamily:GF,marginBottom:16}}>
+            {editId ? "✏️ Edit Record" : "✝ New Baptism Record"}
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))",gap:12,marginBottom:14}}>
+
+            {/* Name */}
+            <div style={{display:"flex",flexDirection:"column",gap:4}}>
+              <label style={{...lbl,display:"block"}}>Full Name *</label>
+              <input style={inp} placeholder="e.g. Emmanuel Mensah"
+                value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))}/>
+            </div>
+
+            {/* Contact */}
+            <div style={{display:"flex",flexDirection:"column",gap:4}}>
+              <label style={{...lbl,display:"block"}}>Contact / Phone</label>
+              <input style={inp} type="tel" placeholder="e.g. 024 123 4567"
+                value={form.contact} onChange={e=>setForm(f=>({...f,contact:e.target.value}))}/>
+            </div>
+
+            {/* Location */}
+            <div style={{display:"flex",flexDirection:"column",gap:4}}>
+              <label style={{...lbl,display:"block"}}>Location / Area</label>
+              <input style={inp} placeholder="e.g. Accra, Tema"
+                value={form.location} onChange={e=>setForm(f=>({...f,location:e.target.value}))}/>
+            </div>
+
+            {/* Age */}
+            <div style={{display:"flex",flexDirection:"column",gap:4}}>
+              <label style={{...lbl,display:"block"}}>Age</label>
+              <input style={inp} type="number" min="1" max="120" placeholder="e.g. 24"
+                value={form.age} onChange={e=>setForm(f=>({...f,age:e.target.value}))}/>
+            </div>
+
+            {/* Gender */}
+            <div style={{display:"flex",flexDirection:"column",gap:4}}>
+              <label style={{...lbl,display:"block"}}>Gender</label>
+              <select style={sel} value={form.gender} onChange={e=>setForm(f=>({...f,gender:e.target.value}))}>
+                <option value="">— Select —</option>
+                {["Male","Female","Other"].map(o=><option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+
+            {/* Date */}
+            <div style={{display:"flex",flexDirection:"column",gap:4}}>
+              <label style={{...lbl,display:"block"}}>Baptism Date *</label>
+              <input style={inp} type="date"
+                value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))}/>
+            </div>
+
+          </div>
+
+          {/* Notes */}
+          <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:14}}>
+            <label style={{...lbl,display:"block"}}>Notes <span style={{fontSize:11,color:t.textMuted,fontWeight:400}}>(optional)</span></label>
+            <textarea style={{...inp,minHeight:50,resize:"vertical"}}
+              placeholder="Any additional remarks…"
+              value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))}/>
+          </div>
+
+          <div style={{display:"flex",gap:8}}>
+            <button style={{...btnGold,padding:"10px 28px",opacity:loading?0.7:1,cursor:loading?"not-allowed":"pointer"}}
+              onClick={handleSave} disabled={loading}>
+              {loading?"Saving…":editId?"Save Changes":"Save Record"}
+            </button>
+            <button style={{...btnOutline,padding:"10px 20px"}} onClick={handleCancel}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* Gender distribution bar */}
+      {baptismRecs.length > 0 && (
+        <div style={{...card,marginBottom:14,padding:14}}>
+          <div style={{fontSize:11,fontWeight:700,color:t.gold,fontFamily:FF,textTransform:"uppercase",letterSpacing:1.2,marginBottom:10}}>
+            Gender Distribution
+          </div>
+          <div style={{height:20,borderRadius:10,overflow:"hidden",display:"flex",marginBottom:8}}>
+            <div style={{width:`${malePct}%`,background:"#1565C0",transition:"width .5s",display:"flex",alignItems:"center",justifyContent:"center"}}>
+              {malePct > 10 && <span style={{fontSize:10,color:"#fff",fontFamily:FF,fontWeight:700}}>{malePct}%</span>}
+            </div>
+            <div style={{flex:1,background:"#E67E22",display:"flex",alignItems:"center",justifyContent:"center"}}>
+              {femalePct > 10 && <span style={{fontSize:10,color:"#fff",fontFamily:FF,fontWeight:700}}>{femalePct}%</span>}
+            </div>
+          </div>
+          <div style={{display:"flex",gap:16,fontSize:12,fontFamily:FF}}>
+            <span style={{color:"#1565C0",display:"flex",alignItems:"center",gap:5}}>
+              <div style={{width:10,height:10,borderRadius:2,background:"#1565C0"}}/>
+              Male: {baptismRecs.filter(r=>r.gender==="Male").length}
+            </span>
+            <span style={{color:"#E67E22",display:"flex",alignItems:"center",gap:5}}>
+              <div style={{width:10,height:10,borderRadius:2,background:"#E67E22"}}/>
+              Female: {baptismRecs.filter(r=>r.gender==="Female").length}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Monthly chart */}
+      {chartData.length > 1 && (
+        <div style={{...card,marginBottom:14,padding:16}}>
+          <div style={{fontSize:11,fontWeight:700,color:t.gold,fontFamily:FF,textTransform:"uppercase",letterSpacing:1.2,marginBottom:14}}>
+            📈 Baptisms Per Month — Male vs Female
+          </div>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={chartData} margin={{top:5,right:20,left:0,bottom:5}}>
+              <CartesianGrid strokeDasharray="3 3" stroke={t.border}/>
+              <XAxis dataKey="month" tick={{fontSize:10,fill:t.textMuted,fontFamily:FF}}/>
+              <YAxis tick={{fontSize:10,fill:t.textMuted,fontFamily:FF}} allowDecimals={false}/>
+              <Tooltip content={customTip}/>
+              <Legend wrapperStyle={{fontSize:11,fontFamily:FF}}/>
+              <Bar dataKey="male"   name="Male"   fill="#1565C0" radius={[3,3,0,0]}/>
+              <Bar dataKey="female" name="Female" fill="#E67E22" radius={[3,3,0,0]}/>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Profile view */}
+      {viewRec && !showForm && (
+        <div style={{...card,marginBottom:16,border:`2px solid ${t.gold}44`}}>
+          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+            <div style={{width:48,height:48,borderRadius:"50%",
+              background:viewRec.gender==="Female"?"#E67E2222":"#1565C022",
+              border:`2px solid ${viewRec.gender==="Female"?"#E67E22":"#1565C0"}44`,
+              display:"flex",alignItems:"center",justifyContent:"center",
+              fontSize:18,fontWeight:700,
+              color:viewRec.gender==="Female"?"#E67E22":"#1565C0",flexShrink:0}}>
+              {(viewRec.name||"?").charAt(0).toUpperCase()}
+            </div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:17,fontWeight:700,color:t.text,fontFamily:GF}}>{viewRec.name}</div>
+              <div style={{fontSize:12,color:t.textMuted,fontFamily:FF}}>
+                {viewRec.gender||"—"} · Age {viewRec.age||"—"} · Baptised {viewRec.date||"—"}
+              </div>
+            </div>
+            <div style={{display:"flex",gap:6}}>
+              <button style={{...btnGold,padding:"6px 14px",fontSize:12}} onClick={()=>handleEdit(viewRec)}>✏️ Edit</button>
+              <button style={{...btnGhost,padding:"6px 12px",fontSize:12,color:t.danger}} onClick={()=>handleDelete(viewRec)}>🗑️</button>
+              <button style={{...btnGhost,padding:"6px 12px",fontSize:12}} onClick={()=>setViewRec(null)}>✕</button>
+            </div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(170px,1fr))",gap:10}}>
+            {[
+              ["📞 Contact",  viewRec.contact],
+              ["📍 Location", viewRec.location],
+              ["🎂 Age",      viewRec.age ? `${viewRec.age} years` : null],
+              ["⚧ Gender",   viewRec.gender],
+              ["📅 Date",     viewRec.date],
+            ].map(([k,v])=> v ? (
+              <div key={k} style={{...card,padding:"9px 12px",background:t.surfaceAlt}}>
+                <div style={{fontSize:10,color:t.textMuted,fontFamily:FF,marginBottom:2}}>{k}</div>
+                <div style={{fontSize:13,color:t.text,fontFamily:FF,fontWeight:500}}>{v}</div>
+              </div>
+            ) : null)}
+          </div>
+          {viewRec.notes && (
+            <div style={{marginTop:10,padding:"10px 14px",background:t.surfaceAlt,borderRadius:8,fontSize:12,color:t.textMuted,fontFamily:FF}}>
+              {viewRec.notes}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Filters */}
+      <div style={{...card,marginBottom:12,padding:"10px 14px",display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
+        <input style={{...inp,maxWidth:200,padding:"7px 12px"}} placeholder="Search name, contact, location…"
+          value={search} onChange={e=>setSearch(e.target.value)}/>
+        <select style={{...sel,minWidth:120}} value={filter.gender} onChange={e=>setFilter(f=>({...f,gender:e.target.value}))}>
+          <option value="">All Genders</option>
+          {["Male","Female","Other"].map(o=><option key={o} value={o}>{o}</option>)}
+        </select>
+        <select style={{...sel,minWidth:110}} value={filter.year} onChange={e=>setFilter(f=>({...f,year:e.target.value,month:""}))}>
+          <option value="">All Years</option>
+          {allYears.map(y=><option key={y} value={y}>{y}</option>)}
+        </select>
+        <select style={{...sel,minWidth:140}} value={filter.month} onChange={e=>setFilter(f=>({...f,month:e.target.value,year:""}))}>
+          <option value="">All Months</option>
+          {allMonths.map(m=><option key={m} value={m}>{new Date(m+"-01").toLocaleDateString("en-GB",{month:"long",year:"numeric"})}</option>)}
+        </select>
+        {(search||filter.gender||filter.year||filter.month) && (
+          <button style={{...btnGhost,padding:"5px 12px",fontSize:12}}
+            onClick={()=>{setSearch("");setFilter({gender:"",year:"",month:""});}}>
+            ✕ Clear
+          </button>
+        )}
+        <span style={{marginLeft:"auto",fontSize:12,color:t.textMuted,fontFamily:FF}}>
+          {filtered.length} / {baptismRecs.length} records
+        </span>
+      </div>
+
+      {/* Records table */}
+      <div style={{...card,padding:0,overflow:"auto"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",minWidth:600}}>
+          <thead>
+            <tr style={{background:t.surfaceAlt}}>
+              {["#","Name","Contact","Location","Age","Gender","Date","Notes","Actions"].map(h=>(
+                <th key={h} style={th}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.length===0 && (
+              <tr>
+                <td colSpan={9} style={{...td,textAlign:"center",padding:52,color:t.textMuted,fontFamily:FF}}>
+                  {baptismRecs.length===0
+                    ? "No baptism records yet. Click "Add Baptism Record" to get started."
+                    : "No records match the current filters."}
+                </td>
+              </tr>
+            )}
+            {sorted.map((r,i)=>(
+              <tr key={r.id}
+                style={{cursor:"pointer"}}
+                onClick={()=>{ if(!showForm){ setViewRec(r); window.scrollTo({top:0,behavior:"smooth"}); }}}
+                onMouseEnter={e=>e.currentTarget.style.background=t.surfaceHover}
+                onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                <td style={{...td,color:t.textMuted,fontSize:11,width:36}}>{i+1}</td>
+                <td style={td}>
+                  <span style={{display:"flex",alignItems:"center",gap:7}}>
+                    <div style={{width:26,height:26,borderRadius:"50%",flexShrink:0,
+                      background:r.gender==="Female"?"#E67E2218":"#1565C018",
+                      border:`1px solid ${r.gender==="Female"?"#E67E22":"#1565C0"}33`,
+                      display:"flex",alignItems:"center",justifyContent:"center",
+                      fontSize:11,fontWeight:700,
+                      color:r.gender==="Female"?"#E67E22":"#1565C0"}}>
+                      {(r.name||"?").charAt(0).toUpperCase()}
+                    </div>
+                    <span style={{fontWeight:600,color:t.text}}>{r.name||"—"}</span>
+                  </span>
+                </td>
+                <td style={{...td,color:t.textMuted}}>{r.contact||"—"}</td>
+                <td style={{...td,color:t.textMuted}}>{r.location||"—"}</td>
+                <td style={{...td,textAlign:"center"}}>{r.age||"—"}</td>
+                <td style={td}>
+                  {r.gender ? (
+                    <span style={{fontSize:11,padding:"2px 9px",borderRadius:12,fontFamily:FF,fontWeight:700,
+                      background:r.gender==="Female"?"#E67E2218":"#1565C018",
+                      color:r.gender==="Female"?"#E67E22":"#1565C0"}}>
+                      {r.gender}
+                    </span>
+                  ) : <span style={{color:t.textFaint,fontSize:11}}>—</span>}
+                </td>
+                <td style={{...td,color:t.gold,fontWeight:600}}>{r.date||"—"}</td>
+                <td style={{...td,maxWidth:160,color:t.textMuted,fontSize:11}}>
+                  {r.notes ? (r.notes.length>30?r.notes.slice(0,30)+"…":r.notes) : "—"}
+                </td>
+                <td style={td} onClick={e=>e.stopPropagation()}>
+                  <div style={{display:"flex",gap:4}}>
+                    <button style={btnGhost} title="Edit" onClick={()=>handleEdit(r)}>
+                      <Icon name="edit" size={13} color={t.gold}/>
+                    </button>
+                    <button style={btnGhost} title="Delete" onClick={()=>handleDelete(r)}>
+                      <Icon name="trash" size={13} color={t.danger}/>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
 // ─── YOUTH PROGRAMS PAGE ──────────────────────────────────────────────────────
 const YouthPage = ({ db }) => {
   const { t, card, btnGold, btnOutline, btnGhost, inp, lbl, th, td, sel } = useThemeStyles();
