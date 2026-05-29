@@ -1063,6 +1063,9 @@ const useSupabaseDB = () => {
     addTeacher, updateTeacher, deleteTeacher, toggleTeacherActive,
     addChurchRec, updateChurchRec, deleteChurchRec,
     addProgram, updateProgram, deleteProgram, toggleProgramActive,
+    addYouthRec, updateYouthRec, deleteYouthRec,
+    addYouthMember, updateYouthMember, deleteYouthMember,
+    addBaptismRec, updateBaptismRec, deleteBaptismRec,
     downloadWorkbook,
   };
 };
