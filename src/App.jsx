@@ -753,12 +753,15 @@ const useSupabaseDB = () => {
   // ── Load all data ─────────────────────────────────────────
   const loadAll = useCallback(async () => {
     setLoading(true);
-    const [r, t, c, ch, p] = await Promise.all([
-      sbGet("uct_records",  "created_at.desc"),
-      sbGet("uct_teachers", "name.asc"),
-      sbGet("uct_classes",  "id.asc"),
-      sbGet("uct_church",   "created_at.desc"),
-      sbGet("uct_programs", "sort_order.asc"),
+    const [r, t, c, ch, p, yr, ym, br] = await Promise.all([
+      sbGet("uct_records",       "created_at.desc"),
+      sbGet("uct_teachers",      "name.asc"),
+      sbGet("uct_classes",       "id.asc"),
+      sbGet("uct_church",        "created_at.desc"),
+      sbGet("uct_programs",      "sort_order.asc"),
+      sbGet("uct_youth",         "created_at.desc"),
+      sbGet("uct_youth_members", "name.asc"),
+      sbGet("uct_baptism",       "created_at.desc"),
     ]);
     setRecords(r);
     setTeachers(t);
@@ -789,6 +792,9 @@ const useSupabaseDB = () => {
       {id:"P014",name:"Choir / Praise Night",is_active:"YES",sort_order:"14"},
       {id:"P015",name:"Communion Service",is_active:"YES",sort_order:"15"},
     ]);
+    setYouthRecs(yr);
+    setYouthMembers(ym);
+    setBaptismRecs(br);
     setLoading(false);
   }, [sbGet]);
 
@@ -3179,20 +3185,20 @@ const BaptismPage = ({ db }) => {
             {baptismRecs.length} total · {thisYearCnt} this year · {thisMonthCnt} this month
           </div>
         </div>
-        {!showForm && (
-          <div style={{display:"flex",gap:8}}>
+        <div style={{display:"flex",gap:8}}>
+          {baptismRecs.length>0 && (
+            <button style={{...btnOutline,padding:"8px 16px",fontSize:13}} onClick={exportBaptism}>
+              <span style={{display:"flex",alignItems:"center",gap:6}}><Icon name="export" size={14} color={t.gold}/> Export</span>
+            </button>
+          )}
+          {!showForm && (
             <button style={{...btnGold,padding:"8px 20px"}} onClick={()=>setShowForm(true)}>
               <span style={{display:"flex",alignItems:"center",gap:6}}>
                 <Icon name="plus" size={14} color="#fff"/> Add Baptism Record
               </span>
             </button>
-            {baptismRecs.length>0 && (
-              <button style={{...btnOutline,padding:"8px 16px",fontSize:13}} onClick={exportBaptism}>
-                <span style={{display:"flex",alignItems:"center",gap:6}}><Icon name="export" size={14} color={t.gold}/> Export</span>
-              </button>
-            )}
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* KPI strip */}
@@ -3694,24 +3700,24 @@ const YouthPage = ({ db }) => {
           </div>
         </div>
         <div style={{display:"flex",gap:8}}>
+          {mainTab==="attendance" && youthRecs.length>0 && (
+            <button style={{...btnOutline,padding:"8px 16px",fontSize:13}} onClick={exportAttendance}>
+              <span style={{display:"flex",alignItems:"center",gap:6}}><Icon name="export" size={14} color={t.gold}/> Export</span>
+            </button>
+          )}
           {mainTab==="attendance" && !showAttForm && (
             <button style={{...btnGold,padding:"8px 20px"}} onClick={()=>setShowAttForm(true)}>
               <span style={{display:"flex",alignItems:"center",gap:6}}><Icon name="plus" size={14} color="#fff"/> Record Attendance</span>
             </button>
           )}
-          {mainTab==="attendance" && !showAttForm && youthRecs.length>0 && (
-            <button style={{...btnOutline,padding:"8px 16px",fontSize:13}} onClick={exportAttendance}>
+          {mainTab==="members" && youthMembers.length>0 && (
+            <button style={{...btnOutline,padding:"8px 16px",fontSize:13}} onClick={exportMembers}>
               <span style={{display:"flex",alignItems:"center",gap:6}}><Icon name="export" size={14} color={t.gold}/> Export</span>
             </button>
           )}
           {mainTab==="members" && !showMemForm && (
             <button style={{...btnGold,padding:"8px 20px"}} onClick={()=>setShowMemForm(true)}>
               <span style={{display:"flex",alignItems:"center",gap:6}}><Icon name="plus" size={14} color="#fff"/> Add Member</span>
-            </button>
-          )}
-          {mainTab==="members" && !showMemForm && youthMembers.length>0 && (
-            <button style={{...btnOutline,padding:"8px 16px",fontSize:13}} onClick={exportMembers}>
-              <span style={{display:"flex",alignItems:"center",gap:6}}><Icon name="export" size={14} color={t.gold}/> Export</span>
             </button>
           )}
         </div>
