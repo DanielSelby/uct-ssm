@@ -3586,7 +3586,65 @@ const BaptismPage = ({ db }) => {
   );
 };
 
-// ─── YOUTH PROGRAMS PAGE ──────────────────────────────────────────────────────
+// ─── MEMBER PHOTO UPLOAD ──────────────────────────────────────────────────────
+const MemberPhotoUpload = ({ photo, onChange, name = "photo", size = 90 }) => {
+  const { t, btnOutline, btnGhost } = useThemeStyles();
+  const fileRef = useRef(null);
+  const FF = "'Trebuchet MS',sans-serif";
+
+  const handleFile = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { alert("Image must be under 2 MB."); return; }
+    const reader = new FileReader();
+    reader.onload = (ev) => onChange({ target: { name, value: ev.target.result } });
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:10 }}>
+      {/* Avatar circle */}
+      <div onClick={() => fileRef.current.click()} style={{
+        width:size, height:size, borderRadius:"50%", overflow:"hidden", cursor:"pointer",
+        border:`3px solid ${photo ? t.gold : t.border}`,
+        background: photo ? "transparent" : t.surfaceAlt,
+        display:"flex", alignItems:"center", justifyContent:"center",
+        transition:"border-color .2s", flexShrink:0, position:"relative",
+      }}>
+        {photo
+          ? <img src={photo} alt="member" style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
+          : <div style={{ textAlign:"center" }}>
+              <div style={{ fontSize:30 }}>👤</div>
+              <div style={{ fontSize:9, color:t.textMuted, fontFamily:FF, marginTop:2 }}>Click to upload</div>
+            </div>
+        }
+        {/* Hover overlay */}
+        <div style={{ position:"absolute", inset:0, borderRadius:"50%", background:"rgba(0,0,0,0.35)",
+          display:"flex", alignItems:"center", justifyContent:"center", opacity:0,
+          transition:"opacity .2s" }}
+          onMouseEnter={e=>e.currentTarget.style.opacity=1}
+          onMouseLeave={e=>e.currentTarget.style.opacity=0}>
+          <span style={{ fontSize:18 }}>📷</span>
+        </div>
+      </div>
+      <input ref={fileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={handleFile}/>
+      <div style={{ display:"flex", gap:6 }}>
+        <button type="button" style={{ ...btnOutline, padding:"5px 12px", fontSize:11 }}
+          onClick={() => fileRef.current.click()}>
+          {photo ? "Change" : "Upload Photo"}
+        </button>
+        {photo && (
+          <button type="button" style={{ padding:"5px 10px", fontSize:11, cursor:"pointer",
+            background:"transparent", border:`1px solid ${t.danger}44`, borderRadius:6, color:t.danger, fontFamily:FF }}
+            onClick={() => onChange({ target: { name, value:"" } })}>
+            Remove
+          </button>
+        )}
+      </div>
+      <div style={{ fontSize:10, color:t.textMuted, fontFamily:FF }}>JPG or PNG · Max 2 MB</div>
+    </div>
+  );
+};
 const YouthPage = ({ db }) => {
   const { t, card, btnGold, btnOutline, btnGhost, inp, lbl, th, td, sel } = useThemeStyles();
   const {
@@ -3622,7 +3680,7 @@ const YouthPage = ({ db }) => {
     occupation:"", profession:"", education_level:"",
     location:"", region:"", nationality:"Ghana",
     marital_status:"", joined_date: new Date().toISOString().slice(0,10),
-    status:"Active", notes:"",
+    status:"Active", notes:"", photo:"",
   };
   const [memForm,    setMemForm]    = useState(memBlank);
   const [memEditId,  setMemEditId]  = useState(null);
@@ -4102,6 +4160,11 @@ const YouthPage = ({ db }) => {
                 {memEditId ? "✏️ Edit Member" : "👤 Add New Member"}
               </div>
 
+              {/* Photo Upload */}
+              <div style={{ display:"flex", justifyContent:"center", marginBottom:20 }}>
+                <MemberPhotoUpload photo={memForm.photo||""} onChange={e=>setMemForm(f=>({...f,photo:e.target.value}))} />
+              </div>
+
               {/* Personal */}
               <div style={{fontSize:11,fontWeight:700,color:t.gold,fontFamily:FF,textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>Personal Information</div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))",gap:12,marginBottom:16}}>
@@ -4292,12 +4355,15 @@ const YouthPage = ({ db }) => {
                   onClick={()=>setViewMember(m)}>
                   <div style={{padding:"14px 16px 10px"}}>
                     <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
-                      <div style={{width:36,height:36,borderRadius:"50%",
+                      <div style={{width:42,height:42,borderRadius:"50%",
                         background:m.gender==="Female"?"#E67E2222":m.gender==="Male"?`${t.info}22`:`${t.gold}22`,
-                        border:`2px solid ${m.gender==="Female"?"#E67E22":m.gender==="Male"?t.info:t.gold}44`,
+                        border:`2px solid ${m.photo ? (m.gender==="Female"?"#E67E22":m.gender==="Male"?t.info:t.gold) : (m.gender==="Female"?"#E67E22":m.gender==="Male"?t.info:t.gold)+"44"}`,
                         display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:700,
-                        color:m.gender==="Female"?"#E67E22":m.gender==="Male"?t.info:t.gold,flexShrink:0}}>
-                        {m.name.charAt(0).toUpperCase()}
+                        overflow:"hidden",flexShrink:0,
+                        color:m.gender==="Female"?"#E67E22":m.gender==="Male"?t.info:t.gold}}>
+                        {m.photo
+                          ? <img src={m.photo} alt={m.name} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                          : m.name.charAt(0).toUpperCase()}
                       </div>
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{fontSize:13,fontWeight:700,color:t.text,fontFamily:FF,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{m.name}</div>
@@ -5170,7 +5236,7 @@ const ChurchAttendancePage = ({ db, user }) => {
     baptism_type:"", confirmed:"No", confirmation_date:"",
     ministry_role:"", small_group:"",
     emergency_contact_name:"", emergency_contact_phone:"",
-    health_notes:"", status:"Active", notes:"",
+    health_notes:"", status:"Active", notes:"", photo:"",
   };
   const [cmForm,      setCmForm]      = useState(cmBlank);
   const [cmEditId,    setCmEditId]    = useState(null);
@@ -5678,6 +5744,10 @@ const ChurchAttendancePage = ({ db, user }) => {
             {/* Personal Info */}
             <div style={{ border:`1px solid ${t.border}`, borderRadius:12, padding:16, marginBottom:16, background:t.surfaceAlt }}>
               <div style={{ fontSize:11, fontWeight:700, color:t.gold, fontFamily:FF, textTransform:"uppercase", letterSpacing:1.4, marginBottom:14 }}>👤 Personal Information</div>
+              {/* Photo Upload */}
+              <div style={{ display:"flex", justifyContent:"center", marginBottom:20 }}>
+                <MemberPhotoUpload photo={cmForm.photo||""} onChange={handleCmChange} />
+              </div>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
                 <div style={{ gridColumn:"1/-1", display:"flex", flexDirection:"column", gap:5 }}>
                   <label style={lbl}>Full Name *</label>
@@ -5875,9 +5945,11 @@ const ChurchAttendancePage = ({ db, user }) => {
               <div key={m.id} style={{ ...card, padding:18, cursor:"pointer", transition:"box-shadow .15s" }}
                 onClick={()=>setViewMember(viewMember?.id===m.id ? null : m)}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
-                  <div style={{ width:42, height:42, borderRadius:"50%", background:t.gold+"22", border:`2px solid ${t.gold}44`,
-                    display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>
-                    {m.gender==="Female" ? "👩" : "👨"}
+                  <div style={{ width:52, height:52, borderRadius:"50%", background:t.gold+"22", border:`2px solid ${m.photo ? t.gold : t.gold+"44"}`,
+                    display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, overflow:"hidden", flexShrink:0 }}>
+                    {m.photo
+                      ? <img src={m.photo} alt={m.name} style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
+                      : (m.gender==="Female" ? "👩" : "👨")}
                   </div>
                   <span style={{ padding:"3px 10px", borderRadius:20, fontSize:10, fontWeight:700,
                     background: m.status==="Active" ? t.success+"22" : t.danger+"22",
