@@ -1017,10 +1017,10 @@ const useSupabaseDB = () => {
       "Program":               r.program||"",
       "Male (Beginning)":      r.male_beginning||0,
       "Female (Beginning)":    r.female_beginning||0,
-      "SS - Attend. Begin":    r.total_beginning||0,
+      "Sund. Sch. Begin":    r.total_beginning||0,
       "Male (Closing)":        r.male_closing||0,
       "Female (Closing)":      r.female_closing||0,
-      "SS - Attend. Close":    r.total_closing||0,
+      "Sund. Sch. Close":    r.total_closing||0,
       "First Timers":          r.first_timers||0,
       "Visitors":              r.visitors||0,
       "Song Leader":           r.song_leader||"",
@@ -1799,8 +1799,8 @@ const DashboardPage = ({ db }) => {
         Sunday School
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:12, marginBottom:16 }}>
-        <KpiCard label="SS - SS - Attend. Begin"   value={ssBeginTotal} sub="At opening"        icon="attendance" color={t.info} />
-        <KpiCard label="SS - SS - Attend. Close" value={ssTotal}      sub="At close"          icon="attendance" color={t.gold} />
+        <KpiCard label="Sund. Sch. Begin"   value={ssBeginTotal} sub="At opening"        icon="attendance" color={t.info} />
+        <KpiCard label="Sund. Sch. Close" value={ssTotal}      sub="At close"          icon="attendance" color={t.gold} />
         <KpiCard label="Bibles at Begin"    value={biblesBegin}  sub="Brought at start"  icon="bible"      color="#9B59B6" />
         <KpiCard label="Bibles at Closing"  value={bibles}       sub={`${bibleRate}% rate`} icon="bible"   color="#7B3FBE" />
         <KpiCard label="First Timers"       value={fRec.reduce((s,r)=>s+(Number(r.first_timers)||0),0)} sub="SS only" icon="plus" color="#E67E22" />
@@ -1831,7 +1831,7 @@ const DashboardPage = ({ db }) => {
                 <YAxis stroke={t.textMuted} fontSize={11} />
                 <Tooltip {...tooltip} />
                 <Legend wrapperStyle={{ fontSize:11, color:t.textMuted }} />
-                <Bar dataKey="ssClose"  name="SS - Attend. Close"     fill={t.gold}    radius={[3,3,0,0]} />
+                <Bar dataKey="ssClose"  name="Sund. Sch. Close"     fill={t.gold}    radius={[3,3,0,0]} />
                 <Bar dataKey="chClose"  name="Church Closing" fill={t.info}    radius={[3,3,0,0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -1848,7 +1848,7 @@ const DashboardPage = ({ db }) => {
                 <YAxis stroke={t.textMuted} fontSize={11} />
                 <Tooltip {...tooltip} />
                 <Legend wrapperStyle={{ fontSize:11, color:t.textMuted }} />
-                <Bar dataKey="ssBegin"  name="SS - Attend. Begin"     fill={t.goldDark||"#9A7A2C"} radius={[3,3,0,0]} />
+                <Bar dataKey="ssBegin"  name="Sund. Sch. Begin"     fill={t.goldDark||"#9A7A2C"} radius={[3,3,0,0]} />
                 <Bar dataKey="chBegin"  name="Church Beginning" fill="#4A9EDB88"   radius={[3,3,0,0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -2613,8 +2613,8 @@ const AnalyticsPage = ({ db }) => {
       {/* KPI Summary — SS */}
       <div style={{ fontSize:11, fontWeight:700, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1.2, marginBottom:10 }}>Sunday School</div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(135px,1fr))", gap:12, marginBottom:16 }}>
-        <KpiCard label="SS - Attend. Begin"        value={ssBeginTotal}      sub="At opening"       icon="attendance" color={t.info} />
-        <KpiCard label="SS - Attend. Close"      value={ssTotal}           sub="At close"         icon="attendance" color={t.gold} />
+        <KpiCard label="Sund. Sch. Begin"        value={ssBeginTotal}      sub="At opening"       icon="attendance" color={t.info} />
+        <KpiCard label="Sund. Sch. Close"      value={ssTotal}           sub="At close"         icon="attendance" color={t.gold} />
         <KpiCard label="Bible Begin"     value={bibleBeginTotal}   sub="Brought at start" icon="bible"      color="#9B59B6" />
         <KpiCard label="Bible Closing"   value={bibleTotal}        sub={`${bibleRate}% rate`} icon="bible" color="#7B3FBE" />
         <KpiCard label="First Timers"    value={fRec.reduce((s,r)=>s+(Number(r.first_timers)||0),0)} sub="SS" icon="plus" color="#E67E22" />
@@ -2662,7 +2662,7 @@ const AnalyticsPage = ({ db }) => {
                   <YAxis stroke={t.textMuted} fontSize={11} />
                   <Tooltip {...tooltip} />
                   <Legend wrapperStyle={{ fontSize:11, color:t.textMuted }} />
-                  <Bar dataKey="ssClose"  name="SS - Attend. Close"     fill={t.gold}  radius={[3,3,0,0]} />
+                  <Bar dataKey="ssClose"  name="Sund. Sch. Close"     fill={t.gold}  radius={[3,3,0,0]} />
                   <Bar dataKey="chClose"  name="Church Closing" fill={t.info}  radius={[3,3,0,0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -2679,7 +2679,7 @@ const AnalyticsPage = ({ db }) => {
                   <YAxis stroke={t.textMuted} fontSize={11} />
                   <Tooltip {...tooltip} />
                   <Legend wrapperStyle={{ fontSize:11, color:t.textMuted }} />
-                  <Bar dataKey="ssBegin"  name="SS - Attend. Begin"     fill="#9A7A2C" radius={[3,3,0,0]} />
+                  <Bar dataKey="ssBegin"  name="Sund. Sch. Begin"     fill="#9A7A2C" radius={[3,3,0,0]} />
                   <Bar dataKey="chBegin"  name="Church Beginning" fill="#4A9EDB88" radius={[3,3,0,0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -2696,9 +2696,9 @@ const AnalyticsPage = ({ db }) => {
                   <YAxis stroke={t.textMuted} fontSize={11} />
                   <Tooltip {...tooltip} />
                   <Legend wrapperStyle={{ fontSize:11, color:t.textMuted }} />
-                  <Line type="monotone" dataKey="ssClose"  stroke={t.gold}    strokeWidth={2.5} dot={{ fill:t.gold, r:3 }} name="SS - Attend. Close" />
+                  <Line type="monotone" dataKey="ssClose"  stroke={t.gold}    strokeWidth={2.5} dot={{ fill:t.gold, r:3 }} name="Sund. Sch. Close" />
                   <Line type="monotone" dataKey="chClose"  stroke={t.info}    strokeWidth={2.5} dot={{ fill:t.info, r:3 }} name="Church Closing" />
-                  <Line type="monotone" dataKey="ssBegin"  stroke={t.gold}    strokeWidth={1.5} dot={false} strokeDasharray="4 2" name="SS - Attend. Begin" />
+                  <Line type="monotone" dataKey="ssBegin"  stroke={t.gold}    strokeWidth={1.5} dot={false} strokeDasharray="4 2" name="Sund. Sch. Begin" />
                   <Line type="monotone" dataKey="chBegin"  stroke={t.info}    strokeWidth={1.5} dot={false} strokeDasharray="4 2" name="Church Beginning" />
                 </LineChart>
               </ResponsiveContainer>
@@ -2739,7 +2739,7 @@ const AnalyticsPage = ({ db }) => {
                   <XAxis dataKey="label" stroke={t.textMuted} fontSize={10} />
                   <YAxis stroke={t.textMuted} fontSize={11} />
                   <Tooltip {...tooltip} />
-                  <Bar dataKey="ssClose" fill={t.gold} radius={[4,4,0,0]} name="SS - Attend. Close">
+                  <Bar dataKey="ssClose" fill={t.gold} radius={[4,4,0,0]} name="Sund. Sch. Close">
                     {monthlyData.map((_,i)=><Cell key={i} fill={CLASS_COLORS[i%CLASS_COLORS.length]}/>)}
                   </Bar>
                 </BarChart>
@@ -2780,7 +2780,7 @@ const AnalyticsPage = ({ db }) => {
             ) : noData(220)}
           </ChartCard>
 
-          <ChartCard title="SS - SS - Attend. Begin vs SS - SS - Attend. Close" sub="How many started vs ended each month — drop-off indicator">
+          <ChartCard title="Sund. Sch. Begin vs Sund. Sch. Close" sub="How many started vs ended each month — drop-off indicator">
             {monthlyData.length > 0 ? (
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={monthlyData} barCategoryGap="30%">
@@ -2789,8 +2789,8 @@ const AnalyticsPage = ({ db }) => {
                   <YAxis stroke={t.textMuted} fontSize={11} />
                   <Tooltip {...tooltip} />
                   <Legend wrapperStyle={{ fontSize:11, color:t.textMuted }} />
-                  <Bar dataKey="ssBegin" name="SS - Attend. Begin" fill={t.gold+"88"} radius={[3,3,0,0]} />
-                  <Bar dataKey="ssClose" name="SS - Attend. Close"   fill={t.gold}     radius={[3,3,0,0]} />
+                  <Bar dataKey="ssBegin" name="Sund. Sch. Begin" fill={t.gold+"88"} radius={[3,3,0,0]} />
+                  <Bar dataKey="ssClose" name="Sund. Sch. Close"   fill={t.gold}     radius={[3,3,0,0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : noData(220)}
@@ -3127,6 +3127,17 @@ const BaptismPage = ({ db }) => {
 
   const handleEdit = (r) => { setForm({...blank,...r}); setEditId(r.id); setShowForm(true); setViewRec(null); };
   const handleCancel = () => { setForm(blank); setEditId(null); setShowForm(false); };
+  const exportBaptism = () => {
+    if (!baptismRecs.length) return;
+    const rows = filtered.map(r => ({
+      Name: r.name, Contact: r.contact, Location: r.location,
+      Age: r.age, Gender: r.gender, "Baptism Date": r.date, Notes: r.notes,
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Baptism Records");
+    XLSX.writeFile(wb, `Baptism_Records_${new Date().toISOString().slice(0,10)}.xlsx`);
+  };
   const handleDelete = (r) => {
     if (window.confirm(`Remove ${r.name} from baptism records?`)) {
       deleteBaptismRec(r.id);
@@ -3169,11 +3180,18 @@ const BaptismPage = ({ db }) => {
           </div>
         </div>
         {!showForm && (
-          <button style={{...btnGold,padding:"8px 20px"}} onClick={()=>setShowForm(true)}>
-            <span style={{display:"flex",alignItems:"center",gap:6}}>
-              <Icon name="plus" size={14} color="#fff"/> Add Baptism Record
-            </span>
-          </button>
+          <div style={{display:"flex",gap:8}}>
+            <button style={{...btnGold,padding:"8px 20px"}} onClick={()=>setShowForm(true)}>
+              <span style={{display:"flex",alignItems:"center",gap:6}}>
+                <Icon name="plus" size={14} color="#fff"/> Add Baptism Record
+              </span>
+            </button>
+            {baptismRecs.length>0 && (
+              <button style={{...btnOutline,padding:"8px 16px",fontSize:13}} onClick={exportBaptism}>
+                <span style={{display:"flex",alignItems:"center",gap:6}}><Icon name="export" size={14} color={t.gold}/> Export</span>
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -3504,7 +3522,7 @@ const YouthPage = ({ db }) => {
   const [memEditId,  setMemEditId]  = useState(null);
   const [showMemForm,setShowMemForm]= useState(false);
   const [memSearch,  setMemSearch]  = useState("");
-  const [memFilter,  setMemFilter]  = useState({ gender:"", status:"", education:"" });
+  const [memFilter,  setMemFilter]  = useState({ gender:"", status:"", education:"", marital:"", location:"" });
   const [memToast,   setMemToast]   = useState("");
   const [memLoading, setMemLoading] = useState(false);
   const [viewMember, setViewMember] = useState(null);
@@ -3583,6 +3601,8 @@ const YouthPage = ({ db }) => {
     if (memFilter.gender && m.gender !== memFilter.gender) return false;
     if (memFilter.status && m.status !== memFilter.status) return false;
     if (memFilter.education && m.education_level !== memFilter.education) return false;
+    if (memFilter.marital && m.marital_status !== memFilter.marital) return false;
+    if (memFilter.location && !(m.location||"").toLowerCase().includes(memFilter.location.toLowerCase())) return false;
     return true;
   });
   const maleMembers   = youthMembers.filter(m=>m.gender==="Male").length;
@@ -3590,6 +3610,35 @@ const YouthPage = ({ db }) => {
   const activeMembers = youthMembers.filter(m=>m.status==="Active").length;
   const eduLevels     = [...new Set(youthMembers.map(m=>m.education_level).filter(Boolean))].sort();
   const occupations   = [...new Set(youthMembers.map(m=>m.occupation).filter(Boolean))].sort();
+
+  // ── Export helpers ──
+  const exportMembers = () => {
+    if (!youthMembers.length) return;
+    const rows = filteredMem.map(m => ({
+      Name: m.name, Gender: m.gender, "Date of Birth": m.dob,
+      "Marital Status": m.marital_status, Phone: m.phone, Email: m.email,
+      Location: m.location, Region: m.region, Nationality: m.nationality,
+      "Education Level": m.education_level, Occupation: m.occupation, Profession: m.profession,
+      "Joined Date": m.joined_date, Status: m.status, Notes: m.notes,
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Youth Members");
+    XLSX.writeFile(wb, `Youth_Members_${new Date().toISOString().slice(0,10)}.xlsx`);
+  };
+
+  const exportAttendance = () => {
+    if (!youthRecs.length) return;
+    const rows = filteredAtt.map(r => ({
+      Date: r.date, "Day of Week": r.day_of_week, "Program Name": r.program_name,
+      Male: r.male_count, Female: r.female_count, Total: r.total_count,
+      Facilitator: r.facilitator, Topic: r.topic, Notes: r.notes,
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Youth Attendance");
+    XLSX.writeFile(wb, `Youth_Attendance_${new Date().toISOString().slice(0,10)}.xlsx`);
+  };
 
   // ── Member handlers ──
   const handleMemSave = () => {
@@ -3650,9 +3699,19 @@ const YouthPage = ({ db }) => {
               <span style={{display:"flex",alignItems:"center",gap:6}}><Icon name="plus" size={14} color="#fff"/> Record Attendance</span>
             </button>
           )}
+          {mainTab==="attendance" && !showAttForm && youthRecs.length>0 && (
+            <button style={{...btnOutline,padding:"8px 16px",fontSize:13}} onClick={exportAttendance}>
+              <span style={{display:"flex",alignItems:"center",gap:6}}><Icon name="export" size={14} color={t.gold}/> Export</span>
+            </button>
+          )}
           {mainTab==="members" && !showMemForm && (
             <button style={{...btnGold,padding:"8px 20px"}} onClick={()=>setShowMemForm(true)}>
               <span style={{display:"flex",alignItems:"center",gap:6}}><Icon name="plus" size={14} color="#fff"/> Add Member</span>
+            </button>
+          )}
+          {mainTab==="members" && !showMemForm && youthMembers.length>0 && (
+            <button style={{...btnOutline,padding:"8px 16px",fontSize:13}} onClick={exportMembers}>
+              <span style={{display:"flex",alignItems:"center",gap:6}}><Icon name="export" size={14} color={t.gold}/> Export</span>
             </button>
           )}
         </div>
@@ -4103,8 +4162,13 @@ const YouthPage = ({ db }) => {
               <option value="">All Edu. Levels</option>
               {eduLevels.map(e=><option key={e} value={e}>{e}</option>)}
             </select>
-            {(memSearch||memFilter.gender||memFilter.status||memFilter.education) &&
-              <button style={{...btnGhost,padding:"5px 12px",fontSize:12}} onClick={()=>{setMemSearch("");setMemFilter({gender:"",status:"",education:""});}}>✕ Clear</button>}
+            <select style={{...sel,minWidth:140}} value={memFilter.marital} onChange={e=>setMemFilter(f=>({...f,marital:e.target.value}))}>
+              <option value="">All Marital Status</option>
+              {["Single","Married","Divorced","Widowed","Other"].map(o=><option key={o} value={o}>{o}</option>)}
+            </select>
+            <input style={{...inp,maxWidth:150,padding:"7px 12px"}} placeholder="Filter by location…" value={memFilter.location} onChange={e=>setMemFilter(f=>({...f,location:e.target.value}))}/>
+            {(memSearch||memFilter.gender||memFilter.status||memFilter.education||memFilter.marital||memFilter.location) &&
+              <button style={{...btnGhost,padding:"5px 12px",fontSize:12}} onClick={()=>{setMemSearch("");setMemFilter({gender:"",status:"",education:"",marital:"",location:""});}}>✕ Clear</button>}
             <span style={{marginLeft:"auto",fontSize:12,color:t.textMuted,fontFamily:FF}}>{filteredMem.length} / {youthMembers.length} members</span>
           </div>
 
@@ -6300,20 +6364,20 @@ const SSReportPage = ({ db }) => {
     if (!XLSX_mod) { alert("XLSX not available"); return; }
     const data = rows.map(r => ({
       "Class":            r.cls,
-      "SS - Attend. Begin":         r.ssBegin,
-      "SS - Attend. Close":         r.ssClose,
+      "Sund. Sch. Begin":         r.ssBegin,
+      "Sund. Sch. Close":         r.ssClose,
       "Bible Begin":      r.bibBegin,
       "Bible Close":      r.bibClose,
       "Male":             r.male,
       "Female":           r.female,
       "First Timers":     r.firstT,
       "Visitors":         r.visitors,
-      "Prev SS - SS - Attend. Begin":    r.dSSBegin  ? r.ssBegin  - r.dSSBegin.d  : "",
-      "Prev SS - SS - Attend. Close":    r.dSSClose  ? r.ssClose  - r.dSSClose.d  : "",
+      "Prev Sund. Sch. Begin":    r.dSSBegin  ? r.ssBegin  - r.dSSBegin.d  : "",
+      "Prev Sund. Sch. Close":    r.dSSClose  ? r.ssClose  - r.dSSClose.d  : "",
       "Prev Bible Begin": r.dBibBegin ? r.bibBegin - r.dBibBegin.d : "",
       "Prev Bible Close": r.dBibClose ? r.bibClose - r.dBibClose.d : "",
-      "SS - SS - Attend. Begin Diff":    r.dSSBegin?.d  ?? "",
-      "SS - SS - Attend. Close Diff":    r.dSSClose?.d  ?? "",
+      "Sund. Sch. Begin Diff":    r.dSSBegin?.d  ?? "",
+      "Sund. Sch. Close Diff":    r.dSSClose?.d  ?? "",
       "Date":             currentDate,
       "Prev Date":        prevDate,
     }));
@@ -6404,8 +6468,8 @@ const SSReportPage = ({ db }) => {
 
       {/* Summary KPIs */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))", gap:12, marginBottom:20 }}>
-        <KpiCard label="SS - Attend. Begin"     value={tot("ssBegin")}  sub="Current session" icon="attendance" color={t.info} />
-        <KpiCard label="SS - Attend. Close"   value={tot("ssClose")}  sub="Current session" icon="attendance" color={t.gold} />
+        <KpiCard label="Sund. Sch. Begin"     value={tot("ssBegin")}  sub="Current session" icon="attendance" color={t.info} />
+        <KpiCard label="Sund. Sch. Close"   value={tot("ssClose")}  sub="Current session" icon="attendance" color={t.gold} />
         <KpiCard label="Bible Begin"  value={tot("bibBegin")} sub="Current session" icon="bible"      color="#9B59B6" />
         <KpiCard label="Bible Close"  value={tot("bibClose")} sub="Current session" icon="bible"      color="#7B3FBE" />
         <KpiCard label="First Timers" value={tot("firstT")}   sub="Current session" icon="plus"       color="#E67E22" />
@@ -6436,12 +6500,12 @@ const SSReportPage = ({ db }) => {
             {/* Column headers */}
             <tr style={{ background:t.surfaceAlt }}>
               <th style={{ ...thS, color:t.gold, minWidth:160 }}>Class</th>
-              <th style={{ ...thS, color:t.info }}>SS - Attend. Begin</th>
-              <th style={{ ...thS, color:t.gold }}>SS - Attend. Close</th>
+              <th style={{ ...thS, color:t.info }}>Sund. Sch. Begin</th>
+              <th style={{ ...thS, color:t.gold }}>Sund. Sch. Close</th>
               <th style={{ ...thS, color:"#9B59B6" }}>Bible Begin</th>
               <th style={{ ...thS, color:"#7B3FBE", borderRight:`2px solid ${t.border}` }}>Bible Close</th>
-              <th style={{ ...thS, color:t.info }}>Prev. SS - Attend. Begin</th>
-              <th style={{ ...thS, color:t.gold }}>Prev. SS - Attend. Close</th>
+              <th style={{ ...thS, color:t.info }}>Prev. Sund. Sch. Begin</th>
+              <th style={{ ...thS, color:t.gold }}>Prev. Sund. Sch. Close</th>
               <th style={{ ...thS, color:"#9B59B6" }}>Prev.Bible Begin</th>
               <th style={{ ...thS, color:"#7B3FBE", borderRight:`2px solid ${t.border}` }}>Prev.Bible Close</th>
               <th style={{ ...thS, color:"#E67E22" }}>Male / Female</th>
