@@ -875,6 +875,17 @@ const useSupabaseDB = () => {
       trustees_present: data.trustees_present||"",
       sunday_superintendents_present: data.sunday_superintendents_present||"",
       ushers_present: data.ushers_present||"",
+      members_male: data.members_male||"",
+      members_female: data.members_female||"",
+      members_total: data.members_total||"",
+      new_members: data.new_members||"",
+      restored_members: data.restored_members||"",
+      transferred_in: data.transferred_in||"",
+      transferred_out: data.transferred_out||"",
+      members_absent: data.members_absent||"",
+      members_sick: data.members_sick||"",
+      members_bereaved: data.members_bereaved||"",
+      members_notes: data.members_notes||"",
       created_at: new Date().toISOString() };
     setChurchRecs(c => [rec, ...c]);
     if (SUPABASE_READY) {
@@ -895,6 +906,17 @@ const useSupabaseDB = () => {
     merged.trustees_present                 = updates.trustees_present||"";
     merged.sunday_superintendents_present   = updates.sunday_superintendents_present||"";
     merged.ushers_present                   = updates.ushers_present||"";
+    merged.members_male                     = updates.members_male||"";
+    merged.members_female                   = updates.members_female||"";
+    merged.members_total                    = updates.members_total||"";
+    merged.new_members                      = updates.new_members||"";
+    merged.restored_members                 = updates.restored_members||"";
+    merged.transferred_in                   = updates.transferred_in||"";
+    merged.transferred_out                  = updates.transferred_out||"";
+    merged.members_absent                   = updates.members_absent||"";
+    merged.members_sick                     = updates.members_sick||"";
+    merged.members_bereaved                 = updates.members_bereaved||"";
+    merged.members_notes                    = updates.members_notes||"";
     setChurchRecs(c => c.map(x => x.id===id ? {...x,...merged} : x));
     if (SUPABASE_READY) {
       try { await sbFetch(`uct_church?id=eq.${id}`, { method:"PATCH", body:JSON.stringify(merged) }); }
@@ -5024,6 +5046,11 @@ const ChurchAttendancePage = ({ db, user }) => {
     trustees_present: "",
     sunday_superintendents_present: "",
     ushers_present: "",
+    // Church Members
+    members_male: "", members_female: "", members_total: "",
+    new_members: "", restored_members: "", transferred_in: "", transferred_out: "",
+    members_absent: "", members_sick: "", members_bereaved: "",
+    members_notes: "",
   };
 
   const [form, setForm]       = useState(blank);
@@ -5305,6 +5332,73 @@ const ChurchAttendancePage = ({ db, user }) => {
                   name="ushers_present" value={form.ushers_present} onChange={handleChange}
                   placeholder="0" />
               </div>
+            </div>
+          </div>
+
+          {/* ── CHURCH MEMBERS ── */}
+          <div style={{ border:`2px solid ${t.gold}44`, borderRadius:14, padding:18, marginBottom:20, background:t.surfaceAlt }}>
+            <div style={{ fontSize:11, fontWeight:700, color:t.gold, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1.5, marginBottom:16, display:"flex", alignItems:"center", gap:8 }}>
+              <span style={{fontSize:16}}>👥</span> Church Members
+            </div>
+
+            {/* Attendance counts */}
+            <div style={{ fontSize:11, fontWeight:600, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1, marginBottom:10 }}>Membership Attendance</div>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:14, marginBottom:18 }}>
+              <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                <label style={lbl}>Male Members Present</label>
+                <input style={inp} type="number" min="0" name="members_male" value={form.members_male} onChange={handleChange} placeholder="0"/>
+              </div>
+              <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                <label style={lbl}>Female Members Present</label>
+                <input style={inp} type="number" min="0" name="members_female" value={form.members_female} onChange={handleChange} placeholder="0"/>
+              </div>
+              <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                <label style={{ ...lbl, color:t.gold }}>Total Members Present</label>
+                <input style={{ ...inp, background:t.gold+"11", fontWeight:700, color:t.gold }}
+                  type="number" min="0" name="members_total" value={form.members_total} onChange={handleChange} placeholder="Auto or enter"/>
+              </div>
+            </div>
+
+            {/* Member movement */}
+            <div style={{ fontSize:11, fontWeight:600, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1, marginBottom:10 }}>Member Movement</div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:18 }}>
+              <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                <label style={lbl}>🆕 New Members</label>
+                <input style={inp} type="number" min="0" name="new_members" value={form.new_members} onChange={handleChange} placeholder="0"/>
+              </div>
+              <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                <label style={lbl}>🔄 Restored Members</label>
+                <input style={inp} type="number" min="0" name="restored_members" value={form.restored_members} onChange={handleChange} placeholder="0"/>
+              </div>
+              <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                <label style={lbl}>➡️ Transferred In</label>
+                <input style={inp} type="number" min="0" name="transferred_in" value={form.transferred_in} onChange={handleChange} placeholder="0"/>
+              </div>
+              <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                <label style={lbl}>⬅️ Transferred Out</label>
+                <input style={inp} type="number" min="0" name="transferred_out" value={form.transferred_out} onChange={handleChange} placeholder="0"/>
+              </div>
+            </div>
+
+            {/* Welfare */}
+            <div style={{ fontSize:11, fontWeight:600, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1, marginBottom:10 }}>Welfare & Absentees</div>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:14, marginBottom:14 }}>
+              <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                <label style={lbl}>😔 Absent</label>
+                <input style={inp} type="number" min="0" name="members_absent" value={form.members_absent} onChange={handleChange} placeholder="0"/>
+              </div>
+              <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                <label style={lbl}>🏥 Sick / Hospitalized</label>
+                <input style={inp} type="number" min="0" name="members_sick" value={form.members_sick} onChange={handleChange} placeholder="0"/>
+              </div>
+              <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                <label style={lbl}>🕊️ Bereaved</label>
+                <input style={inp} type="number" min="0" name="members_bereaved" value={form.members_bereaved} onChange={handleChange} placeholder="0"/>
+              </div>
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+              <label style={lbl}>📝 Members Notes</label>
+              <textarea style={{ ...inp, minHeight:60, resize:"vertical" }} name="members_notes" value={form.members_notes} onChange={handleChange} placeholder="Any notable membership updates, names of sick/absent members, etc."/>
             </div>
           </div>
 
@@ -8217,7 +8311,7 @@ const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => 
           {!collapsed && (
             <div style={{ textAlign:"center" }}>
               <div style={{ fontSize:9.5, fontWeight:700, color:"#FFFFFF", fontFamily:"'Trebuchet MS',sans-serif", letterSpacing:1.2, lineHeight:1.5 }}>{CHURCH_NAME.toUpperCase()}</div>
-              <div style={{ fontSize:8, color:"rgba(255,255,255,0.5)", fontFamily:"'Trebuchet MS',sans-serif", letterSpacing:0.5 }}>De-word Records</div>
+              <div style={{ fontSize:8, color:"rgba(255,255,255,0.5)", fontFamily:"'Trebuchet MS',sans-serif", letterSpacing:0.5 }}>Powered by De-Word Data Solution</div>
             </div>
           )}
         </div>
@@ -8489,7 +8583,7 @@ const MobileDrawer = ({ open, onClose, page, setPage, user, onLogout, db }) => {
             <AnimatedBible size={42} />
             <div>
               <div style={{ fontSize:10, fontWeight:700, color:"#FFFFFF", fontFamily:"'Trebuchet MS',sans-serif", letterSpacing:1.2 }}>{CHURCH_NAME.toUpperCase()}</div>
-              <div style={{ fontSize:8.5, color:"rgba(255,255,255,0.5)", fontFamily:"'Trebuchet MS',sans-serif" }}>De-word Records</div>
+              <div style={{ fontSize:8.5, color:"rgba(255,255,255,0.5)", fontFamily:"'Trebuchet MS',sans-serif" }}>Powered by De-Word Data Solution</div>
             </div>
           </div>
           <button onClick={onClose} style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.2)", borderRadius:7, padding:"6px 8px", cursor:"pointer" }}>
