@@ -8197,7 +8197,12 @@ const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => 
     borderLeft: active ? `3px solid ${ACTIVE_COLOR}` : "3px solid transparent",
     background: active ? t.sidebarActive : "transparent",
     color: active ? "#FFFFFF" : t.sidebarMuted,
-    fontSize:13, fontFamily:"'Trebuchet MS',sans-serif", transition:"all 0.15s", whiteSpace:"nowrap",
+    fontSize:13, fontFamily:"'Trebuchet MS',sans-serif",
+    transition:"all 0.18s cubic-bezier(0.34,1.56,0.64,1)",
+    whiteSpace:"nowrap",
+    transform: active ? "translateX(6px) scale(1.02)" : "translateX(0) scale(1)",
+    boxShadow: active ? `4px 0 16px rgba(0,0,0,0.25)` : "none",
+    borderRadius: active ? "0 8px 8px 0" : "0",
   });
 
   const modeLabel = mode==="light"?"☀ Light":mode==="navy"?"🌊 Navy":mode==="dark"?"🌙 Dark":mode==="darkBlue"?"🌊🌙 Dark Blue":mode==="orange"?"🔥 Orange":"🔥🌙 Dark Orange";
@@ -8416,6 +8421,8 @@ const BottomNav = ({ page, setPage, user, onMenuOpen }) => {
             flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
             padding:"10px 2px 8px", border:"none", background:"transparent", cursor:"pointer",
             borderTop: active ? `2px solid ${ACTIVE_COLOR}` : "2px solid transparent",
+            transition:"transform 0.2s cubic-bezier(0.34,1.56,0.64,1)",
+            transform: active ? "translateY(-5px) scale(1.08)" : "translateY(0) scale(1)",
           }}>
             <Icon name={tab.icon} size={21} color={active ? ACTIVE_COLOR : "rgba(255,255,255,0.45)"} />
             <span style={{ fontSize:9, color: active ? ACTIVE_COLOR : "rgba(255,255,255,0.45)",
