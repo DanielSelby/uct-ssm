@@ -803,25 +803,28 @@ const useSupabaseDB = () => {
   // ── SS Records ───────────────────────────────────────────
   const addRecord = useCallback(async (rec) => {
     const newRec = { ...rec, id:`R${Date.now()}`, status:"pending", created_at:new Date().toISOString() };
-    try {
-      await sbFetch("uct_records", { method:"POST", body:JSON.stringify(newRec) });
-      setRecords(r => [newRec, ...r]);
-    } catch(e) { alert("Save failed: " + e.message); }
+    setRecords(r => [newRec, ...r]);
+    if (SUPABASE_READY) {
+      try { await sbFetch("uct_records", { method:"POST", body:JSON.stringify(newRec) }); }
+      catch(e) { console.warn("SS record save failed (local kept):", e.message); }
+    }
     return newRec;
   }, []);
 
   const updateRecord = useCallback(async (id, updates) => {
-    try {
-      await sbFetch(`uct_records?id=eq.${id}`, { method:"PATCH", body:JSON.stringify(updates) });
-      setRecords(r => r.map(x => x.id===id ? {...x,...updates} : x));
-    } catch(e) { alert("Update failed: " + e.message); }
+    setRecords(r => r.map(x => x.id===id ? {...x,...updates} : x));
+    if (SUPABASE_READY) {
+      try { await sbFetch(`uct_records?id=eq.${id}`, { method:"PATCH", body:JSON.stringify(updates) }); }
+      catch(e) { console.warn("SS record update failed (local kept):", e.message); }
+    }
   }, []);
 
   const deleteRecord = useCallback(async (id) => {
-    try {
-      await sbFetch(`uct_records?id=eq.${id}`, { method:"DELETE" });
-      setRecords(r => r.filter(x => x.id!==id));
-    } catch(e) { alert("Delete failed: " + e.message); }
+    setRecords(r => r.filter(x => x.id!==id));
+    if (SUPABASE_READY) {
+      try { await sbFetch(`uct_records?id=eq.${id}`, { method:"DELETE" }); }
+      catch(e) { console.warn("SS record delete failed (local kept):", e.message); }
+    }
   }, []);
 
   const approveRecord = useCallback((id) => updateRecord(id, { status:"approved" }), [updateRecord]);
@@ -831,24 +834,27 @@ const useSupabaseDB = () => {
     const newT = { ...data, id:`T${Date.now()}`, is_active:"YES",
       joined_date: data.joined_date || new Date().toISOString().slice(0,10),
       created_at: new Date().toISOString() };
-    try {
-      await sbFetch("uct_teachers", { method:"POST", body:JSON.stringify(newT) });
-      setTeachers(t => [...t, newT].sort((a,b)=>a.name.localeCompare(b.name)));
-    } catch(e) { alert("Save failed: " + e.message); }
+    setTeachers(t => [...t, newT].sort((a,b)=>a.name.localeCompare(b.name)));
+    if (SUPABASE_READY) {
+      try { await sbFetch("uct_teachers", { method:"POST", body:JSON.stringify(newT) }); }
+      catch(e) { console.warn("Teacher save failed (local kept):", e.message); }
+    }
   }, []);
 
   const updateTeacher = useCallback(async (id, updates) => {
-    try {
-      await sbFetch(`uct_teachers?id=eq.${id}`, { method:"PATCH", body:JSON.stringify(updates) });
-      setTeachers(t => t.map(x => x.id===id ? {...x,...updates} : x));
-    } catch(e) { alert("Update failed: " + e.message); }
+    setTeachers(t => t.map(x => x.id===id ? {...x,...updates} : x));
+    if (SUPABASE_READY) {
+      try { await sbFetch(`uct_teachers?id=eq.${id}`, { method:"PATCH", body:JSON.stringify(updates) }); }
+      catch(e) { console.warn("Teacher update failed (local kept):", e.message); }
+    }
   }, []);
 
   const deleteTeacher = useCallback(async (id) => {
-    try {
-      await sbFetch(`uct_teachers?id=eq.${id}`, { method:"DELETE" });
-      setTeachers(t => t.filter(x => x.id!==id));
-    } catch(e) { alert("Delete failed: " + e.message); }
+    setTeachers(t => t.filter(x => x.id!==id));
+    if (SUPABASE_READY) {
+      try { await sbFetch(`uct_teachers?id=eq.${id}`, { method:"DELETE" }); }
+      catch(e) { console.warn("Teacher delete failed (local kept):", e.message); }
+    }
   }, []);
 
   const toggleTeacherActive = useCallback(async (id) => {
@@ -878,9 +884,13 @@ const useSupabaseDB = () => {
     const merged = { ...updates };
     merged.total_beginning       = String((Number(merged.male_beginning)||0)+(Number(merged.female_beginning)||0));
     merged.total_closing         = String((Number(merged.male_closing)||0)+(Number(merged.female_closing)||0));
-    merged.ministered_by         = updates.ministered_by||"";
-    merged.song_leader           = updates.song_leader||"";
-    merged.available_ministers   = updates.available_ministers||"";
+    merged.ministered_by                    = updates.ministered_by||"";
+    merged.song_leader                      = updates.song_leader||"";
+    merged.available_ministers              = updates.available_ministers||"";
+    merged.deacons_present                  = updates.deacons_present||"";
+    merged.trustees_present                 = updates.trustees_present||"";
+    merged.sunday_superintendents_present   = updates.sunday_superintendents_present||"";
+    merged.ushers_present                   = updates.ushers_present||"";
     setChurchRecs(c => c.map(x => x.id===id ? {...x,...merged} : x));
     if (SUPABASE_READY) {
       try { await sbFetch(`uct_church?id=eq.${id}`, { method:"PATCH", body:JSON.stringify(merged) }); }
@@ -927,6 +937,38 @@ const useSupabaseDB = () => {
     const prog = programs.find(p => p.id===id);
     if (prog) await updateProgram(id, { is_active: prog.is_active==="YES" ? "NO" : "YES" });
   }, [programs, updateProgram]);
+
+  // ── Classes CRUD ──────────────────────────────────────────
+  const addClass = useCallback(async (name) => {
+    const newC = { id:`CL${Date.now()}`, name:name.trim(), is_active:"YES", created_at:new Date().toISOString() };
+    setClasses(c => [...c, newC]);
+    if (SUPABASE_READY) {
+      try { await sbFetch("uct_classes", { method:"POST", body:JSON.stringify(newC) }); }
+      catch(e) { console.warn("Class add failed (local kept):", e.message); }
+    }
+    return newC;
+  }, []);
+
+  const updateClass = useCallback(async (id, updates) => {
+    setClasses(c => c.map(x => x.id===id ? {...x,...updates} : x));
+    if (SUPABASE_READY) {
+      try { await sbFetch(`uct_classes?id=eq.${id}`, { method:"PATCH", body:JSON.stringify(updates) }); }
+      catch(e) { console.warn("Class update failed (local kept):", e.message); }
+    }
+  }, []);
+
+  const deleteClass = useCallback(async (id) => {
+    setClasses(c => c.filter(x => x.id!==id));
+    if (SUPABASE_READY) {
+      try { await sbFetch(`uct_classes?id=eq.${id}`, { method:"DELETE" }); }
+      catch(e) { console.warn("Class delete failed (local kept):", e.message); }
+    }
+  }, []);
+
+  const toggleClassActive = useCallback(async (id) => {
+    const cls = classes.find(c => c.id===id);
+    if (cls) await updateClass(id, { is_active: cls.is_active==="YES" ? "NO" : "YES" });
+  }, [classes, updateClass]);
 
   // ── Export to Excel (download only, not storage) ──────────
   // ── Youth Attendance CRUD ──────────────────────────────────
@@ -1069,6 +1111,7 @@ const useSupabaseDB = () => {
     addTeacher, updateTeacher, deleteTeacher, toggleTeacherActive,
     addChurchRec, updateChurchRec, deleteChurchRec,
     addProgram, updateProgram, deleteProgram, toggleProgramActive,
+    addClass, updateClass, deleteClass, toggleClassActive,
     addYouthRec, updateYouthRec, deleteYouthRec,
     addYouthMember, updateYouthMember, deleteYouthMember,
     addBaptismRec, updateBaptismRec, deleteBaptismRec,
@@ -4274,28 +4317,27 @@ const ClassesPage = ({ db }) => {
   const selStats = selected ? classStats.find(s => s.cls.name === selected) : null;
 
   // ── handlers ──
-  const handleAddClass = () => {
+  const handleAddClass = async () => {
     if (!newName.trim()) { showToast("⚠️ Enter a class name."); return; }
     if (classes.find(c=>c.name.toLowerCase()===newName.trim().toLowerCase())) {
       showToast("⚠️ Class already exists."); return;
     }
-    // optimistic local add (Supabase persistence via db hook if wired)
-    db.setClasses && db.setClasses(p=>[...p,{id:`CL${Date.now()}`,name:newName.trim(),is_active:"YES"}]);
+    await db.addClass(newName.trim());
     showToast(`✅ Class "${newName.trim()}" added!`);
     setNewName(""); setAddModal(false);
   };
 
-  const handleEditClass = () => {
+  const handleEditClass = async () => {
     if (!editName.trim()) { showToast("⚠️ Enter a name."); return; }
-    db.setClasses && db.setClasses(p=>p.map(c=>c.id===editModal.id?{...c,name:editName.trim()}:c));
+    await db.updateClass(editModal.id, { name: editName.trim() });
     showToast(`✅ Renamed to "${editName.trim()}"`);
     setEditModal(null); setEditName("");
   };
 
-  const handleToggleClass = (cls) => {
-    const next = cls.is_active==="YES"?"NO":"YES";
-    db.setClasses && db.setClasses(p=>p.map(c=>c.id===cls.id?{...c,is_active:next}:c));
-    showToast(`${next==="YES"?"✅ Activated":"⚠️ Deactivated"}: ${cls.name}`);
+  const handleToggleClass = async (cls) => {
+    await db.toggleClassActive(cls.id);
+    const next = cls.is_active==="YES" ? "NO" : "YES";
+    showToast(`${next==="YES" ? "✅ Activated" : "⚠️ Deactivated"}: ${cls.name}`);
   };
 
   const FF = "'Trebuchet MS',sans-serif";
@@ -7092,14 +7134,44 @@ Give clear, pastoral, ministry-focused insights. Use emojis sparingly. Be concis
 
 // ─── LESSONS PAGE ─────────────────────────────────────────────────────────────
 const useLessonsStore = () => {
-  const KEY = "uct_lessons_v1";
-  const load = () => { try { return JSON.parse(localStorage.getItem(KEY)||"[]"); } catch { return []; } };
-  const [lessons, setLessons] = useState(load);
-  const save = (arr) => { localStorage.setItem(KEY, JSON.stringify(arr)); setLessons(arr); };
-  const addLesson    = (l)  => save([{ ...l, id: uid(), createdAt: new Date().toISOString() }, ...lessons]);
-  const updateLesson = (id, upd) => save(lessons.map(l => l.id===id ? { ...l, ...upd } : l));
-  const deleteLesson = (id) => save(lessons.filter(l => l.id!==id));
-  return { lessons, addLesson, updateLesson, deleteLesson };
+  const [lessons, setLessons] = useState([]);
+  const [loaded, setLoaded]   = useState(false);
+
+  // Load from Supabase on mount
+  useEffect(() => {
+    const fetchLessons = async () => {
+      try {
+        const rows = await sbFetch("uct_lessons?select=*&order=created_at.desc");
+        setLessons(Array.isArray(rows) ? rows : []);
+      } catch(e) {
+        // Fallback to localStorage if Supabase fails
+        try { setLessons(JSON.parse(localStorage.getItem("uct_lessons_v1")||"[]")); } catch {}
+        console.warn("Lessons load failed, using local:", e.message);
+      } finally { setLoaded(true); }
+    };
+    fetchLessons();
+  }, []);
+
+  const addLesson = async (l) => {
+    const rec = { ...l, id: uid(), created_at: new Date().toISOString() };
+    setLessons(prev => [rec, ...prev]);
+    try { await sbFetch("uct_lessons", { method:"POST", body:JSON.stringify(rec) }); }
+    catch(e) { console.warn("Lesson save failed (local kept):", e.message); }
+  };
+
+  const updateLesson = async (id, upd) => {
+    setLessons(prev => prev.map(l => l.id===id ? { ...l, ...upd } : l));
+    try { await sbFetch(`uct_lessons?id=eq.${id}`, { method:"PATCH", body:JSON.stringify(upd) }); }
+    catch(e) { console.warn("Lesson update failed (local kept):", e.message); }
+  };
+
+  const deleteLesson = async (id) => {
+    setLessons(prev => prev.filter(l => l.id!==id));
+    try { await sbFetch(`uct_lessons?id=eq.${id}`, { method:"DELETE" }); }
+    catch(e) { console.warn("Lesson delete failed (local kept):", e.message); }
+  };
+
+  return { lessons, addLesson, updateLesson, deleteLesson, loaded };
 };
 
 // ─── ALL LESSONS MODAL ───────────────────────────────────────────────────────
