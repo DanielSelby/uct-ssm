@@ -8195,8 +8195,8 @@ const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => 
   const navItem = (active) => ({
     display:"flex", alignItems:"center", gap:10, padding:"10px 18px", cursor:"pointer",
     borderLeft: active ? `3px solid ${ACTIVE_COLOR}` : "3px solid transparent",
-    background: active ? t.sidebarActive : "transparent",
-    color: active ? "#FFFFFF" : t.sidebarMuted,
+    background: active ? t.bg : "transparent",
+    color: active ? t.text : t.sidebarMuted,
     fontSize:13, fontFamily:"'Trebuchet MS',sans-serif",
     transition:"all 0.18s cubic-bezier(0.34,1.56,0.64,1)",
     whiteSpace:"nowrap",
@@ -8229,8 +8229,8 @@ const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => 
           <div key={n.id} style={navItem(page===n.id)} onClick={()=>setPage(n.id)} title={collapsed?n.label:""}
             onMouseEnter={e=>{ if(page!==n.id) e.currentTarget.style.background="rgba(255,255,255,0.08)"; }}
             onMouseLeave={e=>{ if(page!==n.id) e.currentTarget.style.background="transparent"; }}>
-            <Icon name={n.icon} size={17} color={page===n.id ? ACTIVE_COLOR : t.sidebarMuted} />
-            {!collapsed && <span style={{ color: page===n.id ? "#FFFFFF" : t.sidebarMuted }}>{n.label}</span>}
+            <Icon name={n.icon} size={17} color={page===n.id ? t.gold : t.sidebarMuted} />
+            {!collapsed && <span style={{ color: page===n.id ? t.text : t.sidebarMuted }}>{n.label}</span>}
           </div>
         ))}
       </nav>
@@ -8420,12 +8420,12 @@ const BottomNav = ({ page, setPage, user, onMenuOpen }) => {
           <button key={tab.id} onClick={()=>setPage(tab.id)} style={{
             flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
             padding:"10px 2px 8px", border:"none", background:"transparent", cursor:"pointer",
-            borderTop: active ? `2px solid ${ACTIVE_COLOR}` : "2px solid transparent",
+            borderTop: active ? `2px solid ${t.gold}` : "2px solid transparent",
             transition:"transform 0.2s cubic-bezier(0.34,1.56,0.64,1)",
             transform: active ? "translateY(-5px) scale(1.08)" : "translateY(0) scale(1)",
           }}>
-            <Icon name={tab.icon} size={21} color={active ? ACTIVE_COLOR : "rgba(255,255,255,0.45)"} />
-            <span style={{ fontSize:9, color: active ? ACTIVE_COLOR : "rgba(255,255,255,0.45)",
+            <Icon name={tab.icon} size={21} color={active ? t.gold : "rgba(255,255,255,0.45)"} />
+            <span style={{ fontSize:9, color: active ? t.gold : "rgba(255,255,255,0.45)",
               fontFamily:"'Trebuchet MS',sans-serif", marginTop:3, fontWeight:active?700:400 }}>{tab.label}</span>
           </button>
         );
