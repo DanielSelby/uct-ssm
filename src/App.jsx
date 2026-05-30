@@ -2301,7 +2301,7 @@ const AttendancePage = ({ db, user, onEditRecord }) => {
   return (
     <div>
       {/* Page title */}
-      <div style={{ fontSize:23, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif", marginBottom:3 }}>SS Records</div>
+      <div style={{ fontSize:23, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif", marginBottom:3 }}>Sunday School Data (Records)</div>
       <div style={{ fontSize:13, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:18 }}>
         {records.length} total records · {sorted.length} shown
       </div>
@@ -3024,10 +3024,10 @@ const ExportPage = ({ db }) => {
         <div style={{ fontSize:14, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif", marginBottom:14 }}>Database Summary</div>
         <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
           {[
-            { label:"SS Records",      count:records.length,    color:t.gold },
+            { label:"Sunday School Data (Records)",      count:records.length,    color:t.gold },
             { label:"Church Records",  count:churchRecs.length, color:"#E67E22" },
             { label:"Teachers",        count:teachers.length,   color:t.info },
-            { label:"Classes",         count:classes.length,    color:t.success },
+            { label:"Classes (SS)",     count:classes.length,    color:t.success },
             { label:"Programs",        count:programs.length,   color:"#9B59B6" },
           ].map(s=>(
             <div key={s.label} style={{ padding:"10px 16px", borderRadius:10, border:`1px solid ${s.color}33`, background:s.color+"0D" }}>
@@ -4722,7 +4722,7 @@ const ClassesPage = ({ db }) => {
       {/* Header */}
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20,flexWrap:"wrap",gap:10}}>
         <div>
-          <div style={{fontSize:23,fontWeight:700,color:t.gold,fontFamily:GF,marginBottom:3}}>Class Management</div>
+          <div style={{fontSize:23,fontWeight:700,color:t.gold,fontFamily:GF,marginBottom:3}}>Classes (SS)</div>
           <div style={{fontSize:13,color:t.textMuted,fontFamily:FF}}>{classes.length} classes · {teachers.filter(t2=>t2.is_active==="YES").length} active teachers · {records.length} total records</div>
         </div>
         <div style={{display:"flex",gap:8}}>
@@ -4976,6 +4976,10 @@ const ChurchAttendancePage = ({ db, user }) => {
     ministered_by: "",
     song_leader: "",
     available_ministers: "",
+    deacons_present: "",
+    trustees_present: "",
+    sunday_superintendents_present: "",
+    ushers_present: "",
   };
 
   const [form, setForm]       = useState(blank);
@@ -5216,6 +5220,47 @@ const ChurchAttendancePage = ({ db, user }) => {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* ── CHURCH OFFICES PRESENT ── */}
+          <div style={{ border:`2px solid ${t.info}44`, borderRadius:14, padding:18, marginBottom:20, background:t.surfaceAlt }}>
+            <div style={{ fontSize:11, fontWeight:700, color:t.info, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1.5, marginBottom:16, display:"flex", alignItems:"center", gap:8 }}>
+              <span style={{fontSize:16}}>🏛️</span> Church Offices Present
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+              <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                <label style={{ ...lbl, display:"flex", alignItems:"center", gap:6 }}>
+                  <span style={{fontSize:13}}>🙏</span> Deacons
+                </label>
+                <input style={{ ...inp, borderColor:`${t.info}55` }} type="number" min="0"
+                  name="deacons_present" value={form.deacons_present} onChange={handleChange}
+                  placeholder="0" />
+              </div>
+              <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                <label style={{ ...lbl, display:"flex", alignItems:"center", gap:6 }}>
+                  <span style={{fontSize:13}}>📋</span> Trustees
+                </label>
+                <input style={{ ...inp, borderColor:`${t.info}55` }} type="number" min="0"
+                  name="trustees_present" value={form.trustees_present} onChange={handleChange}
+                  placeholder="0" />
+              </div>
+              <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                <label style={{ ...lbl, display:"flex", alignItems:"center", gap:6 }}>
+                  <span style={{fontSize:13}}>📖</span> Sunday Superintendent's
+                </label>
+                <input style={{ ...inp, borderColor:`${t.info}55` }} type="number" min="0"
+                  name="sunday_superintendents_present" value={form.sunday_superintendents_present} onChange={handleChange}
+                  placeholder="0" />
+              </div>
+              <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                <label style={{ ...lbl, display:"flex", alignItems:"center", gap:6 }}>
+                  <span style={{fontSize:13}}>🚪</span> Usher's
+                </label>
+                <input style={{ ...inp, borderColor:`${t.info}55` }} type="number" min="0"
+                  name="ushers_present" value={form.ushers_present} onChange={handleChange}
+                  placeholder="0" />
+              </div>
             </div>
           </div>
 
@@ -8036,14 +8081,14 @@ const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => 
 
   const allAdminNav = [
     {id:"dashboard",  label:"Dashboard",      icon:"dashboard",  perm:"dashboard"},
-    {id:"attendance", label:"Sunday Sch. Records", icon:"attendance", perm:"attendance"},
+    {id:"attendance", label:"Sunday School Data (Records)", icon:"attendance", perm:"attendance"},
     {id:"ssreport",   label:"Sunday Sch. Attend.", icon:"ssreport",   perm:"ssreport"},
     {id:"church",     label:"Church Attend.", icon:"cross",      perm:"church"},
     {id:"analytics",  label:"Analytics",      icon:"analytics",  perm:"analytics"},
     {id:"ai",         label:"AI Assistant",   icon:"ai",         perm:"ai"},
     {id:"lessons",    label:"Lesson Register", icon:"lesson",     perm:"lessons"},
     {id:"teachers",   label:"Teachers",       icon:"teachers",   perm:"teachers"},
-    {id:"classes",    label:"Classes",        icon:"classes",    perm:"classes"},
+    {id:"classes",    label:"Classes (SS)",    icon:"classes",    perm:"classes"},
     {id:"programs",   label:"Programs",       icon:"settings",   perm:"programs"},
     {id:"youth",      label:"Youth Programs", icon:"users",      perm:"dashboard"},
     {id:"baptism",    label:"Baptism Records",icon:"cross",      perm:"dashboard"},
@@ -8323,14 +8368,14 @@ const MobileDrawer = ({ open, onClose, page, setPage, user, onLogout, db }) => {
 
   const allNav = isAdmin ? [
     {id:"dashboard",  label:"Dashboard",           icon:"dashboard"},
-    {id:"attendance", label:"Sunday Sch. Records", icon:"attendance"},
+    {id:"attendance", label:"Sunday School Data (Records)", icon:"attendance"},
     {id:"ssreport",   label:"Sunday Sch. Attend.", icon:"ssreport"},
     {id:"church",     label:"Church Attend.",      icon:"cross"},
     {id:"analytics",  label:"Analytics",           icon:"analytics"},
     {id:"ai",         label:"AI Assistant",        icon:"ai"},
     {id:"lessons",    label:"Lesson Register",     icon:"lesson"},
     {id:"teachers",   label:"Teachers",            icon:"teachers"},
-    {id:"classes",    label:"Classes",             icon:"classes"},
+    {id:"classes",    label:"Classes (SS)",        icon:"classes"},
     {id:"programs",   label:"Programs",            icon:"settings"},
     {id:"youth",      label:"Youth Programs",      icon:"users"},
     {id:"baptism",    label:"Baptism Records",     icon:"cross"},
