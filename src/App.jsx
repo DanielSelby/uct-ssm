@@ -338,7 +338,7 @@ const USERS_KEY = "uct_ss_users";
 const _savedBrand = (() => { try { return JSON.parse(localStorage.getItem("uct_branding")||"{}"); } catch { return {}; } })();
 const CHURCH_NAME  = _savedBrand.name  || "Unique Christian Tabernacle";
 const CHURCH_SHORT = _savedBrand.short || "UCT";
-const CHURCH_SUB   = _savedBrand.sub   || "Sunday School Management System";
+const CHURCH_SUB   = _savedBrand.sub   || "Church Program Attendance Management System";
 const ACTIVE_LOGO  = _savedBrand.logo  || null;
 
 // Logo component — shows image if provided, cross icon otherwise
@@ -1807,7 +1807,7 @@ const DashboardPage = ({ db }) => {
 
   return (
     <div>
-      {/* Header */}
+      {/* Header + Filter Bar */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:16, flexWrap:"wrap", gap:12 }}>
         <div>
           <div style={{ fontSize:23, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif", marginBottom:3 }}>Overview Dashboard</div>
@@ -1816,28 +1816,26 @@ const DashboardPage = ({ db }) => {
             {(filters.from||filters.to||filters.month) ? " · Filtered" : " · All time"}
           </div>
         </div>
-        {/* Refresh button */}
-        <button onClick={handleManualRefresh} disabled={refreshing}
-          style={{ display:"flex", alignItems:"center", gap:7, padding:"9px 18px", borderRadius:9,
-            border:`1px solid ${t.gold}44`, background:t.gold+"11", color:t.gold,
-            fontFamily:"'Trebuchet MS',sans-serif", fontSize:13, cursor:"pointer" }}>
-          <span style={{ fontSize:16, lineHeight:1, display:"inline-block",
-            animation: refreshing ? "spin 0.7s linear infinite" : "none" }}>↻</span>
-          {refreshing ? "Refreshing…" : "Refresh"}
-          <span style={{ fontSize:10, color:t.textMuted }}>
-            · {lastRefresh.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}
-          </span>
-        </button>
-        <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
-      </div>
-
-      {/* Filter Bar */}
-      <div style={{ ...card, marginBottom:20, padding:"14px 18px" }}>
-        <div style={{ fontSize:11, fontWeight:700, color:t.gold, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1.2, marginBottom:10 }}>
-          📅 Dashboard Filters
+        <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+          {/* Filter Bar inline */}
+          <div style={{ ...card, padding:"10px 14px", margin:0 }}>
+            <FilterBar filters={filters} setFilters={setFilters} months={allMonths}
+              programs={programs} classes={classes} showClass={false} showProgram={false} />
+          </div>
+          {/* Refresh button */}
+          <button onClick={handleManualRefresh} disabled={refreshing}
+            style={{ display:"flex", alignItems:"center", gap:7, padding:"9px 18px", borderRadius:9,
+              border:`1px solid ${t.gold}44`, background:t.gold+"11", color:t.gold,
+              fontFamily:"'Trebuchet MS',sans-serif", fontSize:13, cursor:"pointer" }}>
+            <span style={{ fontSize:16, lineHeight:1, display:"inline-block",
+              animation: refreshing ? "spin 0.7s linear infinite" : "none" }}>↻</span>
+            {refreshing ? "Refreshing…" : "Refresh"}
+            <span style={{ fontSize:10, color:t.textMuted }}>
+              · {lastRefresh.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}
+            </span>
+          </button>
+          <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
         </div>
-        <FilterBar filters={filters} setFilters={setFilters} months={allMonths}
-          programs={programs} classes={classes} showClass={false} showProgram={false} />
       </div>
 
       {/* Storytelling insight */}
@@ -8219,7 +8217,7 @@ const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => 
           {!collapsed && (
             <div style={{ textAlign:"center" }}>
               <div style={{ fontSize:9.5, fontWeight:700, color:"#FFFFFF", fontFamily:"'Trebuchet MS',sans-serif", letterSpacing:1.2, lineHeight:1.5 }}>{CHURCH_NAME.toUpperCase()}</div>
-              <div style={{ fontSize:8, color:"rgba(255,255,255,0.5)", fontFamily:"'Trebuchet MS',sans-serif", letterSpacing:0.5 }}>SSM SYSTEM</div>
+              <div style={{ fontSize:8, color:"rgba(255,255,255,0.5)", fontFamily:"'Trebuchet MS',sans-serif", letterSpacing:0.5 }}>De-word Records</div>
             </div>
           )}
         </div>
@@ -8491,7 +8489,7 @@ const MobileDrawer = ({ open, onClose, page, setPage, user, onLogout, db }) => {
             <AnimatedBible size={42} />
             <div>
               <div style={{ fontSize:10, fontWeight:700, color:"#FFFFFF", fontFamily:"'Trebuchet MS',sans-serif", letterSpacing:1.2 }}>{CHURCH_NAME.toUpperCase()}</div>
-              <div style={{ fontSize:8.5, color:"rgba(255,255,255,0.5)", fontFamily:"'Trebuchet MS',sans-serif" }}>SSM SYSTEM</div>
+              <div style={{ fontSize:8.5, color:"rgba(255,255,255,0.5)", fontFamily:"'Trebuchet MS',sans-serif" }}>De-word Records</div>
             </div>
           </div>
           <button onClick={onClose} style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.2)", borderRadius:7, padding:"6px 8px", cursor:"pointer" }}>
