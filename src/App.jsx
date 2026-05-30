@@ -737,6 +737,7 @@ const useSupabaseDB = () => {
   const [youthRecs,    setYouthRecs]    = useState([]);
   const [youthMembers, setYouthMembers] = useState([]);
   const [baptismRecs,  setBaptismRecs]  = useState([]);
+  const [churchMembers, setChurchMembers] = useState([]);
   const [loading,      setLoading]      = useState(true);
 
   // ── Generic fetch ────────────────────────────────────────
@@ -753,7 +754,7 @@ const useSupabaseDB = () => {
   // ── Load all data ─────────────────────────────────────────
   const loadAll = useCallback(async () => {
     setLoading(true);
-    const [r, t, c, ch, p, yr, ym, br] = await Promise.all([
+    const [r, t, c, ch, p, yr, ym, br, cm] = await Promise.all([
       sbGet("uct_records",       "created_at.desc"),
       sbGet("uct_teachers",      "name.asc"),
       sbGet("uct_classes",       "id.asc"),
@@ -762,6 +763,7 @@ const useSupabaseDB = () => {
       sbGet("uct_youth",         "created_at.desc"),
       sbGet("uct_youth_members", "name.asc"),
       sbGet("uct_baptism",       "created_at.desc"),
+      sbGet("uct_church_members", "name.asc"),
     ]);
     setRecords(r);
     setTeachers(t);
@@ -795,6 +797,7 @@ const useSupabaseDB = () => {
     setYouthRecs(yr);
     setYouthMembers(ym);
     setBaptismRecs(br);
+    setChurchMembers(cm);
     setLoading(false);
   }, [sbGet]);
 
@@ -929,6 +932,34 @@ const useSupabaseDB = () => {
     if (SUPABASE_READY) {
       try { await sbFetch(`uct_church?id=eq.${id}`, { method:"DELETE" }); }
       catch(e) { console.warn("Church delete failed (local kept):", e.message); }
+    }
+  }, []);
+
+
+  // ── Church Members CRUD ───────────────────────────────────
+  const addChurchMember = useCallback(async (data) => {
+    const rec = { ...data, id:`CM${Date.now()}`, created_at:new Date().toISOString() };
+    setChurchMembers(m => [...m, rec].sort((a,b)=>(a.name||"").localeCompare(b.name||"")));
+    if (SUPABASE_READY) {
+      try { await sbFetch("uct_church_members", { method:"POST", body:JSON.stringify(rec) }); }
+      catch(e) { alert(`⚠️ DB save failed: ${e.message} — check table [uct_church_members] exists in Supabase.`); }
+    }
+    return rec;
+  }, []);
+
+  const updateChurchMember = useCallback(async (id, upd) => {
+    setChurchMembers(m => m.map(x => x.id===id ? {...x,...upd} : x));
+    if (SUPABASE_READY) {
+      try { await sbFetch(`uct_church_members?id=eq.${id}`, { method:"PATCH", body:JSON.stringify(upd) }); }
+      catch(e) { console.warn("Church member update failed (local kept):", e.message); }
+    }
+  }, []);
+
+  const deleteChurchMember = useCallback(async (id) => {
+    setChurchMembers(m => m.filter(x => x.id!==id));
+    if (SUPABASE_READY) {
+      try { await sbFetch(`uct_church_members?id=eq.${id}`, { method:"DELETE" }); }
+      catch(e) { console.warn("Church member delete failed (local kept):", e.message); }
     }
   }, []);
 
@@ -1135,7 +1166,9 @@ const useSupabaseDB = () => {
     loading, loadAll, setClasses,
     addRecord, updateRecord, deleteRecord, approveRecord,
     addTeacher, updateTeacher, deleteTeacher, toggleTeacherActive,
+    churchMembers, setChurchMembers,
     addChurchRec, updateChurchRec, deleteChurchRec,
+    addChurchMember, updateChurchMember, deleteChurchMember,
     addProgram, updateProgram, deleteProgram, toggleProgramActive,
     addClass, updateClass, deleteClass, toggleClassActive,
     addYouthRec, updateYouthRec, deleteYouthRec,
@@ -5024,7 +5057,12 @@ const ClassesPage = ({ db }) => {
 // ─── CHURCH ATTENDANCE PAGE ───────────────────────────────────────────────────
 const ChurchAttendancePage = ({ db, user }) => {
   const { t, card, btnGold, btnOutline, btnGhost, inp, sel, lbl, th, td } = useThemeStyles();
-  const { churchRecs, programs, addChurchRec, updateChurchRec, deleteChurchRec } = db;
+  const { churchRecs, programs, addChurchRec, updateChurchRec, deleteChurchRec,
+          churchMembers, addChurchMember, updateChurchMember, deleteChurchMember } = db;
+  const FF = "'Trebuchet MS',sans-serif";
+  const GF = "'Georgia',serif";
+
+  const [mainTab, setMainTab] = useState("attendance"); // attendance | members
 
   const activePrograms = programs.filter(p => p.is_active === "YES")
     .sort((a,b) => Number(a.sort_order) - Number(b.sort_order));
@@ -5046,11 +5084,6 @@ const ChurchAttendancePage = ({ db, user }) => {
     trustees_present: "",
     sunday_superintendents_present: "",
     ushers_present: "",
-    // Church Members
-    members_male: "", members_female: "", members_total: "",
-    new_members: "", restored_members: "", transferred_in: "", transferred_out: "",
-    members_absent: "", members_sick: "", members_bereaved: "",
-    members_notes: "",
   };
 
   const [form, setForm]       = useState(blank);
@@ -5127,6 +5160,71 @@ const ChurchAttendancePage = ({ db, user }) => {
     </div>
   ), [form, handleChange, inp, lbl]);
 
+
+  // ── Church Members state ──────────────────────────────────
+  const cmBlank = {
+    name:"", gender:"", dob:"", marital_status:"", phone:"", email:"",
+    address:"", city:"", region:"", nationality:"Ghana",
+    education_level:"", occupation:"", workplace:"",
+    membership_class:"Member", membership_date:"", baptism_date:"",
+    baptism_type:"", confirmed:"No", confirmation_date:"",
+    ministry_role:"", small_group:"",
+    emergency_contact_name:"", emergency_contact_phone:"",
+    health_notes:"", status:"Active", notes:"",
+  };
+  const [cmForm,      setCmForm]      = useState(cmBlank);
+  const [cmEditId,    setCmEditId]    = useState(null);
+  const [showCmForm,  setShowCmForm]  = useState(false);
+  const [cmSearch,    setCmSearch]    = useState("");
+  const [cmFilter,    setCmFilter]    = useState({ gender:"", status:"", membership_class:"", marital:"" });
+  const [cmLoading,   setCmLoading]   = useState(false);
+  const [cmToast,     setCmToast]     = useState("");
+  const [viewMember,  setViewMember]  = useState(null);
+
+  const showCmToast = (msg) => { setCmToast(msg); setTimeout(()=>setCmToast(""),3000); };
+  const handleCmChange = useCallback((e) => {
+    const { name, value } = e.target;
+    setCmForm(f => ({ ...f, [name]: value }));
+  }, []);
+
+  const filteredCm = (churchMembers||[]).filter(m => {
+    const q = cmSearch.toLowerCase();
+    if (q && !((m.name||"").toLowerCase().includes(q) || (m.phone||"").includes(q) || (m.email||"").toLowerCase().includes(q) || (m.city||"").toLowerCase().includes(q))) return false;
+    if (cmFilter.gender && m.gender !== cmFilter.gender) return false;
+    if (cmFilter.status && m.status !== cmFilter.status) return false;
+    if (cmFilter.membership_class && m.membership_class !== cmFilter.membership_class) return false;
+    if (cmFilter.marital && m.marital_status !== cmFilter.marital) return false;
+    return true;
+  });
+
+  const handleCmSave = async () => {
+    if (!cmForm.name.trim()) { showCmToast("⚠️ Full name is required."); return; }
+    setCmLoading(true);
+    if (cmEditId) { await updateChurchMember(cmEditId, cmForm); showCmToast("✅ Member updated!"); }
+    else          { await addChurchMember(cmForm);               showCmToast("✅ Member added!"); }
+    setCmForm(cmBlank); setCmEditId(null); setShowCmForm(false); setCmLoading(false);
+  };
+
+  const exportChurchMembers = () => {
+    if (!churchMembers.length) return;
+    const rows = filteredCm.map(m => ({
+      Name: m.name, Gender: m.gender, "Date of Birth": m.dob, "Marital Status": m.marital_status,
+      Phone: m.phone, Email: m.email, Address: m.address, City: m.city, Region: m.region,
+      Nationality: m.nationality, Education: m.education_level, Occupation: m.occupation,
+      Workplace: m.workplace, "Membership Class": m.membership_class,
+      "Membership Date": m.membership_date, "Baptism Date": m.baptism_date,
+      "Baptism Type": m.baptism_type, Confirmed: m.confirmed,
+      "Confirmation Date": m.confirmation_date, "Ministry Role": m.ministry_role,
+      "Small Group": m.small_group, "Emergency Contact": m.emergency_contact_name,
+      "Emergency Phone": m.emergency_contact_phone, "Health Notes": m.health_notes,
+      Status: m.status, Notes: m.notes,
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Church Members");
+    XLSX.writeFile(wb, `Church_Members_${new Date().toISOString().slice(0,10)}.xlsx`);
+  };
+
   return (
     <div>
       {/* Save toast */}
@@ -5139,24 +5237,66 @@ const ChurchAttendancePage = ({ db, user }) => {
           {saveToast}
         </div>
       )}
+      {cmToast && (
+        <div style={{ position:"fixed", top:24, right:24, zIndex:9999,
+          background: cmToast.startsWith("✅") ? "#0A7A45" : "#C87A0A",
+          color:"#fff", padding:"12px 20px", borderRadius:10,
+          fontFamily:FF, fontSize:14, fontWeight:600,
+          boxShadow:"0 4px 20px rgba(0,0,0,0.35)", maxWidth:380 }}>
+          {cmToast}
+        </div>
+      )}
+
       {/* Header */}
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:24 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:16 }}>
         <div>
-          <div style={{ fontSize:23, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif", marginBottom:3 }}>
+          <div style={{ fontSize:23, fontWeight:700, color:t.gold, fontFamily:GF, marginBottom:3 }}>
             ✝ Church Attendance
           </div>
-          <div style={{ fontSize:13, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}>
-            Main church service attendance records — {churchRecs.length} entries
+          <div style={{ fontSize:13, color:t.textMuted, fontFamily:FF }}>
+            {mainTab==="attendance"
+              ? `Main church service attendance records — ${churchRecs.length} entries`
+              : `Church member registry — ${(churchMembers||[]).length} members`}
           </div>
         </div>
-        {!showForm && (
-          <button style={btnGold} onClick={()=>setShowForm(true)}>
-            <span style={{ display:"flex", alignItems:"center", gap:7 }}>
-              <Icon name="plus" size={16} color="#0B1628" /> Record Attendance
-            </span>
-          </button>
-        )}
+        <div style={{ display:"flex", gap:8 }}>
+          {mainTab==="attendance" && !showForm && (
+            <button style={btnGold} onClick={()=>setShowForm(true)}>
+              <span style={{ display:"flex", alignItems:"center", gap:7 }}>
+                <Icon name="plus" size={16} color="#0B1628" /> Record Attendance
+              </span>
+            </button>
+          )}
+          {mainTab==="members" && (churchMembers||[]).length > 0 && (
+            <button style={{ ...btnOutline, padding:"8px 16px", fontSize:13 }} onClick={exportChurchMembers}>
+              <span style={{ display:"flex", alignItems:"center", gap:6 }}><Icon name="export" size={14} color={t.gold}/> Export</span>
+            </button>
+          )}
+          {mainTab==="members" && !showCmForm && (
+            <button style={btnGold} onClick={()=>setShowCmForm(true)}>
+              <span style={{ display:"flex", alignItems:"center", gap:7 }}>
+                <Icon name="plus" size={16} color="#0B1628" /> Add Member
+              </span>
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Tab bar */}
+      <div style={{ display:"flex", gap:0, marginBottom:22, borderBottom:`1px solid ${t.border}` }}>
+        {[{k:"attendance",label:"📋 Attendance Records"},{k:"members",label:"👥 Church Members"}].map(({k,label}) => (
+          <button key={k} onClick={()=>{setMainTab(k);setShowForm(false);setShowCmForm(false);}} style={{
+            padding:"10px 24px", background:"transparent", border:"none",
+            borderBottom: mainTab===k ? `2px solid ${t.gold}` : "2px solid transparent",
+            color: mainTab===k ? t.gold : t.textMuted,
+            fontFamily:FF, fontSize:13, fontWeight: mainTab===k ? 700 : 400,
+            cursor:"pointer", transition:"all .18s", marginBottom:-1,
+          }}>{label}</button>
+        ))}
+      </div>
+
+      {/* ══ ATTENDANCE TAB ══════════════════════════════════════ */}
+      {mainTab==="attendance" && (<div>
 
       {/* KPI Row */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:14, marginBottom:24 }}>
@@ -5335,72 +5475,6 @@ const ChurchAttendancePage = ({ db, user }) => {
             </div>
           </div>
 
-          {/* ── CHURCH MEMBERS ── */}
-          <div style={{ border:`2px solid ${t.gold}44`, borderRadius:14, padding:18, marginBottom:20, background:t.surfaceAlt }}>
-            <div style={{ fontSize:11, fontWeight:700, color:t.gold, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1.5, marginBottom:16, display:"flex", alignItems:"center", gap:8 }}>
-              <span style={{fontSize:16}}>👥</span> Church Members
-            </div>
-
-            {/* Attendance counts */}
-            <div style={{ fontSize:11, fontWeight:600, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1, marginBottom:10 }}>Membership Attendance</div>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:14, marginBottom:18 }}>
-              <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-                <label style={lbl}>Male Members Present</label>
-                <input style={inp} type="number" min="0" name="members_male" value={form.members_male} onChange={handleChange} placeholder="0"/>
-              </div>
-              <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-                <label style={lbl}>Female Members Present</label>
-                <input style={inp} type="number" min="0" name="members_female" value={form.members_female} onChange={handleChange} placeholder="0"/>
-              </div>
-              <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-                <label style={{ ...lbl, color:t.gold }}>Total Members Present</label>
-                <input style={{ ...inp, background:t.gold+"11", fontWeight:700, color:t.gold }}
-                  type="number" min="0" name="members_total" value={form.members_total} onChange={handleChange} placeholder="Auto or enter"/>
-              </div>
-            </div>
-
-            {/* Member movement */}
-            <div style={{ fontSize:11, fontWeight:600, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1, marginBottom:10 }}>Member Movement</div>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:18 }}>
-              <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-                <label style={lbl}>🆕 New Members</label>
-                <input style={inp} type="number" min="0" name="new_members" value={form.new_members} onChange={handleChange} placeholder="0"/>
-              </div>
-              <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-                <label style={lbl}>🔄 Restored Members</label>
-                <input style={inp} type="number" min="0" name="restored_members" value={form.restored_members} onChange={handleChange} placeholder="0"/>
-              </div>
-              <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-                <label style={lbl}>➡️ Transferred In</label>
-                <input style={inp} type="number" min="0" name="transferred_in" value={form.transferred_in} onChange={handleChange} placeholder="0"/>
-              </div>
-              <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-                <label style={lbl}>⬅️ Transferred Out</label>
-                <input style={inp} type="number" min="0" name="transferred_out" value={form.transferred_out} onChange={handleChange} placeholder="0"/>
-              </div>
-            </div>
-
-            {/* Welfare */}
-            <div style={{ fontSize:11, fontWeight:600, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1, marginBottom:10 }}>Welfare & Absentees</div>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:14, marginBottom:14 }}>
-              <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-                <label style={lbl}>😔 Absent</label>
-                <input style={inp} type="number" min="0" name="members_absent" value={form.members_absent} onChange={handleChange} placeholder="0"/>
-              </div>
-              <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-                <label style={lbl}>🏥 Sick / Hospitalized</label>
-                <input style={inp} type="number" min="0" name="members_sick" value={form.members_sick} onChange={handleChange} placeholder="0"/>
-              </div>
-              <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-                <label style={lbl}>🕊️ Bereaved</label>
-                <input style={inp} type="number" min="0" name="members_bereaved" value={form.members_bereaved} onChange={handleChange} placeholder="0"/>
-              </div>
-            </div>
-            <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-              <label style={lbl}>📝 Members Notes</label>
-              <textarea style={{ ...inp, minHeight:60, resize:"vertical" }} name="members_notes" value={form.members_notes} onChange={handleChange} placeholder="Any notable membership updates, names of sick/absent members, etc."/>
-            </div>
-          </div>
 
           <div style={{ display:"flex", gap:10 }}>
             <button style={{ ...btnGold, padding:"12px 32px" }} onClick={handleSave} disabled={loading}>
@@ -5589,6 +5663,253 @@ const ChurchAttendancePage = ({ db, user }) => {
           </tbody>
         </table>
       </div>
+    </div>)} {/* end attendance tab */}
+
+      {/* ══ MEMBERS TAB ══════════════════════════════════════ */}
+      {mainTab==="members" && (<div>
+
+        {/* Add/Edit Member Form */}
+        {showCmForm && (
+          <div style={{ ...card, marginBottom:24, padding:24 }}>
+            <div style={{ fontSize:16, fontWeight:700, color:t.gold, fontFamily:GF, marginBottom:18 }}>
+              {cmEditId ? "✏️ Edit Member" : "➕ Add Church Member"}
+            </div>
+
+            {/* Personal Info */}
+            <div style={{ border:`1px solid ${t.border}`, borderRadius:12, padding:16, marginBottom:16, background:t.surfaceAlt }}>
+              <div style={{ fontSize:11, fontWeight:700, color:t.gold, fontFamily:FF, textTransform:"uppercase", letterSpacing:1.4, marginBottom:14 }}>👤 Personal Information</div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+                <div style={{ gridColumn:"1/-1", display:"flex", flexDirection:"column", gap:5 }}>
+                  <label style={lbl}>Full Name *</label>
+                  <input style={inp} name="name" value={cmForm.name} onChange={handleCmChange} placeholder="Full name"/>
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                  <label style={lbl}>Gender</label>
+                  <select style={sel} name="gender" value={cmForm.gender} onChange={handleCmChange}>
+                    <option value="">Select</option>
+                    {["Male","Female"].map(o=><option key={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                  <label style={lbl}>Date of Birth</label>
+                  <input style={inp} type="date" name="dob" value={cmForm.dob} onChange={handleCmChange}/>
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                  <label style={lbl}>Marital Status</label>
+                  <select style={sel} name="marital_status" value={cmForm.marital_status} onChange={handleCmChange}>
+                    <option value="">Select</option>
+                    {["Single","Married","Divorced","Widowed","Other"].map(o=><option key={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                  <label style={lbl}>Nationality</label>
+                  <input style={inp} name="nationality" value={cmForm.nationality} onChange={handleCmChange} placeholder="e.g. Ghanaian"/>
+                </div>
+              </div>
+            </div>
+
+            {/* Contact Info */}
+            <div style={{ border:`1px solid ${t.border}`, borderRadius:12, padding:16, marginBottom:16, background:t.surfaceAlt }}>
+              <div style={{ fontSize:11, fontWeight:700, color:t.gold, fontFamily:FF, textTransform:"uppercase", letterSpacing:1.4, marginBottom:14 }}>📞 Contact & Location</div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                  <label style={lbl}>Phone</label>
+                  <input style={inp} name="phone" value={cmForm.phone} onChange={handleCmChange} placeholder="0XX XXX XXXX"/>
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                  <label style={lbl}>Email</label>
+                  <input style={inp} type="email" name="email" value={cmForm.email} onChange={handleCmChange} placeholder="email@example.com"/>
+                </div>
+                <div style={{ gridColumn:"1/-1", display:"flex", flexDirection:"column", gap:5 }}>
+                  <label style={lbl}>Home Address</label>
+                  <input style={inp} name="address" value={cmForm.address} onChange={handleCmChange} placeholder="Street address"/>
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                  <label style={lbl}>City / Town</label>
+                  <input style={inp} name="city" value={cmForm.city} onChange={handleCmChange} placeholder="e.g. Accra"/>
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                  <label style={lbl}>Region</label>
+                  <input style={inp} name="region" value={cmForm.region} onChange={handleCmChange} placeholder="e.g. Greater Accra"/>
+                </div>
+              </div>
+            </div>
+
+            {/* Education & Work */}
+            <div style={{ border:`1px solid ${t.border}`, borderRadius:12, padding:16, marginBottom:16, background:t.surfaceAlt }}>
+              <div style={{ fontSize:11, fontWeight:700, color:t.gold, fontFamily:FF, textTransform:"uppercase", letterSpacing:1.4, marginBottom:14 }}>🎓 Education & Occupation</div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                  <label style={lbl}>Education Level</label>
+                  <select style={sel} name="education_level" value={cmForm.education_level} onChange={handleCmChange}>
+                    <option value="">Select</option>
+                    {["Primary","JHS","SHS","Diploma","HND","Degree","Masters","PhD","Other"].map(o=><option key={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                  <label style={lbl}>Occupation</label>
+                  <input style={inp} name="occupation" value={cmForm.occupation} onChange={handleCmChange} placeholder="e.g. Teacher, Nurse"/>
+                </div>
+                <div style={{ gridColumn:"1/-1", display:"flex", flexDirection:"column", gap:5 }}>
+                  <label style={lbl}>Workplace / Employer</label>
+                  <input style={inp} name="workplace" value={cmForm.workplace} onChange={handleCmChange} placeholder="Company or school name"/>
+                </div>
+              </div>
+            </div>
+
+            {/* Church Info */}
+            <div style={{ border:`1px solid ${t.border}`, borderRadius:12, padding:16, marginBottom:16, background:t.surfaceAlt }}>
+              <div style={{ fontSize:11, fontWeight:700, color:t.gold, fontFamily:FF, textTransform:"uppercase", letterSpacing:1.4, marginBottom:14 }}>✝ Church Membership</div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                  <label style={lbl}>Membership Class</label>
+                  <select style={sel} name="membership_class" value={cmForm.membership_class} onChange={handleCmChange}>
+                    {["Member","Associate Member","Visitor","Deacon","Deaconess","Elder","Trustee","Minister","Usher","Choir"].map(o=><option key={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                  <label style={lbl}>Membership Date</label>
+                  <input style={inp} type="date" name="membership_date" value={cmForm.membership_date} onChange={handleCmChange}/>
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                  <label style={lbl}>Baptism Date</label>
+                  <input style={inp} type="date" name="baptism_date" value={cmForm.baptism_date} onChange={handleCmChange}/>
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                  <label style={lbl}>Baptism Type</label>
+                  <select style={sel} name="baptism_type" value={cmForm.baptism_type} onChange={handleCmChange}>
+                    <option value="">Select</option>
+                    {["Immersion","Sprinkling","Pouring","Not Yet Baptised"].map(o=><option key={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                  <label style={lbl}>Confirmed</label>
+                  <select style={sel} name="confirmed" value={cmForm.confirmed} onChange={handleCmChange}>
+                    {["Yes","No"].map(o=><option key={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                  <label style={lbl}>Confirmation Date</label>
+                  <input style={inp} type="date" name="confirmation_date" value={cmForm.confirmation_date} onChange={handleCmChange}/>
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                  <label style={lbl}>Ministry Role / Department</label>
+                  <input style={inp} name="ministry_role" value={cmForm.ministry_role} onChange={handleCmChange} placeholder="e.g. Choir, Ushering, Youth"/>
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                  <label style={lbl}>Small Group / Cell</label>
+                  <input style={inp} name="small_group" value={cmForm.small_group} onChange={handleCmChange} placeholder="Small group or cell name"/>
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                  <label style={lbl}>Status</label>
+                  <select style={sel} name="status" value={cmForm.status} onChange={handleCmChange}>
+                    {["Active","Inactive","Transferred","Deceased"].map(o=><option key={o}>{o}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Emergency & Notes */}
+            <div style={{ border:`1px solid ${t.border}`, borderRadius:12, padding:16, marginBottom:16, background:t.surfaceAlt }}>
+              <div style={{ fontSize:11, fontWeight:700, color:t.gold, fontFamily:FF, textTransform:"uppercase", letterSpacing:1.4, marginBottom:14 }}>🚨 Emergency Contact & Notes</div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                  <label style={lbl}>Emergency Contact Name</label>
+                  <input style={inp} name="emergency_contact_name" value={cmForm.emergency_contact_name} onChange={handleCmChange} placeholder="Next of kin name"/>
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                  <label style={lbl}>Emergency Contact Phone</label>
+                  <input style={inp} name="emergency_contact_phone" value={cmForm.emergency_contact_phone} onChange={handleCmChange} placeholder="0XX XXX XXXX"/>
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                  <label style={lbl}>Health Notes</label>
+                  <textarea style={{ ...inp, minHeight:50, resize:"vertical" }} name="health_notes" value={cmForm.health_notes} onChange={handleCmChange} placeholder="Any health considerations"/>
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                  <label style={lbl}>General Notes</label>
+                  <textarea style={{ ...inp, minHeight:50, resize:"vertical" }} name="notes" value={cmForm.notes} onChange={handleCmChange} placeholder="Any additional notes"/>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display:"flex", gap:10 }}>
+              <button style={{ ...btnGold, padding:"12px 32px" }} onClick={handleCmSave} disabled={cmLoading}>
+                {cmLoading ? "Saving…" : cmEditId ? "Save Changes" : "Add Member"}
+              </button>
+              <button style={{ ...btnOutline, padding:"12px 24px" }} onClick={()=>{ setCmForm(cmBlank); setCmEditId(null); setShowCmForm(false); }}>Cancel</button>
+            </div>
+          </div>
+        )}
+
+        {/* Filters */}
+        {!showCmForm && (
+          <div style={{ ...card, marginBottom:16, display:"flex", gap:10, flexWrap:"wrap", alignItems:"center" }}>
+            <input style={{ ...inp, maxWidth:200, padding:"7px 12px" }} placeholder="Search name, phone, city…" value={cmSearch} onChange={e=>setCmSearch(e.target.value)}/>
+            <select style={sel} value={cmFilter.gender} onChange={e=>setCmFilter(f=>({...f,gender:e.target.value}))}>
+              <option value="">All Genders</option>
+              {["Male","Female"].map(o=><option key={o}>{o}</option>)}
+            </select>
+            <select style={sel} value={cmFilter.status} onChange={e=>setCmFilter(f=>({...f,status:e.target.value}))}>
+              <option value="">All Statuses</option>
+              {["Active","Inactive","Transferred","Deceased"].map(o=><option key={o}>{o}</option>)}
+            </select>
+            <select style={sel} value={cmFilter.membership_class} onChange={e=>setCmFilter(f=>({...f,membership_class:e.target.value}))}>
+              <option value="">All Classes</option>
+              {["Member","Associate Member","Visitor","Deacon","Deaconess","Elder","Trustee","Minister","Usher","Choir"].map(o=><option key={o}>{o}</option>)}
+            </select>
+            <select style={sel} value={cmFilter.marital} onChange={e=>setCmFilter(f=>({...f,marital:e.target.value}))}>
+              <option value="">All Marital Status</option>
+              {["Single","Married","Divorced","Widowed","Other"].map(o=><option key={o}>{o}</option>)}
+            </select>
+            {(cmSearch||cmFilter.gender||cmFilter.status||cmFilter.membership_class||cmFilter.marital) && (
+              <button style={{ ...btnGhost, padding:"5px 12px", fontSize:12 }} onClick={()=>{setCmSearch("");setCmFilter({gender:"",status:"",membership_class:"",marital:""});}}>✕ Clear</button>
+            )}
+            <span style={{ fontSize:12, color:t.textMuted, fontFamily:FF, marginLeft:"auto" }}>{filteredCm.length} members</span>
+          </div>
+        )}
+
+        {/* Members Grid */}
+        {!showCmForm && (
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))", gap:14 }}>
+            {filteredCm.map(m => (
+              <div key={m.id} style={{ ...card, padding:18, cursor:"pointer", transition:"box-shadow .15s" }}
+                onClick={()=>setViewMember(viewMember?.id===m.id ? null : m)}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
+                  <div style={{ width:42, height:42, borderRadius:"50%", background:t.gold+"22", border:`2px solid ${t.gold}44`,
+                    display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>
+                    {m.gender==="Female" ? "👩" : "👨"}
+                  </div>
+                  <span style={{ padding:"3px 10px", borderRadius:20, fontSize:10, fontWeight:700,
+                    background: m.status==="Active" ? t.success+"22" : t.danger+"22",
+                    color: m.status==="Active" ? t.success : t.danger, fontFamily:FF }}>
+                    {m.status||"Active"}
+                  </span>
+                </div>
+                <div style={{ fontSize:15, fontWeight:700, color:t.text, fontFamily:GF, marginBottom:3 }}>{m.name}</div>
+                <div style={{ fontSize:12, color:t.gold, fontFamily:FF, marginBottom:6 }}>{m.membership_class||"Member"}</div>
+                {m.phone && <div style={{ fontSize:12, color:t.textMuted, fontFamily:FF }}>📞 {m.phone}</div>}
+                {m.city && <div style={{ fontSize:12, color:t.textMuted, fontFamily:FF }}>📍 {m.city}{m.region ? `, ${m.region}` : ""}</div>}
+                {m.ministry_role && <div style={{ fontSize:11, color:t.info, fontFamily:FF, marginTop:4 }}>⛪ {m.ministry_role}</div>}
+                {viewMember?.id===m.id && (
+                  <div style={{ marginTop:12, paddingTop:12, borderTop:`1px solid ${t.border}`, display:"flex", gap:8 }}>
+                    <button style={{ ...btnGold, padding:"6px 14px", fontSize:12 }} onClick={e=>{e.stopPropagation();setCmForm({...cmBlank,...m});setCmEditId(m.id);setShowCmForm(true);setViewMember(null);}}>
+                      ✏️ Edit
+                    </button>
+                    <button style={{ ...btnOutline, padding:"6px 14px", fontSize:12, borderColor:t.danger, color:t.danger }} onClick={e=>{e.stopPropagation();if(window.confirm(`Delete ${m.name}?`)){deleteChurchMember(m.id);setViewMember(null);}}}>
+                      🗑️ Delete
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+            {filteredCm.length === 0 && (
+              <div style={{ gridColumn:"1/-1", textAlign:"center", padding:52, color:t.textMuted, fontFamily:FF, fontSize:13 }}>
+                {(churchMembers||[]).length === 0 ? "No members yet. Click 'Add Member' to get started." : "No members match the filters."}
+              </div>
+            )}
+          </div>
+        )}
+      </div>)} {/* end members tab */}
     </div>
   );
 };
