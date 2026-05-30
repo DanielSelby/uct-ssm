@@ -6423,7 +6423,7 @@ const SSReportPage = ({ db }) => {
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:20, flexWrap:"wrap", gap:12 }}>
         <div>
           <div style={{ fontSize:23, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif", marginBottom:3 }}>
-            SS Comparison Report
+            Sunday School Report - Curr. Vs Prev Compare
           </div>
           <div style={{ fontSize:13, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}>
             Current session vs previous session · auto-updates when new reports are submitted
