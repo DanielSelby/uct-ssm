@@ -288,7 +288,7 @@ const ALL_PERMISSIONS = [
   { key:"export",     label:"Export Center",        group:"Navigation" },
   { key:"submit",     label:"Submit SS Report",     group:"Navigation" },
   { key:"ssreport",   label:"SS Report Viewer",     group:"Navigation" },
-  { key:"lessons",    label:"Lesson Register",      group:"Navigation" },
+  { key:"lessons",    label:"Sunday School Lesson Records",      group:"Navigation" },
   { key:"ai",         label:"AI Assistant",         group:"Navigation" },
   { key:"approve_records",  label:"Approve / Reject Records",   group:"Actions" },
   { key:"delete_records",   label:"Delete Records",              group:"Actions" },
@@ -2301,7 +2301,7 @@ const AttendancePage = ({ db, user, onEditRecord }) => {
   return (
     <div>
       {/* Page title */}
-      <div style={{ fontSize:23, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif", marginBottom:3 }}>Sunday School Data (Records)</div>
+      <div style={{ fontSize:23, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif", marginBottom:3 }}>Sunday School Register</div>
       <div style={{ fontSize:13, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:18 }}>
         {records.length} total records · {sorted.length} shown
       </div>
@@ -3024,10 +3024,10 @@ const ExportPage = ({ db }) => {
         <div style={{ fontSize:14, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif", marginBottom:14 }}>Database Summary</div>
         <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
           {[
-            { label:"Sunday School Data (Records)",      count:records.length,    color:t.gold },
+            { label:"Sunday School Register",      count:records.length,    color:t.gold },
             { label:"Church Records",  count:churchRecs.length, color:"#E67E22" },
             { label:"Teachers",        count:teachers.length,   color:t.info },
-            { label:"Classes (SS)",     count:classes.length,    color:t.success },
+            { label:"Sunday School Classes",     count:classes.length,    color:t.success },
             { label:"Programs",        count:programs.length,   color:"#9B59B6" },
           ].map(s=>(
             <div key={s.label} style={{ padding:"10px 16px", borderRadius:10, border:`1px solid ${s.color}33`, background:s.color+"0D" }}>
@@ -4722,7 +4722,7 @@ const ClassesPage = ({ db }) => {
       {/* Header */}
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20,flexWrap:"wrap",gap:10}}>
         <div>
-          <div style={{fontSize:23,fontWeight:700,color:t.gold,fontFamily:GF,marginBottom:3}}>Classes (SS)</div>
+          <div style={{fontSize:23,fontWeight:700,color:t.gold,fontFamily:GF,marginBottom:3}}>Sunday School Classes</div>
           <div style={{fontSize:13,color:t.textMuted,fontFamily:FF}}>{classes.length} classes · {teachers.filter(t2=>t2.is_active==="YES").length} active teachers · {records.length} total records</div>
         </div>
         <div style={{display:"flex",gap:8}}>
@@ -6468,7 +6468,7 @@ const SSReportPage = ({ db }) => {
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:20, flexWrap:"wrap", gap:12 }}>
         <div>
           <div style={{ fontSize:23, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif", marginBottom:3 }}>
-            Sunday School Report - Curr. Vs Prev Compare
+            Sunday School Comparative Report
           </div>
           <div style={{ fontSize:13, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}>
             Current session vs previous session · auto-updates when new reports are submitted
@@ -7134,7 +7134,7 @@ const AllLessonsModal = ({ lessons, onClose, deleteLesson, startEdit }) => {
     const teachers = [...new Set(rows.map(r=>r.teacher_name).filter(Boolean))];
     const totalMins = rows.reduce((s,r)=>s+(Number(r.duration_mins)||0),0);
     const summary = [
-      ["UCT Lesson Register Export"],
+      ["UCT Sunday School Lesson Records Export"],
       ["Exported on", new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})],
       ["Filter", label],
       [""],
@@ -7491,7 +7491,7 @@ const LessonsPage = ({ db, user }) => {
 
     // ── Instructions sheet ────────────────────────────────────
     const instr = [
-      ["UCT Sunday School — Lesson Register Import Template"],
+      ["UCT Sunday School — Sunday School Lesson Records Import Template"],
       [""],
       ["INSTRUCTIONS:"],
       ["1. Go to the 'Lessons' sheet and fill in your lesson data starting from row 3."],
@@ -7609,7 +7609,7 @@ const LessonsPage = ({ db, user }) => {
     const teachers = [...new Set(rows.map(r=>r.teacher_name).filter(Boolean))];
     const totalMins = rows.reduce((s,r)=>s+(Number(r.duration_mins)||0),0);
     const summary = [
-      ["UCT Lesson Register Export"],
+      ["UCT Sunday School Lesson Records Export"],
       ["Exported on", new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})],
       ["Filter applied", label],
       [""],
@@ -7671,7 +7671,7 @@ const LessonsPage = ({ db, user }) => {
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:12, marginBottom:20 }}>
         <div>
           <div style={{ fontSize:23, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif", marginBottom:2 }}>
-            Lesson Register
+            SS - Lesson Records
           </div>
           <div style={{ fontSize:13, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}>
             {lessons.length} lessons recorded · {filtered.length} shown
@@ -8081,14 +8081,14 @@ const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => 
 
   const allAdminNav = [
     {id:"dashboard",  label:"Dashboard",      icon:"dashboard",  perm:"dashboard"},
-    {id:"attendance", label:"Sunday School Data (Records)", icon:"attendance", perm:"attendance"},
+    {id:"attendance", label:"Sunday School Register", icon:"attendance", perm:"attendance"},
     {id:"ssreport",   label:"Sunday Sch. Attend.", icon:"ssreport",   perm:"ssreport"},
     {id:"church",     label:"Church Attend.", icon:"cross",      perm:"church"},
     {id:"analytics",  label:"Analytics",      icon:"analytics",  perm:"analytics"},
     {id:"ai",         label:"AI Assistant",   icon:"ai",         perm:"ai"},
-    {id:"lessons",    label:"Lesson Register", icon:"lesson",     perm:"lessons"},
+    {id:"lessons",    label:"Sunday School Lesson Records", icon:"lesson",     perm:"lessons"},
     {id:"teachers",   label:"Teachers",       icon:"teachers",   perm:"teachers"},
-    {id:"classes",    label:"Classes (SS)",    icon:"classes",    perm:"classes"},
+    {id:"classes",    label:"Sunday School Classes",    icon:"classes",    perm:"classes"},
     {id:"programs",   label:"Programs",       icon:"settings",   perm:"programs"},
     {id:"youth",      label:"Youth Programs", icon:"users",      perm:"dashboard"},
     {id:"baptism",    label:"Baptism Records",icon:"cross",      perm:"dashboard"},
@@ -8104,7 +8104,7 @@ const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => 
     {id:"attendance", label:"My Records",     icon:"attendance", perm:"attendance"},
     {id:"analytics",  label:"Analytics",      icon:"analytics",  perm:"analytics"},
     {id:"ai",         label:"AI Assistant",   icon:"ai",         perm:"ai"},
-    {id:"lessons",    label:"Lesson Register", icon:"lesson",     perm:"lessons"},
+    {id:"lessons",    label:"Sunday School Lesson Records", icon:"lesson",     perm:"lessons"},
     {id:"export",     label:"Export",         icon:"export",     perm:"export"},
   ];
 
@@ -8368,14 +8368,14 @@ const MobileDrawer = ({ open, onClose, page, setPage, user, onLogout, db }) => {
 
   const allNav = isAdmin ? [
     {id:"dashboard",  label:"Dashboard",           icon:"dashboard"},
-    {id:"attendance", label:"Sunday School Data (Records)", icon:"attendance"},
+    {id:"attendance", label:"Sunday School Register", icon:"attendance"},
     {id:"ssreport",   label:"Sunday Sch. Attend.", icon:"ssreport"},
     {id:"church",     label:"Church Attend.",      icon:"cross"},
     {id:"analytics",  label:"Analytics",           icon:"analytics"},
     {id:"ai",         label:"AI Assistant",        icon:"ai"},
-    {id:"lessons",    label:"Lesson Register",     icon:"lesson"},
+    {id:"lessons",    label:"Sunday School Lesson Records",     icon:"lesson"},
     {id:"teachers",   label:"Teachers",            icon:"teachers"},
-    {id:"classes",    label:"Classes (SS)",        icon:"classes"},
+    {id:"classes",    label:"Sunday School Classes",        icon:"classes"},
     {id:"programs",   label:"Programs",            icon:"settings"},
     {id:"youth",      label:"Youth Programs",      icon:"users"},
     {id:"baptism",    label:"Baptism Records",     icon:"cross"},
@@ -8390,7 +8390,7 @@ const MobileDrawer = ({ open, onClose, page, setPage, user, onLogout, db }) => {
     {id:"attendance", label:"My Records",          icon:"attendance",perm:"attendance"},
     {id:"analytics",  label:"Analytics",           icon:"analytics", perm:"analytics"},
     {id:"ai",         label:"AI Assistant",        icon:"ai",        perm:"ai"},
-    {id:"lessons",    label:"Lesson Register",     icon:"lesson",    perm:"lessons"},
+    {id:"lessons",    label:"Sunday School Lesson Records",     icon:"lesson",    perm:"lessons"},
     {id:"export",     label:"Export",              icon:"export",    perm:"export"},
   ].filter(n => can(n.perm||n.id));
 
