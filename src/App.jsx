@@ -806,7 +806,7 @@ const useSupabaseDB = () => {
     setRecords(r => [newRec, ...r]);
     if (SUPABASE_READY) {
       try { await sbFetch("uct_records", { method:"POST", body:JSON.stringify(newRec) }); }
-      catch(e) { console.warn("SS record save failed (local kept):", e.message); }
+      catch(e) { console.error("SS record save failed (local kept):", e.message); alert("⚠️ DB save failed: " + e.message + " — check table [uct_records] exists in Supabase."); }
     }
     return newRec;
   }, []);
@@ -837,7 +837,7 @@ const useSupabaseDB = () => {
     setTeachers(t => [...t, newT].sort((a,b)=>a.name.localeCompare(b.name)));
     if (SUPABASE_READY) {
       try { await sbFetch("uct_teachers", { method:"POST", body:JSON.stringify(newT) }); }
-      catch(e) { console.warn("Teacher save failed (local kept):", e.message); }
+      catch(e) { console.error("Teacher save failed (local kept):", e.message); alert("⚠️ DB save failed: " + e.message + " — check table [uct_teachers] exists in Supabase."); }
     }
   }, []);
 
@@ -871,11 +871,15 @@ const useSupabaseDB = () => {
       ministered_by: data.ministered_by||"",
       song_leader: data.song_leader||"",
       available_ministers: data.available_ministers||"",
+      deacons_present: data.deacons_present||"",
+      trustees_present: data.trustees_present||"",
+      sunday_superintendents_present: data.sunday_superintendents_present||"",
+      ushers_present: data.ushers_present||"",
       created_at: new Date().toISOString() };
     setChurchRecs(c => [rec, ...c]);
     if (SUPABASE_READY) {
       try { await sbFetch("uct_church", { method:"POST", body:JSON.stringify(rec) }); }
-      catch(e) { console.warn("Church add failed (local kept):", e.message); }
+      catch(e) { console.error("Church add failed (local kept):", e.message); alert("⚠️ DB save failed: " + e.message + " — check table [uct_church] exists in Supabase."); }
     }
     return rec;
   }, []);
@@ -944,7 +948,7 @@ const useSupabaseDB = () => {
     setClasses(c => [...c, newC]);
     if (SUPABASE_READY) {
       try { await sbFetch("uct_classes", { method:"POST", body:JSON.stringify(newC) }); }
-      catch(e) { console.warn("Class add failed (local kept):", e.message); }
+      catch(e) { console.error("Class add failed (local kept):", e.message); alert("⚠️ DB save failed: " + e.message + " — check table [uct_classes] exists in Supabase."); }
     }
     return newC;
   }, []);
@@ -977,7 +981,7 @@ const useSupabaseDB = () => {
     setYouthRecs(p => [rec, ...p]);
     if (SUPABASE_READY) {
       try { await sbFetch("uct_youth", { method:"POST", body:JSON.stringify(rec) }); }
-      catch(e) { console.warn("Youth rec save failed:", e.message); }
+      catch(e) { console.error("Youth rec save failed:", e.message); alert("⚠️ DB save failed: " + e.message + " — check table [uct_youth] exists in Supabase."); }
     }
     return rec;
   }, []);
@@ -1004,7 +1008,7 @@ const useSupabaseDB = () => {
     setYouthMembers(p => [rec, ...p]);
     if (SUPABASE_READY) {
       try { await sbFetch("uct_youth_members", { method:"POST", body:JSON.stringify(rec) }); }
-      catch(e) { console.warn("Youth member save failed:", e.message); }
+      catch(e) { console.error("Youth member save failed:", e.message); alert("⚠️ DB save failed: " + e.message + " — check table [uct_youth_members] exists in Supabase."); }
     }
     return rec;
   }, []);
@@ -1031,7 +1035,7 @@ const useSupabaseDB = () => {
     setBaptismRecs(p => [rec, ...p]);
     if (SUPABASE_READY) {
       try { await sbFetch("uct_baptism", { method:"POST", body:JSON.stringify(rec) }); }
-      catch(e) { console.warn("Baptism save failed:", e.message); }
+      catch(e) { console.error("Baptism save failed:", e.message); alert("⚠️ DB save failed: " + e.message + " — check table [uct_baptism] exists in Supabase."); }
     }
     return rec;
   }, []);
