@@ -643,10 +643,20 @@ const useUsers = () => {
 
     if (SUPABASE_READY) {
       const changed = updated.find(u => u.id === id);
+      // Only send columns that exist in uct_users table
+      const patch = {
+        name:           changed.name,
+        email:          changed.email,
+        role:           changed.role,
+        is_active:      changed.is_active,
+        assigned_class: changed.assigned_class,
+        permissions:    changed.permissions,
+      };
+      if (updates.password?.trim()) patch.password = changed.password;
       try {
         await sbFetch(`uct_users?id=eq.${id}`, {
           method: "PATCH",
-          body:   JSON.stringify(changed),
+          body:   JSON.stringify(patch),
         });
       } catch(e) { alert(`Update failed: ${e.message}`); return; }
     }
@@ -6601,13 +6611,13 @@ const UsersPage = ({ users: userHook, db }) => {
     );
   };
 
-  const handleSave = (form) => {
+  const handleSave = async (form) => {
     if (modal === "add") {
-      const result = addUser(form);
+      const result = await addUser(form);
       if (result?.error) { alert(result.error); return; }
       alert(`✓ User created!\n\nLogin details:\nEmail: ${form.email.toLowerCase().trim()}\nPassword: ${form.password.trim()}`);
     } else {
-      updateUser(modal.id, form);
+      await updateUser(modal.id, form);
       const pwMsg = form.password?.trim()
         ? `\nPassword changed to: ${form.password.trim()}`
         : "\nPassword: unchanged";
