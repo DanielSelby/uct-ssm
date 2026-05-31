@@ -2087,6 +2087,111 @@ const DashboardPage = ({ db }) => {
 };
 
 // ─── SUBMIT PAGE ──────────────────────────────────────────────────────────────
+// ─── BULK ROW CARD (outside SubmitPage to prevent focus-loss on re-render) ────
+const BulkRowCard = ({ row, idx, t, lbl, inp, sel, card, GF, FF, toggleExpand, updateBulkRow, activeTeachers }) => {
+  const filled = row.topic.trim() || row.total_closing || row.total_beginning;
+  return (
+    <div style={{ ...card, padding:0, border:`1px solid ${filled ? t.gold+"55" : t.border}`,
+      borderLeft:`4px solid ${filled ? t.gold : t.border}`, marginBottom:10 }}>
+      <div style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 16px",
+        cursor:"pointer", justifyContent:"space-between" }} onClick={() => toggleExpand(idx)}>
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          <span style={{ fontSize:15, fontWeight:700, color:t.text, fontFamily:GF }}>{row.class_name}</span>
+          {filled && <span style={{ fontSize:10, padding:"2px 8px", borderRadius:12,
+            background:t.gold+"22", color:t.gold, fontFamily:FF, fontWeight:700 }}>✓ Data entered</span>}
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+          {row.total_closing && <span style={{ fontSize:12, color:t.success, fontFamily:FF }}>👥 {row.total_closing}</span>}
+          {row.topic && <span style={{ fontSize:12, color:t.textMuted, fontFamily:FF, maxWidth:150,
+            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>📖 {row.topic}</span>}
+          <span style={{ fontSize:16, color:t.textMuted }}>{row._expanded ? "▲" : "▼"}</span>
+        </div>
+      </div>
+      {row._expanded && (
+        <div style={{ padding:"0 16px 16px", borderTop:`1px solid ${t.border}` }}>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginTop:14, marginBottom:14 }}>
+            <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+              <label style={{ ...lbl, fontSize:11 }}>Teacher</label>
+              <select style={{ ...sel, fontSize:12 }} value={row.teacher_name}
+                onChange={e => updateBulkRow(idx,"teacher_name",e.target.value)}>
+                <option value="">Select…</option>
+                {activeTeachers.map(x => <option key={x.name} value={x.name}>{x.name}</option>)}
+              </select>
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+              <label style={{ ...lbl, fontSize:11 }}>Assistant Teacher</label>
+              <select style={{ ...sel, fontSize:12 }} value={row.assistant_teacher}
+                onChange={e => updateBulkRow(idx,"assistant_teacher",e.target.value)}>
+                <option value="">None</option>
+                {activeTeachers.map(x => <option key={x.name} value={x.name}>{x.name}</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={{ fontSize:11, fontWeight:700, color:t.gold, fontFamily:FF, textTransform:"uppercase", letterSpacing:1.2, marginBottom:8 }}>Attendance</div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:8, marginBottom:14 }}>
+            {[["total_beginning","Begin"],["total_closing","Closing"],["male_present","Male"],
+              ["female_present","Female"],["first_timers","1st Timers"],["visitors","Visitors"],["absent_members","Absent"]].map(([k,label])=>(
+              <div key={k} style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                <label style={{ fontSize:10, color:t.textMuted, fontFamily:FF }}>{label}</label>
+                <input style={{ ...inp, fontSize:12, padding:"5px 8px" }} type="number" value={row[k]}
+                  onChange={e => updateBulkRow(idx,k,e.target.value)} placeholder="0"/>
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize:11, fontWeight:700, color:t.gold, fontFamily:FF, textTransform:"uppercase", letterSpacing:1.2, marginBottom:8 }}>Bibles</div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8, marginBottom:14 }}>
+            {[["bibles_beginning","Begin"],["bibles_closing","Closing"],["members_without_bibles","Without"]].map(([k,label])=>(
+              <div key={k} style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                <label style={{ fontSize:10, color:t.textMuted, fontFamily:FF }}>{label}</label>
+                <input style={{ ...inp, fontSize:12, padding:"5px 8px" }} type="number" value={row[k]}
+                  onChange={e => updateBulkRow(idx,k,e.target.value)} placeholder="0"/>
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize:11, fontWeight:700, color:t.gold, fontFamily:FF, textTransform:"uppercase", letterSpacing:1.2, marginBottom:8 }}>Lesson</div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
+            <div style={{ display:"flex", flexDirection:"column", gap:3, gridColumn:"1/-1" }}>
+              <label style={{ fontSize:10, color:t.textMuted, fontFamily:FF }}>Topic *</label>
+              <input style={{ ...inp, fontSize:12 }} value={row.topic}
+                onChange={e => updateBulkRow(idx,"topic",e.target.value)} placeholder="Lesson topic"/>
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+              <label style={{ fontSize:10, color:t.textMuted, fontFamily:FF }}>Bible References</label>
+              <input style={{ ...inp, fontSize:12 }} value={row.bible_references}
+                onChange={e => updateBulkRow(idx,"bible_references",e.target.value)} placeholder="e.g. John 3:16"/>
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+              <label style={{ fontSize:10, color:t.textMuted, fontFamily:FF }}>Memory Verse</label>
+              <input style={{ ...inp, fontSize:12 }} value={row.memory_verse}
+                onChange={e => updateBulkRow(idx,"memory_verse",e.target.value)} placeholder="Memory verse"/>
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:3, gridColumn:"1/-1" }}>
+              <label style={{ fontSize:10, color:t.textMuted, fontFamily:FF }}>Key Notes</label>
+              <textarea style={{ ...inp, fontSize:12, minHeight:52, resize:"vertical" }} value={row.key_notes}
+                onChange={e => updateBulkRow(idx,"key_notes",e.target.value)} placeholder="Summary notes"/>
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+              <label style={{ fontSize:10, color:t.textMuted, fontFamily:FF }}>Teachers Present</label>
+              <input style={{ ...inp, fontSize:12 }} type="number" value={row.teachers_present}
+                onChange={e => updateBulkRow(idx,"teachers_present",e.target.value)} placeholder="0"/>
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+              <label style={{ fontSize:10, color:t.textMuted, fontFamily:FF }}>Teacher Names</label>
+              <input style={{ ...inp, fontSize:12 }} value={row.teacher_names}
+                onChange={e => updateBulkRow(idx,"teacher_names",e.target.value)} placeholder="Names"/>
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:3, gridColumn:"1/-1" }}>
+              <label style={{ fontSize:10, color:t.textMuted, fontFamily:FF }}>Prayer Requests / Announcements</label>
+              <textarea style={{ ...inp, fontSize:12, minHeight:45, resize:"vertical" }} value={row.prayer_requests}
+                onChange={e => updateBulkRow(idx,"prayer_requests",e.target.value)} placeholder="Prayer requests or announcements"/>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit }) => {
   const { t, inp, sel, lbl, btnGold, btnOutline, btnGhost, card } = useThemeStyles();
   const { teachers, classes, addRecord, updateRecord } = db;
@@ -2208,109 +2313,7 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
     borderTop:`1px solid ${t.border}`, marginTop:16 };
 
   // ── Bulk row sub-component (no hooks inside — pure render) ─
-  const BulkRowCard = ({ row, idx }) => {
-    const filled = row.topic.trim() || row.total_closing || row.total_beginning;
-    return (
-      <div style={{ ...card, padding:0, border:`1px solid ${filled ? t.gold+"55" : t.border}`,
-        borderLeft:`4px solid ${filled ? t.gold : t.border}`, marginBottom:10 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 16px",
-          cursor:"pointer", justifyContent:"space-between" }} onClick={() => toggleExpand(idx)}>
-          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-            <span style={{ fontSize:15, fontWeight:700, color:t.text, fontFamily:GF }}>{row.class_name}</span>
-            {filled && <span style={{ fontSize:10, padding:"2px 8px", borderRadius:12,
-              background:t.gold+"22", color:t.gold, fontFamily:FF, fontWeight:700 }}>✓ Data entered</span>}
-          </div>
-          <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-            {row.total_closing && <span style={{ fontSize:12, color:t.success, fontFamily:FF }}>👥 {row.total_closing}</span>}
-            {row.topic && <span style={{ fontSize:12, color:t.textMuted, fontFamily:FF, maxWidth:150,
-              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>📖 {row.topic}</span>}
-            <span style={{ fontSize:16, color:t.textMuted }}>{row._expanded ? "▲" : "▼"}</span>
-          </div>
-        </div>
-        {row._expanded && (
-          <div style={{ padding:"0 16px 16px", borderTop:`1px solid ${t.border}` }}>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginTop:14, marginBottom:14 }}>
-              <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-                <label style={{ ...lbl, fontSize:11 }}>Teacher</label>
-                <select style={{ ...sel, fontSize:12 }} value={row.teacher_name}
-                  onChange={e => updateBulkRow(idx,"teacher_name",e.target.value)}>
-                  <option value="">Select…</option>
-                  {activeTeachers.map(x => <option key={x.name} value={x.name}>{x.name}</option>)}
-                </select>
-              </div>
-              <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-                <label style={{ ...lbl, fontSize:11 }}>Assistant Teacher</label>
-                <select style={{ ...sel, fontSize:12 }} value={row.assistant_teacher}
-                  onChange={e => updateBulkRow(idx,"assistant_teacher",e.target.value)}>
-                  <option value="">None</option>
-                  {activeTeachers.map(x => <option key={x.name} value={x.name}>{x.name}</option>)}
-                </select>
-              </div>
-            </div>
-            <div style={{ fontSize:11, fontWeight:700, color:t.gold, fontFamily:FF, textTransform:"uppercase", letterSpacing:1.2, marginBottom:8 }}>Attendance</div>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:8, marginBottom:14 }}>
-              {[["total_beginning","Begin"],["total_closing","Closing"],["male_present","Male"],
-                ["female_present","Female"],["first_timers","1st Timers"],["visitors","Visitors"],["absent_members","Absent"]].map(([k,label])=>(
-                <div key={k} style={{ display:"flex", flexDirection:"column", gap:3 }}>
-                  <label style={{ fontSize:10, color:t.textMuted, fontFamily:FF }}>{label}</label>
-                  <input style={{ ...inp, fontSize:12, padding:"5px 8px" }} type="number" value={row[k]}
-                    onChange={e => updateBulkRow(idx,k,e.target.value)} placeholder="0"/>
-                </div>
-              ))}
-            </div>
-            <div style={{ fontSize:11, fontWeight:700, color:t.gold, fontFamily:FF, textTransform:"uppercase", letterSpacing:1.2, marginBottom:8 }}>Bibles</div>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8, marginBottom:14 }}>
-              {[["bibles_beginning","Begin"],["bibles_closing","Closing"],["members_without_bibles","Without"]].map(([k,label])=>(
-                <div key={k} style={{ display:"flex", flexDirection:"column", gap:3 }}>
-                  <label style={{ fontSize:10, color:t.textMuted, fontFamily:FF }}>{label}</label>
-                  <input style={{ ...inp, fontSize:12, padding:"5px 8px" }} type="number" value={row[k]}
-                    onChange={e => updateBulkRow(idx,k,e.target.value)} placeholder="0"/>
-                </div>
-              ))}
-            </div>
-            <div style={{ fontSize:11, fontWeight:700, color:t.gold, fontFamily:FF, textTransform:"uppercase", letterSpacing:1.2, marginBottom:8 }}>Lesson</div>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
-              <div style={{ display:"flex", flexDirection:"column", gap:3, gridColumn:"1/-1" }}>
-                <label style={{ fontSize:10, color:t.textMuted, fontFamily:FF }}>Topic *</label>
-                <input style={{ ...inp, fontSize:12 }} value={row.topic}
-                  onChange={e => updateBulkRow(idx,"topic",e.target.value)} placeholder="Lesson topic"/>
-              </div>
-              <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-                <label style={{ fontSize:10, color:t.textMuted, fontFamily:FF }}>Bible References</label>
-                <input style={{ ...inp, fontSize:12 }} value={row.bible_references}
-                  onChange={e => updateBulkRow(idx,"bible_references",e.target.value)} placeholder="e.g. John 3:16"/>
-              </div>
-              <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-                <label style={{ fontSize:10, color:t.textMuted, fontFamily:FF }}>Memory Verse</label>
-                <input style={{ ...inp, fontSize:12 }} value={row.memory_verse}
-                  onChange={e => updateBulkRow(idx,"memory_verse",e.target.value)} placeholder="Memory verse"/>
-              </div>
-              <div style={{ display:"flex", flexDirection:"column", gap:3, gridColumn:"1/-1" }}>
-                <label style={{ fontSize:10, color:t.textMuted, fontFamily:FF }}>Key Notes</label>
-                <textarea style={{ ...inp, fontSize:12, minHeight:52, resize:"vertical" }} value={row.key_notes}
-                  onChange={e => updateBulkRow(idx,"key_notes",e.target.value)} placeholder="Summary notes"/>
-              </div>
-              <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-                <label style={{ fontSize:10, color:t.textMuted, fontFamily:FF }}>Teachers Present</label>
-                <input style={{ ...inp, fontSize:12 }} type="number" value={row.teachers_present}
-                  onChange={e => updateBulkRow(idx,"teachers_present",e.target.value)} placeholder="0"/>
-              </div>
-              <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-                <label style={{ fontSize:10, color:t.textMuted, fontFamily:FF }}>Teacher Names</label>
-                <input style={{ ...inp, fontSize:12 }} value={row.teacher_names}
-                  onChange={e => updateBulkRow(idx,"teacher_names",e.target.value)} placeholder="Names"/>
-              </div>
-              <div style={{ display:"flex", flexDirection:"column", gap:3, gridColumn:"1/-1" }}>
-                <label style={{ fontSize:10, color:t.textMuted, fontFamily:FF }}>Prayer Requests / Announcements</label>
-                <textarea style={{ ...inp, fontSize:12, minHeight:45, resize:"vertical" }} value={row.prayer_requests}
-                  onChange={e => updateBulkRow(idx,"prayer_requests",e.target.value)} placeholder="Prayer requests or announcements"/>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
+  // BulkRowCard is defined above SubmitPage to prevent focus loss
 
   // ── RENDER ─────────────────────────────────────────────────
   return (
@@ -2396,7 +2399,15 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
               onClick={() => setBulkRows(rows => rows.map(r => ({ ...r, _expanded:false })))}>Collapse All</button>
           </div>
 
-          {bulkRows.map((row, idx) => <BulkRowCard key={row.class_name} row={row} idx={idx} />)}
+          {bulkRows.map((row, idx) => (
+            <BulkRowCard key={row.class_name} row={row} idx={idx}
+              t={t} lbl={lbl} inp={inp} sel={sel} card={card}
+              GF={GF} FF={FF}
+              toggleExpand={toggleExpand}
+              updateBulkRow={updateBulkRow}
+              activeTeachers={activeTeachers}
+            />
+          ))}
 
           <div style={{ display:"flex", gap:12, marginTop:20, paddingTop:20, borderTop:`1px solid ${t.border}` }}>
             <button style={{ ...btnGold, padding:"14px 40px", fontSize:15 }} disabled={bulkLoading} onClick={handleBulkSubmit}>
