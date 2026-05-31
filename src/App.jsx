@@ -1815,6 +1815,7 @@ const DashboardPage = ({ db }) => {
   const chTotal      = fChurch.reduce((s,r)=>s+(Number(r.total_closing)||0),0);
   const biblesBegin  = fRec.reduce((s,r)=>s+(Number(r.bibles_beginning)||0),0);
   const bibles       = fRec.reduce((s,r)=>s+(Number(r.bibles_closing)||0),0);
+  const bibleBeginRate = ssBeginTotal > 0 ? Math.round(biblesBegin/ssBeginTotal*100) : 0;
   const bibleRate    = ssTotal > 0 ? Math.round(bibles/ssTotal*100) : 0;
   const totalFT      = fChurch.reduce((s,r)=>s+(Number(r.first_timers)||0),0) + fRec.reduce((s,r)=>s+(Number(r.first_timers)||0),0);
   const retentionRate = chTotal > 0 ? Math.round(ssTotal/chTotal*100) : 0;
@@ -1910,8 +1911,8 @@ const DashboardPage = ({ db }) => {
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:12, marginBottom:16 }}>
         <KpiCard label="Sund. Sch. Begin"   value={ssBeginTotal} sub="At opening"        icon="attendance" color={t.info} />
         <KpiCard label="Sund. Sch. Close" value={ssTotal}      sub="At close"          icon="attendance" color={t.gold} />
-        <KpiCard label="Bibles at Begin"    value={biblesBegin}  sub="Brought at start"  icon="bible"      color="#9B59B6" />
-        <KpiCard label="Bibles at Closing"  value={bibles}       sub={`${bibleRate}% rate`} icon="bible"   color="#7B3FBE" />
+        <KpiCard label="Bible:Attend Begin" value={`${bibleBeginRate}%`} sub={`${biblesBegin} bibles ÷ ${ssBeginTotal} attend`} icon="bible" color="#9B59B6" />
+        <KpiCard label="Bible:Attend Close" value={`${bibleRate}%`}      sub={`${bibles} bibles ÷ ${ssTotal} attend`}           icon="bible" color="#7B3FBE" />
         <KpiCard label="First Timers"       value={fRec.reduce((s,r)=>s+(Number(r.first_timers)||0),0)} sub="SS only" icon="plus" color="#E67E22" />
         <KpiCard label="Pending Reviews"    value={pending}      sub="Needs approval"    icon="info"       color={pending>0?t.warn:t.textMuted} />
       </div>
