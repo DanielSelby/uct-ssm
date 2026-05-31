@@ -2092,6 +2092,8 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
   const { teachers, classes, addRecord, updateRecord } = db;
   const activeTeachers = teachers.filter(x => x.is_active === "YES");
   const activeClasses  = classes.filter(x => x.is_active !== "NO");
+  const FF = "'Trebuchet MS',sans-serif";
+  const GF = "'Georgia',serif";
 
   const isEditMode    = !!editProp;
   const isAdmin       = user?.role === "admin";
@@ -2099,41 +2101,59 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
   const lockedClass   = isTeacher && user?.assigned_class ? user.assigned_class : "";
   const lockedTeacher = isTeacher ? (user?.name || "") : "";
 
-  const FF = "'Trebuchet MS',sans-serif";
-  const GF = "'Georgia',serif";
-
-  // ── Bulk mode state ───────────────────────────────────────
-  const [bulkMode,  setBulkMode]  = useState(false);
-  const [bulkShared, setBulkShared] = useState({
-    date: new Date().toISOString().slice(0,10),
-    day_of_week: "Sunday",
-    service_type: "Regular Sunday School",
-    submitted_by: user?.name || "",
-    time_started: "09:00",
-    time_ended: "10:30",
+  // ── ALL hooks at top (Rules of Hooks) ─────────────────────
+  // Bulk mode
+  const [bulkMode,    setBulkMode]    = useState(false);
+  const [bulkShared,  setBulkShared]  = useState({
+    date: new Date().toISOString().slice(0,10), day_of_week:"Sunday",
+    service_type:"Regular Sunday School", submitted_by: user?.name||"",
+    time_started:"09:00", time_ended:"10:30",
   });
   const makeBulkRow = (cls) => ({
-    class_name: cls.name,
-    teacher_name: "",
-    assistant_teacher: "",
-    total_beginning: "", total_closing: "",
-    male_present: "", female_present: "",
-    first_timers: "", visitors: "", absent_members: "",
-    bibles_beginning: "", bibles_closing: "", members_without_bibles: "",
-    topic: "", bible_references: "", memory_verse: "",
-    key_notes: "", assignment: "",
-    teachers_present: "", teacher_names: "",
-    challenges: "", prayer_requests: "", announcements: "",
-    _expanded: false,
+    class_name:cls.name, teacher_name:"", assistant_teacher:"",
+    total_beginning:"", total_closing:"", male_present:"", female_present:"",
+    first_timers:"", visitors:"", absent_members:"",
+    bibles_beginning:"", bibles_closing:"", members_without_bibles:"",
+    topic:"", bible_references:"", memory_verse:"", key_notes:"", assignment:"",
+    teachers_present:"", teacher_names:"", challenges:"", prayer_requests:"", announcements:"",
+    _expanded:false,
   });
-  const [bulkRows,  setBulkRows]  = useState(() => activeClasses.map(makeBulkRow));
-  const [bulkDone,  setBulkDone]  = useState(false);
+  const [bulkRows,    setBulkRows]    = useState(() => activeClasses.map(makeBulkRow));
+  const [bulkDone,    setBulkDone]    = useState(false);
   const [bulkLoading, setBulkLoading] = useState(false);
+
+  // Single mode
+  const makeBlank = () => ({
+    date:new Date().toISOString().slice(0,10), day_of_week:"Sunday",
+    service_type:"Regular Sunday School", class_name:lockedClass,
+    teacher_name:lockedTeacher, assistant_teacher:"", submitted_by:user?.name||"",
+    time_started:"09:00", time_ended:"10:30",
+    total_beginning:"", total_closing:"", male_present:"", female_present:"",
+    first_timers:"", visitors:"", absent_members:"",
+    bibles_beginning:"", bibles_closing:"", members_without_bibles:"",
+    topic:"", bible_references:"", memory_verse:"", key_notes:"", assignment:"",
+    teachers_present:"", teacher_names:"", challenges:"", prayer_requests:"", announcements:""
+  });
+  const [form,       setForm]       = useState(() => isEditMode ? { ...makeBlank(), ...editProp } : makeBlank());
+  const [loading,    setLoading]    = useState(false);
+  const [done,       setDone]       = useState(false);
+
+  // Sync form when editProp changes
+  useEffect(() => {
+    if (editProp) setForm({ ...makeBlank(), ...editProp });
+    else          setForm(makeBlank());
+  }, [editProp?.id]);
 
   // Re-init bulk rows when classes load
   useEffect(() => {
     if (bulkMode) setBulkRows(activeClasses.map(r => makeBulkRow(r)));
   }, [bulkMode, classes.length]);
+
+  // Handlers
+  const handleChange = useCallback((e) => {
+    const { name, value } = e.target;
+    setForm(prev => ({ ...prev, [name]: value }));
+  }, []);
 
   const updateBulkShared = useCallback((e) => {
     const { name, value } = e.target;
@@ -2144,33 +2164,55 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
     setBulkRows(rows => rows.map((r, i) => i === idx ? { ...r, [name]: value } : r));
   }, []);
 
-  const toggleExpand = (idx) => {
+  const toggleExpand = useCallback((idx) => {
     setBulkRows(rows => rows.map((r, i) => ({ ...r, _expanded: i === idx ? !r._expanded : r._expanded })));
+  }, []);
+
+  const handleSubmit = () => {
+    if (!form.class_name)   { alert("Please select a class."); return; }
+    if (!form.topic.trim()) { alert("Please enter the lesson topic."); return; }
+    setLoading(true);
+    setTimeout(() => {
+      if (isEditMode) updateRecord(editProp.id, { ...form, status:"pending" });
+      else            addRecord(form);
+      setLoading(false);
+      setDone(true);
+      setTimeout(() => {
+        setDone(false); setForm(makeBlank());
+        onSuccess && onSuccess(); onCancelEdit && onCancelEdit();
+      }, 2200);
+    }, 400);
   };
 
   const handleBulkSubmit = async () => {
     const filled = bulkRows.filter(r => r.topic.trim() || r.total_closing);
-    if (!filled.length) { alert("Please fill in at least one class report (topic or attendance)."); return; }
+    if (!filled.length) { alert("Please fill in at least one class report."); return; }
     setBulkLoading(true);
     for (const row of filled) {
       const { _expanded, ...data } = row;
-      await addRecord({ ...bulkShared, ...data, status: "pending" });
+      await addRecord({ ...bulkShared, ...data, status:"pending" });
     }
     setBulkLoading(false);
     setBulkDone(true);
     setTimeout(() => {
-      setBulkDone(false);
-      setBulkRows(activeClasses.map(makeBulkRow));
+      setBulkDone(false); setBulkRows(activeClasses.map(makeBulkRow));
       onSuccess && onSuccess();
     }, 2200);
   };
 
+  // Layout helpers
+  const g2  = { display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 };
+  const fw  = (span=1) => ({ display:"flex", flexDirection:"column", gap:5, gridColumn:span===2?"1 / -1":"auto" });
+  const sec = { fontSize:11, fontWeight:700, color:t.gold, fontFamily:FF,
+    textTransform:"uppercase", letterSpacing:1.8, padding:"18px 0 8px",
+    borderTop:`1px solid ${t.border}`, marginTop:16 };
+
+  // ── Bulk row sub-component (no hooks inside — pure render) ─
   const BulkRowCard = ({ row, idx }) => {
     const filled = row.topic.trim() || row.total_closing || row.total_beginning;
     return (
       <div style={{ ...card, padding:0, border:`1px solid ${filled ? t.gold+"55" : t.border}`,
-        borderLeft: `4px solid ${filled ? t.gold : t.border}`, marginBottom:10 }}>
-        {/* Header */}
+        borderLeft:`4px solid ${filled ? t.gold : t.border}`, marginBottom:10 }}>
         <div style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 16px",
           cursor:"pointer", justifyContent:"space-between" }} onClick={() => toggleExpand(idx)}>
           <div style={{ display:"flex", alignItems:"center", gap:10 }}>
@@ -2179,22 +2221,19 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
               background:t.gold+"22", color:t.gold, fontFamily:FF, fontWeight:700 }}>✓ Data entered</span>}
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-            {row.total_closing && <span style={{ fontSize:12, color:t.success, fontFamily:FF }}>👥 {row.total_closing} closing</span>}
-            {row.topic && <span style={{ fontSize:12, color:t.textMuted, fontFamily:FF, maxWidth:150, overflow:"hidden",
-              textOverflow:"ellipsis", whiteSpace:"nowrap" }}>📖 {row.topic}</span>}
+            {row.total_closing && <span style={{ fontSize:12, color:t.success, fontFamily:FF }}>👥 {row.total_closing}</span>}
+            {row.topic && <span style={{ fontSize:12, color:t.textMuted, fontFamily:FF, maxWidth:150,
+              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>📖 {row.topic}</span>}
             <span style={{ fontSize:16, color:t.textMuted }}>{row._expanded ? "▲" : "▼"}</span>
           </div>
         </div>
-
-        {/* Expanded form */}
         {row._expanded && (
           <div style={{ padding:"0 16px 16px", borderTop:`1px solid ${t.border}` }}>
-            {/* Teacher */}
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginTop:14, marginBottom:14 }}>
               <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
                 <label style={{ ...lbl, fontSize:11 }}>Teacher</label>
                 <select style={{ ...sel, fontSize:12 }} value={row.teacher_name}
-                  onChange={e => updateBulkRow(idx, "teacher_name", e.target.value)}>
+                  onChange={e => updateBulkRow(idx,"teacher_name",e.target.value)}>
                   <option value="">Select…</option>
                   {activeTeachers.map(x => <option key={x.name} value={x.name}>{x.name}</option>)}
                 </select>
@@ -2202,80 +2241,69 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
               <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
                 <label style={{ ...lbl, fontSize:11 }}>Assistant Teacher</label>
                 <select style={{ ...sel, fontSize:12 }} value={row.assistant_teacher}
-                  onChange={e => updateBulkRow(idx, "assistant_teacher", e.target.value)}>
+                  onChange={e => updateBulkRow(idx,"assistant_teacher",e.target.value)}>
                   <option value="">None</option>
                   {activeTeachers.map(x => <option key={x.name} value={x.name}>{x.name}</option>)}
                 </select>
               </div>
             </div>
-
-            {/* Attendance */}
             <div style={{ fontSize:11, fontWeight:700, color:t.gold, fontFamily:FF, textTransform:"uppercase", letterSpacing:1.2, marginBottom:8 }}>Attendance</div>
             <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:8, marginBottom:14 }}>
               {[["total_beginning","Begin"],["total_closing","Closing"],["male_present","Male"],
-                ["female_present","Female"],["first_timers","1st Timers"],["visitors","Visitors"],
-                ["absent_members","Absent"]].map(([k,label]) => (
+                ["female_present","Female"],["first_timers","1st Timers"],["visitors","Visitors"],["absent_members","Absent"]].map(([k,label])=>(
                 <div key={k} style={{ display:"flex", flexDirection:"column", gap:3 }}>
                   <label style={{ fontSize:10, color:t.textMuted, fontFamily:FF }}>{label}</label>
                   <input style={{ ...inp, fontSize:12, padding:"5px 8px" }} type="number" value={row[k]}
-                    onChange={e => updateBulkRow(idx, k, e.target.value)} placeholder="0"/>
+                    onChange={e => updateBulkRow(idx,k,e.target.value)} placeholder="0"/>
                 </div>
               ))}
             </div>
-
-            {/* Bibles */}
             <div style={{ fontSize:11, fontWeight:700, color:t.gold, fontFamily:FF, textTransform:"uppercase", letterSpacing:1.2, marginBottom:8 }}>Bibles</div>
             <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8, marginBottom:14 }}>
-              {[["bibles_beginning","Begin"],["bibles_closing","Closing"],["members_without_bibles","Without"]].map(([k,label]) => (
+              {[["bibles_beginning","Begin"],["bibles_closing","Closing"],["members_without_bibles","Without"]].map(([k,label])=>(
                 <div key={k} style={{ display:"flex", flexDirection:"column", gap:3 }}>
                   <label style={{ fontSize:10, color:t.textMuted, fontFamily:FF }}>{label}</label>
                   <input style={{ ...inp, fontSize:12, padding:"5px 8px" }} type="number" value={row[k]}
-                    onChange={e => updateBulkRow(idx, k, e.target.value)} placeholder="0"/>
+                    onChange={e => updateBulkRow(idx,k,e.target.value)} placeholder="0"/>
                 </div>
               ))}
             </div>
-
-            {/* Lesson */}
             <div style={{ fontSize:11, fontWeight:700, color:t.gold, fontFamily:FF, textTransform:"uppercase", letterSpacing:1.2, marginBottom:8 }}>Lesson</div>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
               <div style={{ display:"flex", flexDirection:"column", gap:3, gridColumn:"1/-1" }}>
                 <label style={{ fontSize:10, color:t.textMuted, fontFamily:FF }}>Topic *</label>
                 <input style={{ ...inp, fontSize:12 }} value={row.topic}
-                  onChange={e => updateBulkRow(idx, "topic", e.target.value)} placeholder="Lesson topic"/>
+                  onChange={e => updateBulkRow(idx,"topic",e.target.value)} placeholder="Lesson topic"/>
               </div>
               <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
                 <label style={{ fontSize:10, color:t.textMuted, fontFamily:FF }}>Bible References</label>
                 <input style={{ ...inp, fontSize:12 }} value={row.bible_references}
-                  onChange={e => updateBulkRow(idx, "bible_references", e.target.value)} placeholder="e.g. John 3:16"/>
+                  onChange={e => updateBulkRow(idx,"bible_references",e.target.value)} placeholder="e.g. John 3:16"/>
               </div>
               <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
                 <label style={{ fontSize:10, color:t.textMuted, fontFamily:FF }}>Memory Verse</label>
                 <input style={{ ...inp, fontSize:12 }} value={row.memory_verse}
-                  onChange={e => updateBulkRow(idx, "memory_verse", e.target.value)} placeholder="Memory verse"/>
+                  onChange={e => updateBulkRow(idx,"memory_verse",e.target.value)} placeholder="Memory verse"/>
               </div>
               <div style={{ display:"flex", flexDirection:"column", gap:3, gridColumn:"1/-1" }}>
                 <label style={{ fontSize:10, color:t.textMuted, fontFamily:FF }}>Key Notes</label>
                 <textarea style={{ ...inp, fontSize:12, minHeight:52, resize:"vertical" }} value={row.key_notes}
-                  onChange={e => updateBulkRow(idx, "key_notes", e.target.value)} placeholder="Summary notes"/>
+                  onChange={e => updateBulkRow(idx,"key_notes",e.target.value)} placeholder="Summary notes"/>
               </div>
-            </div>
-
-            {/* Teachers present + notes */}
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
               <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
                 <label style={{ fontSize:10, color:t.textMuted, fontFamily:FF }}>Teachers Present</label>
                 <input style={{ ...inp, fontSize:12 }} type="number" value={row.teachers_present}
-                  onChange={e => updateBulkRow(idx, "teachers_present", e.target.value)} placeholder="0"/>
+                  onChange={e => updateBulkRow(idx,"teachers_present",e.target.value)} placeholder="0"/>
               </div>
               <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
                 <label style={{ fontSize:10, color:t.textMuted, fontFamily:FF }}>Teacher Names</label>
                 <input style={{ ...inp, fontSize:12 }} value={row.teacher_names}
-                  onChange={e => updateBulkRow(idx, "teacher_names", e.target.value)} placeholder="Names"/>
+                  onChange={e => updateBulkRow(idx,"teacher_names",e.target.value)} placeholder="Names"/>
               </div>
               <div style={{ display:"flex", flexDirection:"column", gap:3, gridColumn:"1/-1" }}>
                 <label style={{ fontSize:10, color:t.textMuted, fontFamily:FF }}>Prayer Requests / Announcements</label>
                 <textarea style={{ ...inp, fontSize:12, minHeight:45, resize:"vertical" }} value={row.prayer_requests}
-                  onChange={e => updateBulkRow(idx, "prayer_requests", e.target.value)} placeholder="Prayer requests or announcements"/>
+                  onChange={e => updateBulkRow(idx,"prayer_requests",e.target.value)} placeholder="Prayer requests or announcements"/>
               </div>
             </div>
           </div>
@@ -2284,318 +2312,221 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
     );
   };
 
-  if (bulkDone) return (
-    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", minHeight:400, gap:16 }}>
-      <div style={{ width:80, height:80, borderRadius:"50%", background:t.success+"18", display:"flex", alignItems:"center", justifyContent:"center" }}>
-        <Icon name="check" size={40} color={t.success} />
-      </div>
-      <div style={{ fontSize:24, color:t.gold, fontFamily:GF }}>Bulk Reports Submitted!</div>
-      <div style={{ color:t.textMuted, fontFamily:FF, fontSize:14 }}>
-        {bulkRows.filter(r => r.topic.trim() || r.total_closing).length} class reports saved successfully.
-      </div>
-    </div>
-  );
-
-  if (bulkMode && isAdmin) return (
-    <div>
-      {/* Header */}
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:20, flexWrap:"wrap", gap:10 }}>
-        <div>
-          <div style={{ fontSize:23, fontWeight:700, color:t.gold, fontFamily:GF, marginBottom:3 }}>
-            📋 Bulk Class Report Submission
-          </div>
-          <div style={{ fontSize:13, color:t.textMuted, fontFamily:FF }}>
-            Enter reports for all classes at once — only classes with a topic or attendance filled will be saved.
-          </div>
-        </div>
-        <button style={{ ...btnGhost, padding:"9px 18px" }} onClick={() => setBulkMode(false)}>
-          ← Single Report Mode
-        </button>
-      </div>
-
-      {/* Shared session info */}
-      <div style={{ ...card, padding:20, marginBottom:20 }}>
-        <div style={{ fontSize:11, fontWeight:700, color:t.gold, fontFamily:FF, textTransform:"uppercase", letterSpacing:1.4, marginBottom:14 }}>
-          📅 Session Details (shared across all classes)
-        </div>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))", gap:12 }}>
-          <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-            <label style={lbl}>Date</label>
-            <input style={inp} type="date" name="date" value={bulkShared.date} onChange={updateBulkShared}/>
-          </div>
-          <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-            <label style={lbl}>Day</label>
-            <select style={{ ...sel, width:"100%" }} name="day_of_week" value={bulkShared.day_of_week} onChange={updateBulkShared}>
-              {["Sunday","Saturday","Wednesday"].map(o => <option key={o}>{o}</option>)}
-            </select>
-          </div>
-          <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-            <label style={lbl}>Service Type</label>
-            <select style={{ ...sel, width:"100%" }} name="service_type" value={bulkShared.service_type} onChange={updateBulkShared}>
-              <option>Regular Sunday School</option>
-              <option>Joint Sunday School</option>
-              <option>Special Service</option>
-            </select>
-          </div>
-          <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-            <label style={lbl}>Time Started</label>
-            <input style={inp} type="time" name="time_started" value={bulkShared.time_started} onChange={updateBulkShared}/>
-          </div>
-          <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-            <label style={lbl}>Time Ended</label>
-            <input style={inp} type="time" name="time_ended" value={bulkShared.time_ended} onChange={updateBulkShared}/>
-          </div>
-          <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-            <label style={lbl}>Submitted By</label>
-            <input style={inp} name="submitted_by" value={bulkShared.submitted_by} onChange={updateBulkShared}/>
-          </div>
-        </div>
-      </div>
-
-      {/* Summary bar */}
-      <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap", alignItems:"center" }}>
-        <div style={{ fontSize:13, color:t.textMuted, fontFamily:FF }}>
-          <strong style={{ color:t.gold }}>{bulkRows.filter(r => r.topic.trim() || r.total_closing).length}</strong> of {bulkRows.length} classes have data entered
-        </div>
-        <button style={{ ...btnGhost, padding:"5px 12px", fontSize:12, marginLeft:"auto" }}
-          onClick={() => setBulkRows(rows => rows.map(r => ({ ...r, _expanded: true })))}>
-          Expand All
-        </button>
-        <button style={{ ...btnGhost, padding:"5px 12px", fontSize:12 }}
-          onClick={() => setBulkRows(rows => rows.map(r => ({ ...r, _expanded: false })))}>
-          Collapse All
-        </button>
-      </div>
-
-      {/* Class cards */}
-      {bulkRows.map((row, idx) => <BulkRowCard key={row.class_name} row={row} idx={idx} />)}
-
-      {/* Submit */}
-      <div style={{ display:"flex", gap:12, marginTop:20, paddingTop:20, borderTop:`1px solid ${t.border}` }}>
-        <button style={{ ...btnGold, padding:"14px 40px", fontSize:15 }} disabled={bulkLoading} onClick={handleBulkSubmit}>
-          {bulkLoading ? "Submitting…" : `📤 Submit All Class Reports`}
-        </button>
-        <button style={{ ...btnOutline, padding:"14px 24px" }} onClick={() => setBulkRows(activeClasses.map(makeBulkRow))}>
-          🔄 Reset All
-        </button>
-      </div>
-    </div>
-  );
-
-  const isEditMode    = !!editProp;
-  const isAdmin       = user?.role === "admin";
-  const isTeacher     = user?.role === "teacher";
-  const lockedClass   = isTeacher && user?.assigned_class ? user.assigned_class : "";
-  const lockedTeacher = isTeacher ? (user?.name || "") : "";
-
-  const makeBlank = () => ({
-    date: new Date().toISOString().slice(0,10), day_of_week:"Sunday",
-    service_type:"Regular Sunday School",
-    class_name:   lockedClass,
-    teacher_name: lockedTeacher,
-    assistant_teacher:"", submitted_by: user?.name||"", time_started:"09:00", time_ended:"10:30",
-    total_beginning:"", total_closing:"", male_present:"", female_present:"",
-    first_timers:"", visitors:"", absent_members:"",
-    bibles_beginning:"", bibles_closing:"", members_without_bibles:"",
-    topic:"", bible_references:"", memory_verse:"", key_notes:"", assignment:"",
-    teachers_present:"", teacher_names:"", challenges:"", prayer_requests:"", announcements:""
-  });
-
-  const [form, setForm]       = useState(isEditMode ? { ...makeBlank(), ...editProp } : makeBlank);
-  const [loading, setLoading] = useState(false);
-  const [done, setDone]       = useState(false);
-
-  // Sync form when editProp changes (e.g. user selects a different record)
-  useEffect(() => {
-    if (editProp) setForm({ ...makeBlank(), ...editProp });
-    else          setForm(makeBlank());
-  }, [editProp?.id]);
-
-  const handleChange = useCallback((e) => {
-    const { name, value } = e.target;
-    setForm(prev => ({ ...prev, [name]: value }));
-  }, []);
-
-  const handleSubmit = () => {
-    if (!form.class_name)   { alert("Please select a class."); return; }
-    if (!form.topic.trim()) { alert("Please enter the lesson topic."); return; }
-    setLoading(true);
-    setTimeout(() => {
-      if (isEditMode) {
-        // Update existing — preserve id and status
-        updateRecord(editProp.id, { ...form, status: "pending" });
-      } else {
-        addRecord(form);
-      }
-      setLoading(false);
-      setDone(true);
-      setTimeout(() => {
-        setDone(false);
-        setForm(makeBlank());
-        onSuccess && onSuccess();
-        onCancelEdit && onCancelEdit();
-      }, 2200);
-    }, 400);
-  };
-
-  const g2  = { display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 };
-  const fw  = (span=1) => ({ display:"flex", flexDirection:"column", gap:5, gridColumn: span===2?"1 / -1":"auto" });
-  const sec = { fontSize:11, fontWeight:700, color:t.gold, fontFamily:"'Trebuchet MS',sans-serif",
-    textTransform:"uppercase", letterSpacing:1.8, padding:"18px 0 8px",
-    borderTop:`1px solid ${t.border}`, marginTop:16 };
-
-  if (done) return (
-    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", minHeight:400, gap:16 }}>
-      <div style={{ width:80, height:80, borderRadius:"50%", background:t.success+"18", display:"flex", alignItems:"center", justifyContent:"center" }}>
-        <Icon name="check" size={40} color={t.success} />
-      </div>
-      <div style={{ fontSize:24, color:t.gold, fontFamily:"'Georgia',serif" }}>
-        {isEditMode ? "Record Updated!" : "Report Submitted!"}
-      </div>
-      <div style={{ color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", fontSize:14 }}>
-        {isEditMode ? "Changes saved. Awaiting admin approval." : "Saved to your records."}
-      </div>
-    </div>
-  );
-
+  // ── RENDER ─────────────────────────────────────────────────
   return (
     <div>
-      {/* Page title + edit banner */}
-      <div style={{ marginBottom:20, display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:10 }}>
-        <div>
-          <div style={{ fontSize:23, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif", marginBottom:3 }}>
-            {isEditMode ? "Edit Report" : "Sunday School Attendance Report"}
+      {/* ── BULK DONE SCREEN ── */}
+      {bulkDone && (
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", minHeight:400, gap:16 }}>
+          <div style={{ width:80, height:80, borderRadius:"50%", background:t.success+"18", display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <Icon name="check" size={40} color={t.success} />
           </div>
-          <div style={{ fontSize:13, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}>
-            {isEditMode ? "You are editing a pending submission. Changes will reset it to pending for re-approval." : "Saved directly to your records."}
+          <div style={{ fontSize:24, color:t.gold, fontFamily:GF }}>Bulk Reports Submitted!</div>
+          <div style={{ color:t.textMuted, fontFamily:FF, fontSize:14 }}>
+            {bulkRows.filter(r => r.topic.trim() || r.total_closing).length} class reports saved successfully.
           </div>
-        </div>
-        {isAdmin && !isEditMode && (
-          <button style={{ ...btnOutline, padding:"10px 20px", display:"flex", alignItems:"center", gap:8, fontSize:13 }}
-            onClick={() => setBulkMode(true)}>
-            <Icon name="plus" size={14} color={t.gold}/> Bulk Class Submission
-          </button>
-        )}
-      </div>
-
-      {/* Edit mode banner */}
-      {isEditMode && (
-        <div style={{ marginBottom:18, padding:"12px 16px", borderRadius:10,
-          background: t.warn+"18", border:`1px solid ${t.warn}44`,
-          display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, flexWrap:"wrap" }}>
-          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-            <span style={{ fontSize:18 }}>✏️</span>
-            <div>
-              <div style={{ fontSize:13, fontWeight:700, color:t.text, fontFamily:"'Trebuchet MS',sans-serif" }}>
-                Editing: {editProp.class_name} — {editProp.date}
-              </div>
-              <div style={{ fontSize:11, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}>
-                Status will return to <strong>Pending</strong> after saving, requiring admin re-approval.
-              </div>
-            </div>
-          </div>
-          <button onClick={onCancelEdit} style={{ padding:"7px 14px", borderRadius:8,
-            border:`1px solid ${t.border}`, background:"transparent", color:t.textMuted,
-            fontFamily:"'Trebuchet MS',sans-serif", fontSize:12, cursor:"pointer" }}>
-            ✕ Cancel Edit
-          </button>
         </div>
       )}
 
-      <div style={card}>
+      {/* ── SINGLE DONE SCREEN ── */}
+      {done && !bulkDone && (
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", minHeight:400, gap:16 }}>
+          <div style={{ width:80, height:80, borderRadius:"50%", background:t.success+"18", display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <Icon name="check" size={40} color={t.success} />
+          </div>
+          <div style={{ fontSize:24, color:t.gold, fontFamily:GF }}>
+            {isEditMode ? "Record Updated!" : "Report Submitted!"}
+          </div>
+          <div style={{ color:t.textMuted, fontFamily:FF, fontSize:14 }}>
+            {isEditMode ? "Changes saved. Awaiting admin approval." : "Saved to your records."}
+          </div>
+        </div>
+      )}
 
-        <div style={sec}>Basic Information</div>
-        <div style={g2}>
-          <div style={fw()}><label style={lbl}>Date</label><input name="date" style={inp} type="date" value={form.date} onChange={handleChange} /></div>
-          <div style={fw()}><label style={lbl}>Day</label><select name="day_of_week" style={{...sel,width:"100%"}} value={form.day_of_week} onChange={handleChange}>{["Sunday","Saturday","Wednesday"].map(o=><option key={o}>{o}</option>)}</select></div>
-          <div style={fw()}><label style={lbl}>Service Type</label><select name="service_type" style={{...sel,width:"100%"}} value={form.service_type} onChange={handleChange}><option>Regular Sunday School</option><option>Joint Sunday School</option><option>Special Service</option></select></div>
-          <div style={fw()}><label style={lbl}>Class Name *</label>
-            {lockedClass ? (
-              <div style={{ ...inp, background: isDark(t.mode||"light") ? "rgba(0,255,100,0.06)" : "#f0fff4",
-                border:`2px solid ${t.success}55`, color:t.text, display:"flex", alignItems:"center", gap:8 }}>
-                🔒 <span style={{ fontWeight:700 }}>{lockedClass}</span>
-                <span style={{ fontSize:11, color:t.success, marginLeft:"auto" }}>Assigned</span>
+      {/* ── BULK MODE ── */}
+      {bulkMode && isAdmin && !bulkDone && (
+        <div>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:20, flexWrap:"wrap", gap:10 }}>
+            <div>
+              <div style={{ fontSize:23, fontWeight:700, color:t.gold, fontFamily:GF, marginBottom:3 }}>
+                📋 Bulk Class Report Submission
               </div>
-            ) : (
-              <select name="class_name" style={{...sel,width:"100%"}} value={form.class_name} onChange={handleChange}>
-                <option value="">Select…</option>{classes.map(c=><option key={c.name} value={c.name}>{c.name}</option>)}
-              </select>
+              <div style={{ fontSize:13, color:t.textMuted, fontFamily:FF }}>
+                Enter reports for all classes at once — only classes with a topic or attendance filled will be saved.
+              </div>
+            </div>
+            <button style={{ ...btnGhost, padding:"9px 18px" }} onClick={() => setBulkMode(false)}>
+              ← Single Report Mode
+            </button>
+          </div>
+
+          <div style={{ ...card, padding:20, marginBottom:20 }}>
+            <div style={{ fontSize:11, fontWeight:700, color:t.gold, fontFamily:FF, textTransform:"uppercase", letterSpacing:1.4, marginBottom:14 }}>
+              📅 Session Details (shared across all classes)
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))", gap:12 }}>
+              {[["date","Date","date"],["time_started","Time Started","time"],["time_ended","Time Ended","time"],["submitted_by","Submitted By","text"]].map(([k,label,type])=>(
+                <div key={k} style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                  <label style={lbl}>{label}</label>
+                  <input style={inp} type={type} name={k} value={bulkShared[k]} onChange={updateBulkShared}/>
+                </div>
+              ))}
+              <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                <label style={lbl}>Day</label>
+                <select style={{ ...sel, width:"100%" }} name="day_of_week" value={bulkShared.day_of_week} onChange={updateBulkShared}>
+                  {["Sunday","Saturday","Wednesday"].map(o => <option key={o}>{o}</option>)}
+                </select>
+              </div>
+              <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                <label style={lbl}>Service Type</label>
+                <select style={{ ...sel, width:"100%" }} name="service_type" value={bulkShared.service_type} onChange={updateBulkShared}>
+                  <option>Regular Sunday School</option><option>Joint Sunday School</option><option>Special Service</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap", alignItems:"center" }}>
+            <div style={{ fontSize:13, color:t.textMuted, fontFamily:FF }}>
+              <strong style={{ color:t.gold }}>{bulkRows.filter(r => r.topic.trim() || r.total_closing).length}</strong> of {bulkRows.length} classes have data entered
+            </div>
+            <button style={{ ...btnGhost, padding:"5px 12px", fontSize:12, marginLeft:"auto" }}
+              onClick={() => setBulkRows(rows => rows.map(r => ({ ...r, _expanded:true })))}>Expand All</button>
+            <button style={{ ...btnGhost, padding:"5px 12px", fontSize:12 }}
+              onClick={() => setBulkRows(rows => rows.map(r => ({ ...r, _expanded:false })))}>Collapse All</button>
+          </div>
+
+          {bulkRows.map((row, idx) => <BulkRowCard key={row.class_name} row={row} idx={idx} />)}
+
+          <div style={{ display:"flex", gap:12, marginTop:20, paddingTop:20, borderTop:`1px solid ${t.border}` }}>
+            <button style={{ ...btnGold, padding:"14px 40px", fontSize:15 }} disabled={bulkLoading} onClick={handleBulkSubmit}>
+              {bulkLoading ? "Submitting…" : "📤 Submit All Class Reports"}
+            </button>
+            <button style={{ ...btnOutline, padding:"14px 24px" }} onClick={() => setBulkRows(activeClasses.map(makeBulkRow))}>
+              🔄 Reset All
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── SINGLE MODE ── */}
+      {!bulkMode && !done && !bulkDone && (
+        <div>
+          <div style={{ marginBottom:20, display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:10 }}>
+            <div>
+              <div style={{ fontSize:23, fontWeight:700, color:t.gold, fontFamily:GF, marginBottom:3 }}>
+                {isEditMode ? "Edit Report" : "Sunday School Attendance Report"}
+              </div>
+              <div style={{ fontSize:13, color:t.textMuted, fontFamily:FF }}>
+                {isEditMode ? "You are editing a pending submission. Changes will reset it to pending for re-approval." : "Saved directly to your records."}
+              </div>
+            </div>
+            {isAdmin && !isEditMode && (
+              <button style={{ ...btnOutline, padding:"10px 20px", display:"flex", alignItems:"center", gap:8, fontSize:13 }}
+                onClick={() => setBulkMode(true)}>
+                <Icon name="plus" size={14} color={t.gold}/> Bulk Class Submission
+              </button>
             )}
           </div>
-          <div style={fw()}><label style={lbl}>Teacher Name</label>
-            {lockedTeacher ? (
-              <div style={{ ...inp, background: isDark(t.mode||"light") ? "rgba(0,255,100,0.06)" : "#f0fff4",
-                border:`2px solid ${t.success}55`, color:t.text, display:"flex", alignItems:"center", gap:8 }}>
-                🔒 <span style={{ fontWeight:700 }}>{lockedTeacher}</span>
-                <span style={{ fontSize:11, color:t.success, marginLeft:"auto" }}>You</span>
+
+          {isEditMode && (
+            <div style={{ marginBottom:18, padding:"12px 16px", borderRadius:10,
+              background:t.warn+"18", border:`1px solid ${t.warn}44`,
+              display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, flexWrap:"wrap" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                <span style={{ fontSize:18 }}>✏️</span>
+                <div>
+                  <div style={{ fontSize:13, fontWeight:700, color:t.text, fontFamily:FF }}>
+                    Editing: {editProp.class_name} — {editProp.date}
+                  </div>
+                  <div style={{ fontSize:11, color:t.textMuted, fontFamily:FF }}>
+                    Status will return to <strong>Pending</strong> after saving, requiring admin re-approval.
+                  </div>
+                </div>
               </div>
-            ) : (
-              <select name="teacher_name" style={{...sel,width:"100%"}} value={form.teacher_name} onChange={handleChange}>
-                <option value="">Select…</option>{activeTeachers.map(x=><option key={x.name} value={x.name}>{x.name}</option>)}
-              </select>
-            )}
+              <button onClick={onCancelEdit} style={{ padding:"7px 14px", borderRadius:8,
+                border:`1px solid ${t.border}`, background:"transparent", color:t.textMuted,
+                fontFamily:FF, fontSize:12, cursor:"pointer" }}>✕ Cancel Edit</button>
+            </div>
+          )}
+
+          <div style={card}>
+            <div style={sec}>Basic Information</div>
+            <div style={g2}>
+              <div style={fw()}><label style={lbl}>Date</label><input name="date" style={inp} type="date" value={form.date} onChange={handleChange}/></div>
+              <div style={fw()}><label style={lbl}>Day</label><select name="day_of_week" style={{...sel,width:"100%"}} value={form.day_of_week} onChange={handleChange}>{["Sunday","Saturday","Wednesday"].map(o=><option key={o}>{o}</option>)}</select></div>
+              <div style={fw()}><label style={lbl}>Service Type</label><select name="service_type" style={{...sel,width:"100%"}} value={form.service_type} onChange={handleChange}><option>Regular Sunday School</option><option>Joint Sunday School</option><option>Special Service</option></select></div>
+              <div style={fw()}><label style={lbl}>Class Name *</label>
+                {lockedClass
+                  ? <div style={{ ...inp, background:"rgba(0,255,100,0.06)", border:`2px solid ${t.success}55`, color:t.text, display:"flex", alignItems:"center", gap:8 }}>🔒 <span style={{ fontWeight:700 }}>{lockedClass}</span><span style={{ fontSize:11, color:t.success, marginLeft:"auto" }}>Assigned</span></div>
+                  : <select name="class_name" style={{...sel,width:"100%"}} value={form.class_name} onChange={handleChange}><option value="">Select…</option>{classes.map(c=><option key={c.name} value={c.name}>{c.name}</option>)}</select>}
+              </div>
+              <div style={fw()}><label style={lbl}>Teacher Name</label>
+                {lockedTeacher
+                  ? <div style={{ ...inp, background:"rgba(0,255,100,0.06)", border:`2px solid ${t.success}55`, color:t.text, display:"flex", alignItems:"center", gap:8 }}>🔒 <span style={{ fontWeight:700 }}>{lockedTeacher}</span><span style={{ fontSize:11, color:t.success, marginLeft:"auto" }}>You</span></div>
+                  : <select name="teacher_name" style={{...sel,width:"100%"}} value={form.teacher_name} onChange={handleChange}><option value="">Select…</option>{activeTeachers.map(x=><option key={x.name} value={x.name}>{x.name}</option>)}</select>}
+              </div>
+              <div style={fw()}><label style={lbl}>Assistant Teacher</label><select name="assistant_teacher" style={{...sel,width:"100%"}} value={form.assistant_teacher} onChange={handleChange}><option value="">None</option>{activeTeachers.map(x=><option key={x.name} value={x.name}>{x.name}</option>)}</select></div>
+              <div style={fw()}><label style={lbl}>Submitted By</label><input name="submitted_by" style={inp} value={form.submitted_by} onChange={handleChange}/></div>
+              <div/>
+              <div style={fw()}><label style={lbl}>Time Started</label><input name="time_started" style={inp} type="time" value={form.time_started} onChange={handleChange}/></div>
+              <div style={fw()}><label style={lbl}>Time Ended</label><input name="time_ended" style={inp} type="time" value={form.time_ended} onChange={handleChange}/></div>
+            </div>
+
+            <div style={sec}>Attendance Information</div>
+            <div style={g2}>
+              <div style={fw()}><label style={lbl}>Total Present (Beginning)</label><input name="total_beginning" style={inp} type="number" value={form.total_beginning} onChange={handleChange}/></div>
+              <div style={fw()}><label style={lbl}>Total Present (Closing)</label><input name="total_closing" style={inp} type="number" value={form.total_closing} onChange={handleChange}/></div>
+              <div style={fw()}><label style={lbl}>Male Present</label><input name="male_present" style={inp} type="number" value={form.male_present} onChange={handleChange}/></div>
+              <div style={fw()}><label style={lbl}>Female Present</label><input name="female_present" style={inp} type="number" value={form.female_present} onChange={handleChange}/></div>
+              <div style={fw()}><label style={lbl}>First Timers</label><input name="first_timers" style={inp} type="number" value={form.first_timers} onChange={handleChange}/></div>
+              <div style={fw()}><label style={lbl}>Visitors</label><input name="visitors" style={inp} type="number" value={form.visitors} onChange={handleChange}/></div>
+              <div style={fw()}><label style={lbl}>Absent Members</label><input name="absent_members" style={inp} type="number" value={form.absent_members} onChange={handleChange}/></div>
+            </div>
+
+            <div style={sec}>Bible Records</div>
+            <div style={g2}>
+              <div style={fw()}><label style={lbl}>Bibles at Beginning</label><input name="bibles_beginning" style={inp} type="number" value={form.bibles_beginning} onChange={handleChange}/></div>
+              <div style={fw()}><label style={lbl}>Bibles at Closing</label><input name="bibles_closing" style={inp} type="number" value={form.bibles_closing} onChange={handleChange}/></div>
+              <div style={fw()}><label style={lbl}>Members Without Bibles</label><input name="members_without_bibles" style={inp} type="number" value={form.members_without_bibles} onChange={handleChange}/></div>
+            </div>
+
+            <div style={sec}>Lesson Information</div>
+            <div style={g2}>
+              <div style={fw(2)}><label style={lbl}>Topic Discussed *</label><input name="topic" style={inp} value={form.topic} onChange={handleChange}/></div>
+              <div style={fw()}><label style={lbl}>Bible References</label><input name="bible_references" style={inp} value={form.bible_references} onChange={handleChange}/></div>
+              <div style={fw()}><label style={lbl}>Memory Verse</label><input name="memory_verse" style={inp} value={form.memory_verse} onChange={handleChange}/></div>
+              <div style={fw(2)}><label style={lbl}>Key Notes / Summary</label><textarea name="key_notes" style={{...inp,minHeight:65,resize:"vertical"}} value={form.key_notes} onChange={handleChange}/></div>
+              <div style={fw(2)}><label style={lbl}>Assignment / Homework</label><textarea name="assignment" style={{...inp,minHeight:65,resize:"vertical"}} value={form.assignment} onChange={handleChange}/></div>
+            </div>
+
+            <div style={sec}>Teacher Attendance</div>
+            <div style={g2}>
+              <div style={fw()}><label style={lbl}>Number of Teachers Present</label><input name="teachers_present" style={inp} type="number" value={form.teachers_present} onChange={handleChange}/></div>
+              <div style={fw()}><label style={lbl}>Names of Teachers Present</label><input name="teacher_names" style={inp} value={form.teacher_names} onChange={handleChange}/></div>
+            </div>
+
+            <div style={sec}>Additional Notes</div>
+            <div style={g2}>
+              <div style={fw(2)}><label style={lbl}>Challenges</label><textarea name="challenges" style={{...inp,minHeight:65,resize:"vertical"}} value={form.challenges} onChange={handleChange}/></div>
+              <div style={fw(2)}><label style={lbl}>Prayer Requests</label><textarea name="prayer_requests" style={{...inp,minHeight:65,resize:"vertical"}} value={form.prayer_requests} onChange={handleChange}/></div>
+              <div style={fw(2)}><label style={lbl}>Announcements</label><textarea name="announcements" style={{...inp,minHeight:65,resize:"vertical"}} value={form.announcements} onChange={handleChange}/></div>
+            </div>
+
+            <div style={{ marginTop:24, display:"flex", gap:12, flexWrap:"wrap" }}>
+              <button onClick={handleSubmit} disabled={loading} style={{ ...btnGold, padding:"13px 36px", fontSize:14 }}>
+                {loading ? "Saving…" : isEditMode ? "💾 Save Changes" : "Submit Report"}
+              </button>
+              {isEditMode
+                ? <button onClick={onCancelEdit} style={{ ...btnOutline, padding:"13px 24px" }}>Cancel</button>
+                : <button onClick={()=>setForm(makeBlank())} style={{ ...btnOutline, padding:"13px 24px" }}>Clear Form</button>}
+            </div>
           </div>
-          <div style={fw()}><label style={lbl}>Assistant Teacher</label><select name="assistant_teacher" style={{...sel,width:"100%"}} value={form.assistant_teacher} onChange={handleChange}><option value="">None</option>{activeTeachers.map(x=><option key={x.name} value={x.name}>{x.name}</option>)}</select></div>
-          <div style={fw()}><label style={lbl}>Submitted By</label><input name="submitted_by" style={inp} value={form.submitted_by} onChange={handleChange} /></div>
-          <div />
-          <div style={fw()}><label style={lbl}>Time Started</label><input name="time_started" style={inp} type="time" value={form.time_started} onChange={handleChange} /></div>
-          <div style={fw()}><label style={lbl}>Time Ended</label><input name="time_ended" style={inp} type="time" value={form.time_ended} onChange={handleChange} /></div>
         </div>
-
-        <div style={sec}>Attendance Information</div>
-        <div style={g2}>
-          <div style={fw()}><label style={lbl}>Total Present (Beginning)</label><input name="total_beginning" style={inp} type="number" value={form.total_beginning} onChange={handleChange} /></div>
-          <div style={fw()}><label style={lbl}>Total Present (Closing)</label><input name="total_closing" style={inp} type="number" value={form.total_closing} onChange={handleChange} /></div>
-          <div style={fw()}><label style={lbl}>Male Present</label><input name="male_present" style={inp} type="number" value={form.male_present} onChange={handleChange} /></div>
-          <div style={fw()}><label style={lbl}>Female Present</label><input name="female_present" style={inp} type="number" value={form.female_present} onChange={handleChange} /></div>
-          <div style={fw()}><label style={lbl}>First Timers</label><input name="first_timers" style={inp} type="number" value={form.first_timers} onChange={handleChange} /></div>
-          <div style={fw()}><label style={lbl}>Visitors</label><input name="visitors" style={inp} type="number" value={form.visitors} onChange={handleChange} /></div>
-          <div style={fw()}><label style={lbl}>Absent Members</label><input name="absent_members" style={inp} type="number" value={form.absent_members} onChange={handleChange} /></div>
-        </div>
-
-        <div style={sec}>Bible Records</div>
-        <div style={g2}>
-          <div style={fw()}><label style={lbl}>Bibles at Beginning</label><input name="bibles_beginning" style={inp} type="number" value={form.bibles_beginning} onChange={handleChange} /></div>
-          <div style={fw()}><label style={lbl}>Bibles at Closing</label><input name="bibles_closing" style={inp} type="number" value={form.bibles_closing} onChange={handleChange} /></div>
-          <div style={fw()}><label style={lbl}>Members Without Bibles</label><input name="members_without_bibles" style={inp} type="number" value={form.members_without_bibles} onChange={handleChange} /></div>
-        </div>
-
-        <div style={sec}>Lesson Information</div>
-        <div style={g2}>
-          <div style={fw(2)}><label style={lbl}>Topic Discussed *</label><input name="topic" style={inp} value={form.topic} onChange={handleChange} /></div>
-          <div style={fw()}><label style={lbl}>Bible References</label><input name="bible_references" style={inp} value={form.bible_references} onChange={handleChange} /></div>
-          <div style={fw()}><label style={lbl}>Memory Verse</label><input name="memory_verse" style={inp} value={form.memory_verse} onChange={handleChange} /></div>
-          <div style={fw(2)}><label style={lbl}>Key Notes / Summary</label><textarea name="key_notes" style={{...inp,minHeight:65,resize:"vertical"}} value={form.key_notes} onChange={handleChange} /></div>
-          <div style={fw(2)}><label style={lbl}>Assignment / Homework</label><textarea name="assignment" style={{...inp,minHeight:65,resize:"vertical"}} value={form.assignment} onChange={handleChange} /></div>
-        </div>
-
-        <div style={sec}>Teacher Attendance</div>
-        <div style={g2}>
-          <div style={fw()}><label style={lbl}>Number of Teachers Present</label><input name="teachers_present" style={inp} type="number" value={form.teachers_present} onChange={handleChange} /></div>
-          <div style={fw()}><label style={lbl}>Names of Teachers Present</label><input name="teacher_names" style={inp} value={form.teacher_names} onChange={handleChange} /></div>
-        </div>
-
-        <div style={sec}>Additional Notes</div>
-        <div style={g2}>
-          <div style={fw(2)}><label style={lbl}>Challenges</label><textarea name="challenges" style={{...inp,minHeight:65,resize:"vertical"}} value={form.challenges} onChange={handleChange} /></div>
-          <div style={fw(2)}><label style={lbl}>Prayer Requests</label><textarea name="prayer_requests" style={{...inp,minHeight:65,resize:"vertical"}} value={form.prayer_requests} onChange={handleChange} /></div>
-          <div style={fw(2)}><label style={lbl}>Announcements</label><textarea name="announcements" style={{...inp,minHeight:65,resize:"vertical"}} value={form.announcements} onChange={handleChange} /></div>
-        </div>
-
-        <div style={{ marginTop:24, display:"flex", gap:12, flexWrap:"wrap" }}>
-          <button onClick={handleSubmit} disabled={loading} style={{ ...btnGold, padding:"13px 36px", fontSize:14 }}>
-            {loading ? "Saving…" : isEditMode ? "💾 Save Changes" : "Submit Report"}
-          </button>
-          {isEditMode
-            ? <button onClick={onCancelEdit} style={{ ...btnOutline, padding:"13px 24px" }}>Cancel</button>
-            : <button onClick={()=>setForm(makeBlank())} style={{ ...btnOutline, padding:"13px 24px" }}>Clear Form</button>
-          }
-        </div>
-      </div>
+      )}
     </div>
   );
 };
-
 
 // ─── ATTENDANCE PAGE ──────────────────────────────────────────────────────────
 const AttendancePage = ({ db, user, onEditRecord }) => {
