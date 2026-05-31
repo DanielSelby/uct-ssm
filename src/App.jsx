@@ -297,6 +297,9 @@ const ALL_PERMISSIONS = [
   { key:"view_export",      label:"Download / Export Data",      group:"Actions" },
   { key:"view_all_classes", label:"See All Classes' Records",    group:"Actions" },
   { key:"manage_teachers",  label:"Add / Edit / Delete Teachers",group:"Actions" },
+  { key:"youth",            label:"Youth Programs",              group:"Navigation" },
+  { key:"baptism",          label:"Baptism Records",             group:"Navigation" },
+  { key:"church_members",   label:"Church Member Registry",     group:"Navigation" },
 ];
 
 // Default full access for admin
@@ -308,7 +311,7 @@ const TEACHER_PERMS_DEFAULT = ["submit","attendance","church","view_church_data"
 const BUILT_IN_ROLES = [
   { id:"admin",          name:"Admin",          color:"#004b23", permissions: ADMIN_PERMS,           isBuiltIn: true,  description:"Full access to everything" },
   { id:"teacher",        name:"Teacher",        color:"#1565C0", permissions: TEACHER_PERMS_DEFAULT, isBuiltIn: true,  description:"Submit reports and view own records" },
-  { id:"superintendent", name:"Superintendent", color:"#9B59B6", permissions: [...TEACHER_PERMS_DEFAULT,"analytics","view_analytics","dashboard","export","view_export","view_all_classes"], isBuiltIn: true, description:"Teacher + analytics and exports" },
+  { id:"superintendent", name:"Superintendent", color:"#9B59B6", permissions: [...TEACHER_PERMS_DEFAULT,"analytics","view_analytics","dashboard","export","view_export","view_all_classes","youth","baptism","church_members"], isBuiltIn: true, description:"Teacher + analytics and exports" },
   { id:"assistant",      name:"Asst. Teacher",  color:"#E67E22", permissions: ["submit","church","view_church_data"], isBuiltIn: true, description:"Submit SS reports and church records only" },
 ];
 
@@ -2494,6 +2497,7 @@ const AttendancePage = ({ db, user, onEditRecord }) => {
             { label:"Avg Begin", value:sorted.length ? Math.round(stats.begin/sorted.length) : 0, color:t.info },
             { label:"Avg Close", value:sorted.length ? Math.round(stats.close/sorted.length) : 0, color:t.success },
             { label:"Total Bibles", value:stats.bibles, color:"#9B59B6" },
+             { label:"Bible:Attend Ratio", value: stats.close > 0 ? `${Math.round(stats.bibles/stats.close*100)}%` : "—", color:"#1ABC9C" },
             { label:"First Timers", value:stats.firstT, color:"#E67E22" },
             { label:"Visitors",     value:stats.visitors,color:t.info },
           ].map(s => (
@@ -2509,7 +2513,7 @@ const AttendancePage = ({ db, user, onEditRecord }) => {
       <div style={{ ...card, padding:0, overflowX:"auto" }}>
         <table style={{ width:"100%", borderCollapse:"collapse", minWidth:900 }}>
           <thead><tr style={{ background:t.surfaceAlt }}>
-            {["Date","Class","Teacher","Begin","Closing","Bible Begin","Bible Close","First T.","Topic","Status","Actions"].map(h=><th key={h} style={th}>{h}</th>)}
+            {["Date","Class","Teacher","Begin","Closing","Bible Begin","Bible Close","Bible Ratio","First T.","Topic","Status","Actions"].map(h=><th key={h} style={th}>{h}</th>)}
           </tr></thead>
           <tbody>
             {sorted.map(r=>{
@@ -2523,6 +2527,7 @@ const AttendancePage = ({ db, user, onEditRecord }) => {
                   <td style={td}><span style={{ fontWeight:600, color:t.gold }}>{r.total_closing||0}</span></td>
                   <td style={td}><span style={{ color:t.info }}>{r.bibles_beginning||0}</span></td>
                   <td style={td}><span style={{ color:t.gold }}>{r.bibles_closing||0}</span></td>
+                   <td style={td}><span style={{ color:"#1ABC9C", fontWeight:600 }}>{Number(r.total_closing) > 0 ? `${Math.round((Number(r.bibles_closing)||0)/Number(r.total_closing)*100)}%` : "—"}</span></td>
                   <td style={td}>{r.first_timers||0}</td>
                   <td style={{ ...td, maxWidth:130, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", color:t.textMuted }}>{r.topic}</td>
                   <td style={td}><Badge label={si.label} color={si.color}/></td>
@@ -6535,6 +6540,14 @@ const RolesPage = () => {
   const [modal, setModal]         = useState(null); // null | "add" | role-obj
   const [expandedId, setExpandedId] = useState(null);
 
+  // Re-sync from localStorage on mount (component re-mounts on every nav)
+  useEffect(() => { setRoles(getAllRoles()); }, []);
+
+  const saveAndSync = (customs) => {
+    saveCustomRoles(customs);
+    setRoles([...BUILT_IN_ROLES, ...customs]);
+  };
+
   const customRoles = roles.filter(r => !r.isBuiltIn);
   const builtInRoles = roles.filter(r => r.isBuiltIn);
 
@@ -6675,26 +6688,18 @@ const RolesPage = () => {
   };
 
   const handleSave = (form) => {
-    let updated;
     if (modal === "add") {
       const newRole = { ...form, id:`ROLE_${Date.now()}`, isBuiltIn: false };
-      const customs = [...loadCustomRoles(), newRole];
-      saveCustomRoles(customs);
-      updated = [...BUILT_IN_ROLES, ...customs];
+      saveAndSync([...loadCustomRoles(), newRole]);
     } else {
-      const customs = loadCustomRoles().map(r => r.id===modal.id ? { ...r, ...form } : r);
-      saveCustomRoles(customs);
-      updated = [...BUILT_IN_ROLES, ...customs];
+      saveAndSync(loadCustomRoles().map(r => r.id===modal.id ? { ...r, ...form } : r));
     }
-    setRoles(updated);
     setModal(null);
   };
 
   const handleDelete = (id) => {
     if (!window.confirm("Delete this role? Users assigned to it will keep their current permissions.")) return;
-    const customs = loadCustomRoles().filter(r => r.id !== id);
-    saveCustomRoles(customs);
-    setRoles([...BUILT_IN_ROLES, ...customs]);
+    saveAndSync(loadCustomRoles().filter(r => r.id !== id));
   };
 
   const RoleCard = ({ role }) => {
@@ -9097,8 +9102,8 @@ export default function App() {
     teachers:  guard("teachers",   <TeachersPage db={db} />),
     classes:   guard("classes",    <ClassesPage db={db} />),
     programs:  guard("programs",   <ProgramsPage db={db} />),
-    youth:     guard("dashboard",  <YouthPage db={db} />),
-    baptism:   guard("dashboard",  <BaptismPage db={db} />),
+    youth:     guard("youth",      <YouthPage db={db} />),
+    baptism:   guard("baptism",    <BaptismPage db={db} />),
     users:     user?.role==="admin" ? <UsersPage users={users} db={db} /> : <AccessDenied />,
     roles:     user?.role==="admin" ? <RolesPage /> : <AccessDenied />,
     branding:  user?.role==="admin" ? <BrandingPage /> : <AccessDenied />,
