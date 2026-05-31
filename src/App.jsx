@@ -255,7 +255,7 @@ const SHEETS = {
 };
 
 const RECORD_COLS = [
-  "id","date","day_of_week","service_type","class_name","teacher_name","assistant_teacher",
+  "id","date","day_of_week","service_type","class_name","teacher_name","assistant_teacher","assistant_teacher_2","assistant_teacher_3","delivered_by",
   "submitted_by","time_started","time_ended","total_beginning","total_closing",
   "male_present","female_present","first_timers","visitors","absent_members",
   "bibles_beginning","bibles_closing","members_without_bibles","topic",
@@ -2119,9 +2119,33 @@ const BulkRowCard = ({ row, idx, t, lbl, inp, sel, card, GF, FF, toggleExpand, u
               </select>
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-              <label style={{ ...lbl, fontSize:11 }}>Assistant Teacher</label>
+              <label style={{ ...lbl, fontSize:11 }}>🎤 Delivered By</label>
+              <select style={{ ...sel, fontSize:12 }} value={row.delivered_by}
+                onChange={e => updateBulkRow(idx,"delivered_by",e.target.value)}>
+                <option value="">Select…</option>
+                {activeTeachers.map(x => <option key={x.name} value={x.name}>{x.name}</option>)}
+              </select>
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+              <label style={{ ...lbl, fontSize:11 }}>Assistant Teacher 1</label>
               <select style={{ ...sel, fontSize:12 }} value={row.assistant_teacher}
                 onChange={e => updateBulkRow(idx,"assistant_teacher",e.target.value)}>
+                <option value="">None</option>
+                {activeTeachers.map(x => <option key={x.name} value={x.name}>{x.name}</option>)}
+              </select>
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+              <label style={{ ...lbl, fontSize:11 }}>Assistant Teacher 2</label>
+              <select style={{ ...sel, fontSize:12 }} value={row.assistant_teacher_2}
+                onChange={e => updateBulkRow(idx,"assistant_teacher_2",e.target.value)}>
+                <option value="">None</option>
+                {activeTeachers.map(x => <option key={x.name} value={x.name}>{x.name}</option>)}
+              </select>
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+              <label style={{ ...lbl, fontSize:11 }}>Assistant Teacher 3</label>
+              <select style={{ ...sel, fontSize:12 }} value={row.assistant_teacher_3}
+                onChange={e => updateBulkRow(idx,"assistant_teacher_3",e.target.value)}>
                 <option value="">None</option>
                 {activeTeachers.map(x => <option key={x.name} value={x.name}>{x.name}</option>)}
               </select>
@@ -2215,7 +2239,7 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
     time_started:"09:00", time_ended:"10:30",
   });
   const makeBulkRow = (cls) => ({
-    class_name:cls.name, teacher_name:"", assistant_teacher:"",
+    class_name:cls.name, teacher_name:"", assistant_teacher:"", assistant_teacher_2:"", assistant_teacher_3:"", delivered_by:"",
     total_beginning:"", total_closing:"", male_present:"", female_present:"",
     first_timers:"", visitors:"", absent_members:"",
     bibles_beginning:"", bibles_closing:"", members_without_bibles:"",
@@ -2231,7 +2255,7 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
   const makeBlank = () => ({
     date:new Date().toISOString().slice(0,10), day_of_week:"Sunday",
     service_type:"Regular Sunday School", class_name:lockedClass,
-    teacher_name:lockedTeacher, assistant_teacher:"", submitted_by:user?.name||"",
+    teacher_name:lockedTeacher, assistant_teacher:"", assistant_teacher_2:"", assistant_teacher_3:"", delivered_by:"", submitted_by:user?.name||"",
     time_started:"09:00", time_ended:"10:30",
     total_beginning:"", total_closing:"", male_present:"", female_present:"",
     first_timers:"", visitors:"", absent_members:"",
@@ -2477,7 +2501,10 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
                   ? <div style={{ ...inp, background:"rgba(0,255,100,0.06)", border:`2px solid ${t.success}55`, color:t.text, display:"flex", alignItems:"center", gap:8 }}>🔒 <span style={{ fontWeight:700 }}>{lockedTeacher}</span><span style={{ fontSize:11, color:t.success, marginLeft:"auto" }}>You</span></div>
                   : <select name="teacher_name" style={{...sel,width:"100%"}} value={form.teacher_name} onChange={handleChange}><option value="">Select…</option>{activeTeachers.map(x=><option key={x.name} value={x.name}>{x.name}</option>)}</select>}
               </div>
-              <div style={fw()}><label style={lbl}>Assistant Teacher</label><select name="assistant_teacher" style={{...sel,width:"100%"}} value={form.assistant_teacher} onChange={handleChange}><option value="">None</option>{activeTeachers.map(x=><option key={x.name} value={x.name}>{x.name}</option>)}</select></div>
+              <div style={fw()}><label style={lbl}>🎤 Delivered By</label><select name="delivered_by" style={{...sel,width:"100%"}} value={form.delivered_by} onChange={handleChange}><option value="">Select…</option>{activeTeachers.map(x=><option key={x.name} value={x.name}>{x.name}</option>)}</select></div>
+              <div style={fw()}><label style={lbl}>Assistant Teacher 1</label><select name="assistant_teacher" style={{...sel,width:"100%"}} value={form.assistant_teacher} onChange={handleChange}><option value="">None</option>{activeTeachers.map(x=><option key={x.name} value={x.name}>{x.name}</option>)}</select></div>
+              <div style={fw()}><label style={lbl}>Assistant Teacher 2</label><select name="assistant_teacher_2" style={{...sel,width:"100%"}} value={form.assistant_teacher_2} onChange={handleChange}><option value="">None</option>{activeTeachers.map(x=><option key={x.name} value={x.name}>{x.name}</option>)}</select></div>
+              <div style={fw()}><label style={lbl}>Assistant Teacher 3</label><select name="assistant_teacher_3" style={{...sel,width:"100%"}} value={form.assistant_teacher_3} onChange={handleChange}><option value="">None</option>{activeTeachers.map(x=><option key={x.name} value={x.name}>{x.name}</option>)}</select></div>
               <div style={fw()}><label style={lbl}>Submitted By</label><input name="submitted_by" style={inp} value={form.submitted_by} onChange={handleChange}/></div>
               <div/>
               <div style={fw()}><label style={lbl}>Time Started</label><input name="time_started" style={inp} type="time" value={form.time_started} onChange={handleChange}/></div>
@@ -2620,7 +2647,7 @@ const AttendancePage = ({ db, user, onEditRecord }) => {
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:18 }}>
           {[
-            ["Basic Info", [["Date",fmtDate(r.date)],["Day",r.day_of_week],["Service",r.service_type],["Class",r.class_name],["Teacher",r.teacher_name],["Assistant",r.assistant_teacher],["Time",`${r.time_started||""} – ${r.time_ended||""}`]]],
+            ["Basic Info", [["Date",fmtDate(r.date)],["Day",r.day_of_week],["Service",r.service_type],["Class",r.class_name],["Teacher",r.teacher_name],["Delivered By",r.delivered_by],["Asst. Teacher 1",r.assistant_teacher],["Asst. Teacher 2",r.assistant_teacher_2],["Asst. Teacher 3",r.assistant_teacher_3],["Time",`${r.time_started||""} – ${r.time_ended||""}`]]],
             ["Attendance", [["At Beginning",r.total_beginning],["At Closing",r.total_closing],["Male",r.male_present],["Female",r.female_present],["First Timers",r.first_timers],["Visitors",r.visitors],["Absent",r.absent_members]]],
             ["Bible Records", [["Bibles (Begin)",r.bibles_beginning],["Bibles (Closing)",r.bibles_closing],["Without Bibles",r.members_without_bibles]]],
             ["Lesson", [["Topic",r.topic],["Bible Refs",r.bible_references],["Memory Verse",r.memory_verse],["Key Notes",r.key_notes],["Assignment",r.assignment]]],
