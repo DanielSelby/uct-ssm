@@ -297,6 +297,7 @@ const ALL_PERMISSIONS = [
   { key:"view_export",      label:"Download / Export Data",      group:"Actions" },
   { key:"view_all_classes", label:"See All Classes' Records",    group:"Actions" },
   { key:"manage_teachers",  label:"Add / Edit / Delete Teachers",group:"Actions" },
+  { key:"bulk_submit",      label:"Bulk Class Report Submission", group:"Actions" },
   { key:"youth",            label:"Youth Programs",              group:"Navigation" },
   { key:"baptism",          label:"Baptism Records",             group:"Navigation" },
   { key:"church_members",   label:"Church Member Registry",     group:"Navigation" },
@@ -2239,6 +2240,7 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
   const isEditMode    = !!editProp;
   const isAdmin       = user?.role === "admin";
   const isTeacher     = user?.role === "teacher";
+  const canBulkSubmit = isAdmin || (user?.permissions||[]).includes("bulk_submit");
   const lockedClass   = isTeacher && user?.assigned_class ? user.assigned_class : "";
   const lockedTeacher = isTeacher ? (user?.name || "") : "";
 
@@ -2383,7 +2385,7 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
       )}
 
       {/* ── BULK MODE ── */}
-      {bulkMode && isAdmin && !bulkDone && (
+      {bulkMode && canBulkSubmit && !bulkDone && (
         <div>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:20, flexWrap:"wrap", gap:10 }}>
             <div>
@@ -2468,7 +2470,7 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
                 {isEditMode ? "You are editing a pending submission. Changes will reset it to pending for re-approval." : "Saved directly to your records."}
               </div>
             </div>
-            {isAdmin && !isEditMode && (
+            {canBulkSubmit && !isEditMode && (
               <button style={{ ...btnOutline, padding:"10px 20px", display:"flex", alignItems:"center", gap:8, fontSize:13 }}
                 onClick={() => setBulkMode(true)}>
                 <Icon name="plus" size={14} color={t.gold}/> Bulk Class Submission
