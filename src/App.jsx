@@ -1420,18 +1420,28 @@ const Modal = ({ title, onClose, children, width=560 }) => {
 };
 
 // ─── KPI CARD ─────────────────────────────────────────────────────────────────
-const KpiCard = ({ label, value, sub, icon, color }) => {
+const KpiCard = ({ label, value, sub, icon, color, badge, badgeGood }) => {
   const { t } = useThemeStyles();
   const c = color||t.gold;
+  const badgeColor = badgeGood === true ? "#0A7A45" : badgeGood === false ? "#C0392B" : t.textMuted;
   return (
     <div style={{ background:t.surfaceAlt, border:`1px solid ${t.border}`, borderRadius:14,
       padding:"18px 20px", borderTop:`3px solid ${c}` }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-        <div>
+        <div style={{ flex:1 }}>
           <div style={{ fontSize:14, fontWeight:800, color:t.text,
             fontFamily:"'Trebuchet MS',sans-serif", marginBottom:8, lineHeight:1.3 }}>{label}</div>
           <div style={{ fontSize:30, fontWeight:900, color:c, fontFamily:"'Georgia',serif", lineHeight:1 }}>{value}</div>
           {sub && <div style={{ fontSize:11, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginTop:5 }}>{sub}</div>}
+          {badge && (
+            <div style={{ display:"inline-flex", alignItems:"center", gap:4, marginTop:8,
+              padding:"3px 9px", borderRadius:20, fontSize:11, fontWeight:700,
+              background: badgeColor+"22", color: badgeColor,
+              fontFamily:"'Trebuchet MS',sans-serif", border:`1px solid ${badgeColor}44` }}>
+              <span style={{ fontSize:10 }}>{badgeGood === true ? "●" : badgeGood === false ? "●" : "○"}</span>
+              {badge}
+            </div>
+          )}
         </div>
         <div style={{ width:42, height:42, borderRadius:12, background:c+"18",
           display:"flex", alignItems:"center", justifyContent:"center" }}>
@@ -1911,8 +1921,10 @@ const DashboardPage = ({ db }) => {
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:12, marginBottom:16 }}>
         <KpiCard label="Sund. Sch. Begin"   value={ssBeginTotal} sub="At opening"        icon="attendance" color={t.info} />
         <KpiCard label="Sund. Sch. Close" value={ssTotal}      sub="At close"          icon="attendance" color={t.gold} />
-        <KpiCard label="Bible:Attend Begin" value={`${bibleBeginRate}%`} sub={`${biblesBegin} bibles ÷ ${ssBeginTotal} attend`} icon="bible" color="#9B59B6" />
-        <KpiCard label="Bible:Attend Close" value={`${bibleRate}%`}      sub={`${bibles} bibles ÷ ${ssTotal} attend`}           icon="bible" color="#7B3FBE" />
+        <KpiCard label="Bibles at Begin"  value={biblesBegin} sub={`of ${ssBeginTotal} at opening`}  icon="bible" color="#9B59B6"
+          badge={`${bibleBeginRate}% ratio`} badgeGood={bibleBeginRate >= 75 ? true : bibleBeginRate >= 50 ? null : false} />
+        <KpiCard label="Bibles at Close"  value={bibles}      sub={`of ${ssTotal} at closing`}        icon="bible" color="#7B3FBE"
+          badge={`${bibleRate}% ratio`}      badgeGood={bibleRate >= 75 ? true : bibleRate >= 50 ? null : false} />
         <KpiCard label="First Timers"       value={fRec.reduce((s,r)=>s+(Number(r.first_timers)||0),0)} sub="SS only" icon="plus" color="#E67E22" />
         <KpiCard label="Pending Reviews"    value={pending}      sub="Needs approval"    icon="info"       color={pending>0?t.warn:t.textMuted} />
       </div>
