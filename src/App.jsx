@@ -1198,6 +1198,7 @@ const useSupabaseDB = () => {
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const CLASS_COLORS = ["#004b23","#1565C0","#2ECC71","#9B59B6","#E67E22","#E74C3C","#1ABC9C"];
 const fmtDate = (d) => { try { return new Date(d).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}); } catch { return d||"—"; } };
+const fmtNum  = (n) => { const v = Number(n); if (isNaN(v)) return n; return v.toLocaleString("en-US"); };
 const statusInfo = (s) => ({ approved:{color:"#0E8A5F",label:"Approved"}, pending:{color:"#C87A0A",label:"Pending"}, rejected:{color:"#E74C3C",label:"Rejected"} }[s]||{color:"#7A8AAD",label:s||"—"});
 const uid = () => Math.random().toString(36).slice(2,9);
 
@@ -1442,7 +1443,7 @@ const KpiCard = ({ label, value, sub, icon, color, badge, badgeGood }) => {
         <div style={{ flex:1 }}>
           <div style={{ fontSize:14, fontWeight:800, color:t.text,
             fontFamily:"'Trebuchet MS',sans-serif", marginBottom:8, lineHeight:1.3 }}>{label}</div>
-          <div style={{ fontSize:30, fontWeight:900, color:c, fontFamily:"'Georgia',serif", lineHeight:1 }}>{value}</div>
+          <div style={{ fontSize:30, fontWeight:900, color:c, fontFamily:"'Georgia',serif", lineHeight:1 }}>{typeof value === "number" ? fmtNum(value) : value}</div>
           {sub && <div style={{ fontSize:11, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginTop:5 }}>{sub}</div>}
           {badge && (
             <div style={{ display:"inline-flex", alignItems:"center", gap:4, marginTop:8,
@@ -1817,12 +1818,13 @@ const DashboardPage = ({ db }) => {
     ...churchRecs.map(r=>(r.date||"").slice(0,7))
   ].filter(Boolean))].sort();
 
-  // Apply date/month filters
+  // Apply date/month/class filters
   const applyRange = (arr) => arr.filter(r => {
     if (!r.date) return false;
     if (filters.from && r.date < filters.from) return false;
     if (filters.to   && r.date > filters.to)   return false;
     if (filters.month && !r.date.startsWith(filters.month)) return false;
+    if (filters.cls && r.class_name !== filters.cls) return false;
     return true;
   });
 
@@ -1893,14 +1895,14 @@ const DashboardPage = ({ db }) => {
           <div style={{ fontSize:23, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif", marginBottom:3 }}>Overview Dashboard</div>
           <div style={{ fontSize:13, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}>
             {records.length} SS records · {churchRecs.length} church services
-            {(filters.from||filters.to||filters.month) ? " · Filtered" : " · All time"}
+            {(filters.from||filters.to||filters.month||filters.cls) ? " · Filtered" : " · All time"}
           </div>
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
           {/* Filter Bar inline */}
           <div style={{ ...card, padding:"10px 14px", margin:0 }}>
             <FilterBar filters={filters} setFilters={setFilters} months={allMonths}
-              programs={programs} classes={classes} showClass={false} showProgram={false} />
+              programs={programs} classes={classes} showClass={true} showProgram={false} />
           </div>
           {/* Refresh button */}
           <button onClick={handleManualRefresh} disabled={refreshing}
@@ -1930,14 +1932,14 @@ const DashboardPage = ({ db }) => {
         Sunday School
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:12, marginBottom:16 }}>
-        <KpiCard label="Sund. Sch. Begin"   value={ssBeginTotal} sub="At opening"        icon="attendance" color={t.info} />
-        <KpiCard label="Sund. Sch. Close" value={ssTotal}      sub="At close"          icon="attendance" color={t.gold} />
-        <KpiCard label="Bibles at Begin"  value={biblesBegin} sub={`of ${ssBeginTotal} at opening`}  icon="bible" color="#9B59B6"
+        <KpiCard label="Sund. Sch. Begin"   value={fmtNum(ssBeginTotal)} sub="At opening"        icon="attendance" color={t.info} />
+        <KpiCard label="Sund. Sch. Close" value={fmtNum(ssTotal)}      sub="At close"          icon="attendance" color={t.gold} />
+        <KpiCard label="Bibles at Begin"  value={fmtNum(biblesBegin)} sub={`of ${fmtNum(ssBeginTotal)} at opening`}  icon="bible" color="#9B59B6"
           badge={`${bibleBeginRate}% ratio`} badgeGood={bibleBeginRate >= 75 ? true : bibleBeginRate >= 50 ? null : false} />
-        <KpiCard label="Bibles at Close"  value={bibles}      sub={`of ${ssTotal} at closing`}        icon="bible" color="#7B3FBE"
+        <KpiCard label="Bibles at Close"  value={fmtNum(bibles)}      sub={`of ${fmtNum(ssTotal)} at closing`}        icon="bible" color="#7B3FBE"
           badge={`${bibleRate}% ratio`}      badgeGood={bibleRate >= 75 ? true : bibleRate >= 50 ? null : false} />
-        <KpiCard label="First Timers"       value={fRec.reduce((s,r)=>s+(Number(r.first_timers)||0),0)} sub="SS only" icon="plus" color="#E67E22" />
-        <KpiCard label="Pending Reviews"    value={pending}      sub="Needs approval"    icon="info"       color={pending>0?t.warn:t.textMuted} />
+        <KpiCard label="First Timers"       value={fmtNum(fRec.reduce((s,r)=>s+(Number(r.first_timers)||0),0))} sub="SS only" icon="plus" color="#E67E22" />
+        <KpiCard label="Pending Reviews"    value={fmtNum(pending)}      sub="Needs approval"    icon="info"       color={pending>0?t.warn:t.textMuted} />
       </div>
 
       {/* KPIs — Row 2: Church */}
@@ -1945,11 +1947,11 @@ const DashboardPage = ({ db }) => {
         Church Service
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:12, marginBottom:24 }}>
-        <KpiCard label="Church Begin"       value={chBeginTotal} sub="At opening"         icon="cross"      color={t.info} />
-        <KpiCard label="Church Closing"     value={chTotal}      sub="At close"           icon="cross"      color="#1A5DC8" />
+        <KpiCard label="Church Begin"       value={fmtNum(chBeginTotal)} sub="At opening"         icon="cross"      color={t.info} />
+        <KpiCard label="Church Closing"     value={fmtNum(chTotal)}      sub="At close"           icon="cross"      color="#1A5DC8" />
         <KpiCard label="SS Retention"       value={`${retentionRate}%`} sub="SS÷Church"  icon="analytics"  color={retentionRate>=80?t.success:retentionRate>=50?t.warn:t.danger} />
-        <KpiCard label="First Timers"       value={fChurch.reduce((s,r)=>s+(Number(r.first_timers)||0),0)} sub="Church only" icon="plus" color="#E67E22" />
-        <KpiCard label="Active Teachers"    value={active}       sub={`of ${teachers.length}`} icon="teachers" color={t.success} />
+        <KpiCard label="First Timers"       value={fmtNum(fChurch.reduce((s,r)=>s+(Number(r.first_timers)||0),0))} sub="Church only" icon="plus" color="#E67E22" />
+        <KpiCard label="Active Teachers"    value={fmtNum(active)}       sub={`of ${teachers.length}`} icon="teachers" color={t.success} />
       </div>
 
       {/* Row 1: SS vs Church side-by-side comparison by date */}
@@ -2072,7 +2074,7 @@ const DashboardPage = ({ db }) => {
                 return <tr key={r.id}>
                   <td style={{ padding:"9px 12px", borderBottom:`1px solid ${t.border}14`, color:t.text, fontFamily:"'Trebuchet MS',sans-serif", fontSize:12 }}>{fmtDate(r.date)}</td>
                   <td style={{ padding:"9px 12px", borderBottom:`1px solid ${t.border}14`, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", fontSize:12 }}>{r.class_name}</td>
-                  <td style={{ padding:"9px 12px", borderBottom:`1px solid ${t.border}14`, color:t.text, fontFamily:"'Trebuchet MS',sans-serif", fontSize:12, fontWeight:700 }}>{r.total_closing||0}</td>
+                  <td style={{ padding:"9px 12px", borderBottom:`1px solid ${t.border}14`, color:t.text, fontFamily:"'Trebuchet MS',sans-serif", fontSize:12, fontWeight:700 }}>{fmtNum(r.total_closing||0)}</td>
                   <td style={{ padding:"9px 12px", borderBottom:`1px solid ${t.border}14` }}><Badge label={si.label} color={si.color}/></td>
                 </tr>;
               })}
@@ -2096,8 +2098,8 @@ const DashboardPage = ({ db }) => {
                 <tr key={r.id}>
                   <td style={{ padding:"9px 12px", borderBottom:`1px solid ${t.border}14`, color:t.text, fontFamily:"'Trebuchet MS',sans-serif", fontSize:12 }}>{fmtDate(r.date)}</td>
                   <td style={{ padding:"9px 12px", borderBottom:`1px solid ${t.border}14`, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", fontSize:12 }}>{r.program}</td>
-                  <td style={{ padding:"9px 12px", borderBottom:`1px solid ${t.border}14`, color:t.info, fontFamily:"'Trebuchet MS',sans-serif", fontSize:12, fontWeight:700 }}>{r.total_closing||0}</td>
-                  <td style={{ padding:"9px 12px", borderBottom:`1px solid ${t.border}14`, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", fontSize:12 }}>{r.first_timers||0}</td>
+                  <td style={{ padding:"9px 12px", borderBottom:`1px solid ${t.border}14`, color:t.info, fontFamily:"'Trebuchet MS',sans-serif", fontSize:12, fontWeight:700 }}>{fmtNum(r.total_closing||0)}</td>
+                  <td style={{ padding:"9px 12px", borderBottom:`1px solid ${t.border}14`, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", fontSize:12 }}>{fmtNum(r.first_timers||0)}</td>
                 </tr>
               ))}
               {!fChurch.length && <tr><td colSpan={4} style={{ padding:"28px 12px", textAlign:"center", color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", fontSize:12 }}>No church records</td></tr>}
@@ -2260,7 +2262,7 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
   const [bulkShared,  setBulkShared]  = useState({
     date: new Date().toISOString().slice(0,10), day_of_week:"Sunday",
     service_type:"Regular Sunday School", submitted_by: user?.name||"",
-    time_started:"09:00", time_ended:"10:30",
+    time_started:"08:30", time_ended:"09:25",
   });
   const makeBulkRow = (cls) => ({
     class_name:cls.name, teacher_name:"", assistant_teacher:"", assistant_teacher_2:"", assistant_teacher_3:"", delivered_by:"",
@@ -2280,7 +2282,7 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
     date:new Date().toISOString().slice(0,10), day_of_week:"Sunday",
     service_type:"Regular Sunday School", class_name:lockedClass,
     teacher_name:lockedTeacher, assistant_teacher:"", assistant_teacher_2:"", assistant_teacher_3:"", delivered_by:"", submitted_by:user?.name||"",
-    time_started:"09:00", time_ended:"10:30",
+    time_started:"08:30", time_ended:"09:25",
     total_beginning:"", total_closing:"", male_present:"", female_present:"",
     first_timers:"", visitors:"", absent_members:"",
     bibles_beginning:"", bibles_closing:"", members_without_bibles:"",
@@ -7347,12 +7349,12 @@ const SSReportPage = ({ db }) => {
 
       {/* Summary KPIs */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))", gap:12, marginBottom:20 }}>
-        <KpiCard label="Sund. Sch. Begin"     value={tot("ssBegin")}  sub="Current session" icon="attendance" color={t.info} />
-        <KpiCard label="Sund. Sch. Close"   value={tot("ssClose")}  sub="Current session" icon="attendance" color={t.gold} />
-        <KpiCard label="Bible Begin"  value={tot("bibBegin")} sub="Current session" icon="bible"      color="#9B59B6" />
-        <KpiCard label="Bible Close"  value={tot("bibClose")} sub="Current session" icon="bible"      color="#7B3FBE" />
-        <KpiCard label="First Timers" value={tot("firstT")}   sub="Current session" icon="plus"       color="#E67E22" />
-        <KpiCard label="Visitors"     value={tot("visitors")} sub="Current session" icon="eye"        color={t.success} />
+        <KpiCard label="Sund. Sch. Begin"     value={fmtNum(tot("ssBegin"))}  sub="Current session" icon="attendance" color={t.info} />
+        <KpiCard label="Sund. Sch. Close"   value={fmtNum(tot("ssClose"))}  sub="Current session" icon="attendance" color={t.gold} />
+        <KpiCard label="Bible Begin"  value={fmtNum(tot("bibBegin"))} sub="Current session" icon="bible"      color="#9B59B6" />
+        <KpiCard label="Bible Close"  value={fmtNum(tot("bibClose"))} sub="Current session" icon="bible"      color="#7B3FBE" />
+        <KpiCard label="First Timers" value={fmtNum(tot("firstT"))}   sub="Current session" icon="plus"       color="#E67E22" />
+        <KpiCard label="Visitors"     value={fmtNum(tot("visitors"))} sub="Current session" icon="eye"        color={t.success} />
       </div>
 
       {/* Main Report Table */}
@@ -7405,10 +7407,56 @@ const SSReportPage = ({ db }) => {
                 </td>
 
                 {/* Current */}
-                <td style={{ ...tdS, color:t.info, fontWeight:700 }}>{r.hasCurrent ? r.ssBegin : "—"}</td>
-                <td style={{ ...tdS, color:t.gold, fontWeight:700 }}>{r.hasCurrent ? r.ssClose : "—"}</td>
-                <td style={{ ...tdS, color:"#9B59B6", fontWeight:700 }}>{r.hasCurrent ? r.bibBegin : "—"}</td>
-                <td style={{ ...tdS, color:"#7B3FBE", fontWeight:700, borderRight:`2px solid ${t.border}` }}>{r.hasCurrent ? r.bibClose : "—"}</td>
+                <td style={{ ...tdS, color:t.info, fontWeight:700 }}>{r.hasCurrent ? fmtNum(r.ssBegin) : "—"}</td>
+                <td style={{ ...tdS, color:t.gold, fontWeight:700 }}>{r.hasCurrent ? fmtNum(r.ssClose) : "—"}</td>
+                {(() => {
+                  if (!r.hasCurrent) return (
+                    <>
+                      <td style={{ ...tdS, color:"#9B59B6", fontWeight:700 }}>—</td>
+                      <td style={{ ...tdS, color:"#7B3FBE", fontWeight:700, borderRight:`2px solid ${t.border}` }}>—</td>
+                    </>
+                  );
+                  const bibBeginRatio = r.ssBegin > 0 ? r.bibBegin / r.ssBegin : null;
+                  const bibCloseRatio = r.ssClose > 0 ? r.bibClose / r.ssClose : null;
+                  const ratioColor = (ratio) => {
+                    if (ratio === null) return t.textMuted;
+                    if (ratio >= 0.75) return t.success;
+                    if (ratio >= 0.50) return t.warn;
+                    return t.danger;
+                  };
+                  const ratioLabel = (ratio) => {
+                    if (ratio === null) return "";
+                    if (ratio >= 0.75) return " ✓";
+                    if (ratio >= 0.50) return " ~";
+                    return " ↓";
+                  };
+                  const bBColor = ratioColor(bibBeginRatio);
+                  const bCColor = ratioColor(bibCloseRatio);
+                  return (
+                    <>
+                      <td style={{ ...tdS, fontWeight:700, borderRight:"none" }}>
+                        <div style={{ display:"flex", flexDirection:"column", gap:1 }}>
+                          <span style={{ color: bBColor }}>{fmtNum(r.bibBegin)}<span style={{ fontSize:10 }}>{ratioLabel(bibBeginRatio)}</span></span>
+                          {bibBeginRatio !== null && (
+                            <span style={{ fontSize:10, color: bBColor, opacity:0.85 }}>
+                              {Math.round(bibBeginRatio*100)}% ratio
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td style={{ ...tdS, fontWeight:700, borderRight:`2px solid ${t.border}` }}>
+                        <div style={{ display:"flex", flexDirection:"column", gap:1 }}>
+                          <span style={{ color: bCColor }}>{fmtNum(r.bibClose)}<span style={{ fontSize:10 }}>{ratioLabel(bibCloseRatio)}</span></span>
+                          {bibCloseRatio !== null && (
+                            <span style={{ fontSize:10, color: bCColor, opacity:0.85 }}>
+                              {Math.round(bibCloseRatio*100)}% ratio
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    </>
+                  );
+                })()}
 
                 {/* Diff columns */}
                 <DiffCell diff={r.dSSBegin}  style={tdS} />
@@ -7418,16 +7466,16 @@ const SSReportPage = ({ db }) => {
 
                 {/* Male/Female */}
                 <td style={{ ...tdS }}>
-                  <span style={{ color:t.info }}>{r.male}M</span>
+                  <span style={{ color:t.info }}>{fmtNum(r.male)}M</span>
                   <span style={{ color:t.textFaint, margin:"0 4px" }}>·</span>
-                  <span style={{ color:"#E67E22" }}>{r.female}F</span>
+                  <span style={{ color:"#E67E22" }}>{fmtNum(r.female)}F</span>
                 </td>
 
                 {/* First timers / Visitors */}
                 <td style={{ ...tdS }}>
-                  <span style={{ color:"#E67E22", fontWeight:700 }}>{r.firstT}</span>
+                  <span style={{ color:"#E67E22", fontWeight:700 }}>{fmtNum(r.firstT)}</span>
                   <span style={{ color:t.textFaint, margin:"0 4px" }}>/</span>
-                  <span style={{ color:t.success }}>{r.visitors}</span>
+                  <span style={{ color:t.success }}>{fmtNum(r.visitors)}</span>
                 </td>
               </tr>
             ))}
@@ -7475,21 +7523,42 @@ const SSReportPage = ({ db }) => {
                   <td style={{ ...tdS, fontWeight:800, color:t.sidebar, fontSize:12, textTransform:"uppercase", letterSpacing:0.8 }}>
                     TOTAL
                   </td>
-                  <td style={{ ...tdS, fontWeight:800, color:t.info }}>{tSSBegin}</td>
-                  <td style={{ ...tdS, fontWeight:800, color:t.gold }}>{tSSClose}</td>
-                  <td style={{ ...tdS, fontWeight:800, color:"#9B59B6" }}>{tBibBegin}</td>
-                  <td style={{ ...tdS, fontWeight:800, color:"#7B3FBE", borderRight:`2px solid ${t.border}` }}>{tBibClose}</td>
+                  <td style={{ ...tdS, fontWeight:800, color:t.info }}>{fmtNum(tSSBegin)}</td>
+                  <td style={{ ...tdS, fontWeight:800, color:t.gold }}>{fmtNum(tSSClose)}</td>
+                  {(() => {
+                    const bBRatio = tSSBegin > 0 ? tBibBegin / tSSBegin : null;
+                    const bCRatio = tSSClose > 0 ? tBibClose / tSSClose : null;
+                    const ratioColor = (ratio) => ratio === null ? t.textMuted : ratio >= 0.75 ? t.success : ratio >= 0.50 ? t.warn : t.danger;
+                    const bBColor = ratioColor(bBRatio);
+                    const bCColor = ratioColor(bCRatio);
+                    return (
+                      <>
+                        <td style={{ ...tdS, fontWeight:800 }}>
+                          <div style={{ display:"flex", flexDirection:"column", gap:1 }}>
+                            <span style={{ color: bBColor }}>{fmtNum(tBibBegin)}</span>
+                            {bBRatio !== null && <span style={{ fontSize:10, color: bBColor, opacity:0.85 }}>{Math.round(bBRatio*100)}%</span>}
+                          </div>
+                        </td>
+                        <td style={{ ...tdS, fontWeight:800, borderRight:`2px solid ${t.border}` }}>
+                          <div style={{ display:"flex", flexDirection:"column", gap:1 }}>
+                            <span style={{ color: bCColor }}>{fmtNum(tBibClose)}</span>
+                            {bCRatio !== null && <span style={{ fontSize:10, color: bCColor, opacity:0.85 }}>{Math.round(bCRatio*100)}%</span>}
+                          </div>
+                        </td>
+                      </>
+                    );
+                  })()}
                   <TotDiffCell diff={diffs[0]} />
                   <TotDiffCell diff={diffs[1]} />
                   <TotDiffCell diff={diffs[2]} />
                   <TotDiffCell diff={diffs[3]} extra={{ borderRight:`2px solid ${t.border}` }} />
                   <td style={{ ...tdS, color:t.info, fontWeight:700 }}>
-                    {tot("male")}M · <span style={{ color:"#E67E22" }}>{tot("female")}F</span>
+                    {fmtNum(tot("male"))}M · <span style={{ color:"#E67E22" }}>{fmtNum(tot("female"))}F</span>
                   </td>
                   <td style={{ ...tdS }}>
-                    <span style={{ color:"#E67E22", fontWeight:800 }}>{tot("firstT")}</span>
+                    <span style={{ color:"#E67E22", fontWeight:800 }}>{fmtNum(tot("firstT"))}</span>
                     <span style={{ color:t.textFaint, margin:"0 4px" }}>/</span>
-                    <span style={{ color:t.success, fontWeight:700 }}>{tot("visitors")}</span>
+                    <span style={{ color:t.success, fontWeight:700 }}>{fmtNum(tot("visitors"))}</span>
                   </td>
                 </tr>
               );
@@ -7522,6 +7591,12 @@ const SSReportPage = ({ db }) => {
             {item.label}
           </span>
         ))}
+        <div style={{ width:"100%", borderTop:`1px solid ${t.border}`, paddingTop:8, display:"flex", gap:16, flexWrap:"wrap" }}>
+          <span style={{ fontSize:11, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}><strong style={{ color:t.text }}>Bible ratio:</strong></span>
+          <span style={{ fontSize:11, color:t.success, fontFamily:"'Trebuchet MS',sans-serif" }}>● ≥75% = Good</span>
+          <span style={{ fontSize:11, color:t.warn,    fontFamily:"'Trebuchet MS',sans-serif" }}>● 50–74% = Medium</span>
+          <span style={{ fontSize:11, color:t.danger,  fontFamily:"'Trebuchet MS',sans-serif" }}>● &lt;50% = Poor</span>
+        </div>
       </div>
     </div>
   );
