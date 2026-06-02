@@ -244,6 +244,23 @@ const injectGlobalCSS = () => {
   `;
   document.head.appendChild(style);
 };
+// ─── CLASS RENAME LOG ─────────────────────────────────────────────────────────
+// Persists {oldName → newName} across sessions so on-load reconciliation can
+// retroactively fix records/teachers that still carry an old class name.
+const CLASS_RENAME_LOG_KEY = "uct_class_renames_v1";
+const loadRenameLog = () => {
+  try { const r = localStorage.getItem(CLASS_RENAME_LOG_KEY); return r ? JSON.parse(r) : {}; } catch { return {}; }
+};
+const saveRenameLog = (log) => {
+  try { localStorage.setItem(CLASS_RENAME_LOG_KEY, JSON.stringify(log)); } catch {}
+};
+// Follow a chain of renames to the final name (A→B→C gives C for A)
+const resolveRename = (name, log) => {
+  let cur = name, seen = new Set();
+  while (log[cur] && !seen.has(cur)) { seen.add(cur); cur = log[cur]; }
+  return cur;
+};
+
 const WORKBOOK_KEY = "uct_ss_workbook";
 const SHEETS = {
   RECORDS:  "Attendance Records",
@@ -812,6 +829,70 @@ const useSupabaseDB = () => {
     setYouthMembers(ym);
     setBaptismRecs(br);
     setChurchMembers(cm);
+    // ── Reconcile orphaned class names using rename log ─────
+    // This fixes records/teachers whose class_name still uses an old name
+    // because the rename happened before cascading was implemented.
+    const renameLog = loadRenameLog();
+    const currentClassNames = new Set((c.length ? c : [
+      {name:"Children (5–9)"},{name:"Teen (10–15)"},{name:"New Convert"},
+      {name:"Prophet Class"},{name:"Church Age"},{name:"C.O.D"},{name:"Joint Sunday School"},
+    ]).map(x => x.name));
+
+    // Build a similarity scorer for fallback fuzzy matching
+    // Used when a record has an old name not in the rename log at all
+    const similarity = (a, b) => {
+      a = a.toLowerCase(); b = b.toLowerCase();
+      if (a === b) return 1;
+      // Count common characters weighted by position
+      let common = 0;
+      const shorter = a.length < b.length ? a : b;
+      for (let i = 0; i < shorter.length; i++) {
+        if (b.includes(a[i])) common++;
+      }
+      return common / Math.max(a.length, b.length);
+    };
+
+    const bestFuzzyMatch = (name) => {
+      let best = null, bestScore = 0;
+      currentClassNames.forEach(cn => {
+        const s = similarity(name, cn);
+        if (s > bestScore) { bestScore = s; best = cn; }
+      });
+      // Only accept if similarity >= 0.6 to avoid wrong matches
+      return bestScore >= 0.6 ? best : null;
+    };
+
+    const reconcile = (name) => {
+      if (!name || currentClassNames.has(name)) return name; // already valid
+      // 1) Try rename log first (exact chain)
+      const resolved = resolveRename(name, renameLog);
+      if (currentClassNames.has(resolved)) return resolved;
+      // 2) Fall back to fuzzy match for renames done before log existed
+      const fuzzy = bestFuzzyMatch(name);
+      return fuzzy || name;
+    };
+
+    const reconciledRecords  = r.map(rec => ({ ...rec, class_name: reconcile(rec.class_name) }));
+    const reconciledTeachers = t.map(tch => ({ ...tch, class_name: reconcile(tch.class_name) }));
+
+    // Persist any reconciled records/teachers back to Supabase so they stay fixed
+    if (SUPABASE_READY) {
+      r.forEach(rec => {
+        const fixed = reconcile(rec.class_name);
+        if (fixed !== rec.class_name)
+          sbFetch("uct_records?id=eq." + rec.id, { method:"PATCH", body:JSON.stringify({ class_name: fixed }) })
+            .catch(()=>{});
+      });
+      t.forEach(tch => {
+        const fixed = reconcile(tch.class_name);
+        if (fixed !== tch.class_name)
+          sbFetch("uct_teachers?id=eq." + tch.id, { method:"PATCH", body:JSON.stringify({ class_name: fixed }) })
+            .catch(()=>{});
+      });
+    }
+
+    setRecords(reconciledRecords);
+    setTeachers(reconciledTeachers);
     setLoading(false);
   }, [sbGet]);
 
@@ -1033,6 +1114,13 @@ const useSupabaseDB = () => {
         setTeachers(ts => ts.map(t =>
           t.class_name === oldName ? { ...t, class_name: newName } : t
         ));
+        // Persist rename so on-load reconciliation can fix pre-existing data
+        const log = loadRenameLog();
+        log[oldName] = newName;
+        // Collapse any earlier renames that pointed to oldName
+        Object.keys(log).forEach(k => { if (log[k] === oldName) log[k] = newName; });
+        saveRenameLog(log);
+
         if (SUPABASE_READY) {
           sbFetch("uct_records?class_name=eq." + encodeURIComponent(oldName),
             { method:"PATCH", body:JSON.stringify({ class_name: newName }) })
@@ -1199,7 +1287,7 @@ const useSupabaseDB = () => {
     records, teachers, classes, churchRecs, programs,
     youthRecs, setYouthRecs, youthMembers, setYouthMembers,
     baptismRecs, setBaptismRecs,
-    loading, loadAll, setClasses,
+    loading, loadAll, setClasses, setRecords, setTeachers,
     addRecord, updateRecord, deleteRecord, approveRecord,
     addTeacher, updateTeacher, deleteTeacher, toggleTeacherActive,
     churchMembers, setChurchMembers,
@@ -4890,6 +4978,45 @@ const ClassesPage = ({ db }) => {
     showToast(`${next==="YES" ? "✅ Activated" : "⚠️ Deactivated"}: ${cls.name}`);
   };
 
+  const handleReconcile = async () => {
+    const currentNames = new Set(classes.map(c => c.name));
+    const renameLog = loadRenameLog();
+    const sim = (a, b) => {
+      a = a.toLowerCase(); b = b.toLowerCase();
+      if (a === b) return 1;
+      let common = 0;
+      const shorter = a.length < b.length ? a : b;
+      for (let i = 0; i < shorter.length; i++) { if (b.includes(a[i])) common++; }
+      return common / Math.max(a.length, b.length);
+    };
+    const bestMatch = (name) => {
+      if (!name || currentNames.has(name)) return name;
+      const resolved = resolveRename(name, renameLog);
+      if (currentNames.has(resolved)) return resolved;
+      let best = null, bestScore = 0;
+      currentNames.forEach(cn => { const s = sim(name, cn); if (s > bestScore) { bestScore = s; best = cn; } });
+      return bestScore >= 0.6 ? best : name;
+    };
+    let fixedRecords = 0, fixedTeachers = 0;
+    const renamedRecords  = records.map(r  => { const fixed = bestMatch(r.class_name);  if (fixed !== r.class_name)  { fixedRecords++;  return { ...r,  class_name: fixed }; } return r; });
+    const renamedTeachers = teachers.map(tc => { const fixed = bestMatch(tc.class_name); if (fixed !== tc.class_name) { fixedTeachers++; return { ...tc, class_name: fixed }; } return tc; });
+    db.setRecords(renamedRecords);
+    db.setTeachers(renamedTeachers);
+    if (SUPABASE_READY) {
+      for (const r of records) {
+        const fixed = bestMatch(r.class_name);
+        if (fixed !== r.class_name)
+          await sbFetch("uct_records?id=eq." + r.id, { method:"PATCH", body:JSON.stringify({ class_name: fixed }) }).catch(()=>{});
+      }
+      for (const tc of teachers) {
+        const fixed = bestMatch(tc.class_name);
+        if (fixed !== tc.class_name)
+          await sbFetch("uct_teachers?id=eq." + tc.id, { method:"PATCH", body:JSON.stringify({ class_name: fixed }) }).catch(()=>{});
+      }
+    }
+    showToast(`✅ Reconciled: ${fixedRecords} record(s) and ${fixedTeachers} teacher(s) updated.`);
+  };
+
   const FF = "'Trebuchet MS',sans-serif";
   const GF = "'Georgia',serif";
 
@@ -5318,6 +5445,10 @@ const ClassesPage = ({ db }) => {
           <div style={{fontSize:13,color:t.textMuted,fontFamily:FF}}>{classes.length} classes · {teachers.filter(t2=>t2.is_active==="YES").length} active teachers · {records.length} total records</div>
         </div>
         <div style={{display:"flex",gap:8}}>
+          <button style={{...btnOutline,padding:"8px 16px",fontSize:12,display:"flex",alignItems:"center",gap:6}}
+            onClick={handleReconcile} title="Re-map any records/teachers still using old class names">
+            🔄 Fix Old Names
+          </button>
           <button style={{...btnGold,padding:"8px 20px"}} onClick={()=>setAddModal(true)}>
             <span style={{display:"flex",alignItems:"center",gap:6}}><Icon name="plus" size={14} color="#0B1628"/> Add Class</span>
           </button>
