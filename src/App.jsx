@@ -1021,7 +1021,29 @@ const useSupabaseDB = () => {
   }, []);
 
   const updateClass = useCallback(async (id, updates) => {
-    setClasses(c => c.map(x => x.id===id ? {...x,...updates} : x));
+    // Cascade class name changes to all records and teachers
+    setClasses(prev => {
+      const oldCls = prev.find(x => x.id === id);
+      const oldName = oldCls?.name;
+      const newName = updates.name;
+      if (newName && oldName && newName !== oldName) {
+        setRecords(rs => rs.map(r =>
+          r.class_name === oldName ? { ...r, class_name: newName } : r
+        ));
+        setTeachers(ts => ts.map(t =>
+          t.class_name === oldName ? { ...t, class_name: newName } : t
+        ));
+        if (SUPABASE_READY) {
+          sbFetch("uct_records?class_name=eq." + encodeURIComponent(oldName),
+            { method:"PATCH", body:JSON.stringify({ class_name: newName }) })
+            .catch(e => console.warn("Cascade records rename:", e.message));
+          sbFetch("uct_teachers?class_name=eq." + encodeURIComponent(oldName),
+            { method:"PATCH", body:JSON.stringify({ class_name: newName }) })
+            .catch(e => console.warn("Cascade teachers rename:", e.message));
+        }
+      }
+      return prev.map(x => x.id === id ? { ...x, ...updates } : x);
+    });
     if (SUPABASE_READY) {
       try { await sbFetch(`uct_classes?id=eq.${id}`, { method:"PATCH", body:JSON.stringify(updates) }); }
       catch(e) { console.warn("Class update failed (local kept):", e.message); }
