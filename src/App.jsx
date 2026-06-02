@@ -1385,6 +1385,118 @@ const useThemeStyles = () => {
   };
 };
 
+// ─── SEARCHABLE SELECT ────────────────────────────────────────────────────────
+const SearchableSelect = ({ value, onChange, options, placeholder="Select…", allowNone=false, noneLabel="None", style={} }) => {
+  const { t } = useThemeStyles();
+  const [open,   setOpen]   = useState(false);
+  const [query,  setQuery]  = useState("");
+  const wrapRef = useRef();
+  const inputRef = useRef();
+  const FF = "'Trebuchet MS',sans-serif";
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const filtered = options.filter(o => {
+    const label = typeof o === "string" ? o : o.label || o.name || o;
+    return label.toLowerCase().includes(query.toLowerCase());
+  });
+
+  const displayLabel = () => {
+    if (!value) return allowNone ? noneLabel : placeholder;
+    const match = options.find(o => (typeof o === "string" ? o : o.value || o.name) === value);
+    return match ? (typeof match === "string" ? match : match.label || match.name) : value;
+  };
+
+  const selectOption = (val) => { onChange(val); setOpen(false); setQuery(""); };
+
+  const baseStyle = {
+    background: t.surfaceAlt, border: `1px solid ${t.border}`, borderRadius:9,
+    padding:"10px 14px", color: value ? t.text : t.textMuted,
+    fontFamily: FF, fontSize:13, cursor:"pointer", display:"flex",
+    alignItems:"center", justifyContent:"space-between", gap:8,
+    userSelect:"none", width:"100%", boxSizing:"border-box", ...style,
+  };
+
+  return (
+    <div ref={wrapRef} style={{ position:"relative", width:"100%" }}>
+      {/* Trigger */}
+      <div style={baseStyle} onClick={() => { setOpen(v => !v); setTimeout(()=>inputRef.current?.focus(),50); }}>
+        <span style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{displayLabel()}</span>
+        <span style={{ fontSize:10, color:t.textMuted, flexShrink:0 }}>{open ? "▲" : "▼"}</span>
+      </div>
+
+      {/* Dropdown */}
+      {open && (
+        <div style={{
+          position:"absolute", top:"calc(100% + 4px)", left:0, right:0, zIndex:9999,
+          background:t.surface, border:`1px solid ${t.border}`, borderRadius:10,
+          boxShadow:`0 8px 32px rgba(0,0,0,0.18)`, overflow:"hidden",
+        }}>
+          {/* Search input */}
+          <div style={{ padding:"8px 10px", borderBottom:`1px solid ${t.border}` }}>
+            <input
+              ref={inputRef}
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Search…"
+              style={{
+                width:"100%", boxSizing:"border-box", border:`1px solid ${t.border}`,
+                borderRadius:7, padding:"7px 10px", fontSize:12, fontFamily:FF,
+                background:t.surfaceAlt, color:t.text, outline:"none",
+              }}
+            />
+          </div>
+          {/* Options list */}
+          <div style={{ maxHeight:200, overflowY:"auto" }}>
+            {allowNone && (
+              <div
+                onClick={() => selectOption("")}
+                style={{
+                  padding:"9px 14px", cursor:"pointer", fontSize:13, fontFamily:FF,
+                  color: t.textMuted, fontStyle:"italic",
+                  background: !value ? t.surfaceAlt : "transparent",
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = t.surfaceHover}
+                onMouseLeave={e => e.currentTarget.style.background = !value ? t.surfaceAlt : "transparent"}
+              >{noneLabel}</div>
+            )}
+            {filtered.length === 0 && (
+              <div style={{ padding:"12px 14px", color:t.textMuted, fontSize:12, fontFamily:FF }}>No matches</div>
+            )}
+            {filtered.map((o, i) => {
+              const label = typeof o === "string" ? o : o.label || o.name;
+              const val   = typeof o === "string" ? o : o.value || o.name;
+              const isSelected = val === value;
+              return (
+                <div key={i}
+                  onClick={() => selectOption(val)}
+                  style={{
+                    padding:"9px 14px", cursor:"pointer", fontSize:13, fontFamily:FF,
+                    color: isSelected ? t.gold : t.text,
+                    fontWeight: isSelected ? 700 : 400,
+                    background: isSelected ? t.gold+"18" : "transparent",
+                    display:"flex", alignItems:"center", justifyContent:"space-between",
+                  }}
+                  onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = t.surfaceHover; }}
+                  onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}
+                >
+                  {label}
+                  {isSelected && <span style={{ fontSize:11, color:t.gold }}>✓</span>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── TOAST ────────────────────────────────────────────────────────────────────
 const ToastContainer = ({ toasts, dismiss }) => (
   <div style={{ position:"fixed", top:20, right:20, zIndex:9999, display:"flex", flexDirection:"column", gap:10 }}>
@@ -2136,44 +2248,24 @@ const BulkRowCard = ({ row, idx, t, lbl, inp, sel, card, GF, FF, toggleExpand, u
         <div style={{ padding:"0 16px 16px", borderTop:`1px solid ${t.border}` }}>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginTop:14, marginBottom:14 }}>
             <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-              <label style={{ ...lbl, fontSize:11 }}>Teacher</label>
-              <select style={{ ...sel, fontSize:12 }} value={row.teacher_name}
-                onChange={e => updateBulkRow(idx,"teacher_name",e.target.value)}>
-                <option value="">Select…</option>
-                {activeTeachers.map(x => <option key={x.name} value={x.name}>{x.name}</option>)}
-              </select>
+              <label style={{ ...lbl, fontSize:11 }}>Teacher 1 (Main)</label>
+              <SearchableSelect value={row.teacher_name} onChange={v=>updateBulkRow(idx,"teacher_name",v)} options={activeTeachers.map(x=>({label:x.name,value:x.name}))} placeholder="Select…" allowNone noneLabel="None" />
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
               <label style={{ ...lbl, fontSize:11 }}>🎤 Delivered By</label>
-              <select style={{ ...sel, fontSize:12 }} value={row.delivered_by}
-                onChange={e => updateBulkRow(idx,"delivered_by",e.target.value)}>
-                <option value="">Select…</option>
-                {activeTeachers.map(x => <option key={x.name} value={x.name}>{x.name}</option>)}
-              </select>
+              <SearchableSelect value={row.delivered_by} onChange={v=>updateBulkRow(idx,"delivered_by",v)} options={activeTeachers.map(x=>({label:x.name,value:x.name}))} placeholder="Select…" allowNone noneLabel="None" />
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-              <label style={{ ...lbl, fontSize:11 }}>Assistant Teacher 1</label>
-              <select style={{ ...sel, fontSize:12 }} value={row.assistant_teacher}
-                onChange={e => updateBulkRow(idx,"assistant_teacher",e.target.value)}>
-                <option value="">None</option>
-                {activeTeachers.map(x => <option key={x.name} value={x.name}>{x.name}</option>)}
-              </select>
+              <label style={{ ...lbl, fontSize:11 }}>Teacher 2</label>
+              <SearchableSelect value={row.assistant_teacher} onChange={v=>updateBulkRow(idx,"assistant_teacher",v)} options={activeTeachers.map(x=>({label:x.name,value:x.name}))} allowNone noneLabel="None" />
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-              <label style={{ ...lbl, fontSize:11 }}>Assistant Teacher 2</label>
-              <select style={{ ...sel, fontSize:12 }} value={row.assistant_teacher_2}
-                onChange={e => updateBulkRow(idx,"assistant_teacher_2",e.target.value)}>
-                <option value="">None</option>
-                {activeTeachers.map(x => <option key={x.name} value={x.name}>{x.name}</option>)}
-              </select>
+              <label style={{ ...lbl, fontSize:11 }}>Teacher 3</label>
+              <SearchableSelect value={row.assistant_teacher_2} onChange={v=>updateBulkRow(idx,"assistant_teacher_2",v)} options={activeTeachers.map(x=>({label:x.name,value:x.name}))} allowNone noneLabel="None" />
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-              <label style={{ ...lbl, fontSize:11 }}>Assistant Teacher 3</label>
-              <select style={{ ...sel, fontSize:12 }} value={row.assistant_teacher_3}
-                onChange={e => updateBulkRow(idx,"assistant_teacher_3",e.target.value)}>
-                <option value="">None</option>
-                {activeTeachers.map(x => <option key={x.name} value={x.name}>{x.name}</option>)}
-              </select>
+              <label style={{ ...lbl, fontSize:11 }}>Teacher 4</label>
+              <SearchableSelect value={row.assistant_teacher_3} onChange={v=>updateBulkRow(idx,"assistant_teacher_3",v)} options={activeTeachers.map(x=>({label:x.name,value:x.name}))} allowNone noneLabel="None" />
             </div>
           </div>
           <div style={{ fontSize:11, fontWeight:700, color:t.gold, fontFamily:FF, textTransform:"uppercase", letterSpacing:1.2, marginBottom:8 }}>Attendance</div>
@@ -2426,15 +2518,11 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
               ))}
               <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
                 <label style={lbl}>Day</label>
-                <select style={{ ...sel, width:"100%" }} name="day_of_week" value={bulkShared.day_of_week} onChange={updateBulkShared}>
-                  {["Sunday","Saturday","Wednesday"].map(o => <option key={o}>{o}</option>)}
-                </select>
+                <SearchableSelect value={bulkShared.day_of_week} onChange={v=>setBulkShared(p=>({...p,day_of_week:v}))} options={["Sunday","Saturday","Wednesday"]} />
               </div>
               <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
                 <label style={lbl}>Service Type</label>
-                <select style={{ ...sel, width:"100%" }} name="service_type" value={bulkShared.service_type} onChange={updateBulkShared}>
-                  <option>Regular Sunday School</option><option>Joint Sunday School</option><option>Special Service</option>
-                </select>
+                <SearchableSelect value={bulkShared.service_type} onChange={v=>setBulkShared(p=>({...p,service_type:v}))} options={["Regular Sunday School","Joint Sunday School","Special Service"]} />
               </div>
             </div>
           </div>
@@ -2515,22 +2603,28 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
             <div style={sec}>Basic Information</div>
             <div style={g2}>
               <div style={fw()}><label style={lbl}>Date</label><input name="date" style={inp} type="date" value={form.date} onChange={handleChange}/></div>
-              <div style={fw()}><label style={lbl}>Day</label><select name="day_of_week" style={{...sel,width:"100%"}} value={form.day_of_week} onChange={handleChange}>{["Sunday","Saturday","Wednesday"].map(o=><option key={o}>{o}</option>)}</select></div>
-              <div style={fw()}><label style={lbl}>Service Type</label><select name="service_type" style={{...sel,width:"100%"}} value={form.service_type} onChange={handleChange}><option>Regular Sunday School</option><option>Joint Sunday School</option><option>Special Service</option></select></div>
+              <div style={fw()}><label style={lbl}>Day</label>
+                <SearchableSelect value={form.day_of_week} onChange={v=>setForm(p=>({...p,day_of_week:v}))} options={["Sunday","Saturday","Wednesday"]} /></div>
+              <div style={fw()}><label style={lbl}>Service Type</label>
+                <SearchableSelect value={form.service_type} onChange={v=>setForm(p=>({...p,service_type:v}))} options={["Regular Sunday School","Joint Sunday School","Special Service"]} /></div>
               <div style={fw()}><label style={lbl}>Class Name *</label>
                 {lockedClass
                   ? <div style={{ ...inp, background:"rgba(0,255,100,0.06)", border:`2px solid ${t.success}55`, color:t.text, display:"flex", alignItems:"center", gap:8 }}>🔒 <span style={{ fontWeight:700 }}>{lockedClass}</span><span style={{ fontSize:11, color:t.success, marginLeft:"auto" }}>Assigned</span></div>
-                  : <select name="class_name" style={{...sel,width:"100%"}} value={form.class_name} onChange={handleChange}><option value="">Select…</option>{classes.map(c=><option key={c.name} value={c.name}>{c.name}</option>)}</select>}
+                  : <SearchableSelect value={form.class_name} onChange={v=>setForm(p=>({...p,class_name:v}))} options={classes.map(c=>({label:c.name,value:c.name}))} placeholder="Select…" />}
               </div>
-              <div style={fw()}><label style={lbl}>Teacher Name</label>
+              <div style={fw()}><label style={lbl}>Teacher 1 (Main)</label>
                 {lockedTeacher
                   ? <div style={{ ...inp, background:"rgba(0,255,100,0.06)", border:`2px solid ${t.success}55`, color:t.text, display:"flex", alignItems:"center", gap:8 }}>🔒 <span style={{ fontWeight:700 }}>{lockedTeacher}</span><span style={{ fontSize:11, color:t.success, marginLeft:"auto" }}>You</span></div>
-                  : <select name="teacher_name" style={{...sel,width:"100%"}} value={form.teacher_name} onChange={handleChange}><option value="">Select…</option>{activeTeachers.map(x=><option key={x.name} value={x.name}>{x.name}</option>)}</select>}
+                  : <SearchableSelect value={form.teacher_name} onChange={v=>setForm(p=>({...p,teacher_name:v}))} options={activeTeachers.map(x=>({label:x.name,value:x.name}))} placeholder="Select…" allowNone noneLabel="None" />}
               </div>
-              <div style={fw()}><label style={lbl}>🎤 Delivered By</label><select name="delivered_by" style={{...sel,width:"100%"}} value={form.delivered_by} onChange={handleChange}><option value="">Select…</option>{activeTeachers.map(x=><option key={x.name} value={x.name}>{x.name}</option>)}</select></div>
-              <div style={fw()}><label style={lbl}>Assistant Teacher 1</label><select name="assistant_teacher" style={{...sel,width:"100%"}} value={form.assistant_teacher} onChange={handleChange}><option value="">None</option>{activeTeachers.map(x=><option key={x.name} value={x.name}>{x.name}</option>)}</select></div>
-              <div style={fw()}><label style={lbl}>Assistant Teacher 2</label><select name="assistant_teacher_2" style={{...sel,width:"100%"}} value={form.assistant_teacher_2} onChange={handleChange}><option value="">None</option>{activeTeachers.map(x=><option key={x.name} value={x.name}>{x.name}</option>)}</select></div>
-              <div style={fw()}><label style={lbl}>Assistant Teacher 3</label><select name="assistant_teacher_3" style={{...sel,width:"100%"}} value={form.assistant_teacher_3} onChange={handleChange}><option value="">None</option>{activeTeachers.map(x=><option key={x.name} value={x.name}>{x.name}</option>)}</select></div>
+              <div style={fw()}><label style={lbl}>🎤 Delivered By</label>
+                <SearchableSelect value={form.delivered_by} onChange={v=>setForm(p=>({...p,delivered_by:v}))} options={activeTeachers.map(x=>({label:x.name,value:x.name}))} placeholder="Select…" allowNone noneLabel="None" /></div>
+              <div style={fw()}><label style={lbl}>Teacher 2</label>
+                <SearchableSelect value={form.assistant_teacher} onChange={v=>setForm(p=>({...p,assistant_teacher:v}))} options={activeTeachers.map(x=>({label:x.name,value:x.name}))} allowNone noneLabel="None" /></div>
+              <div style={fw()}><label style={lbl}>Teacher 3</label>
+                <SearchableSelect value={form.assistant_teacher_2} onChange={v=>setForm(p=>({...p,assistant_teacher_2:v}))} options={activeTeachers.map(x=>({label:x.name,value:x.name}))} allowNone noneLabel="None" /></div>
+              <div style={fw()}><label style={lbl}>Teacher 4</label>
+                <SearchableSelect value={form.assistant_teacher_3} onChange={v=>setForm(p=>({...p,assistant_teacher_3:v}))} options={activeTeachers.map(x=>({label:x.name,value:x.name}))} allowNone noneLabel="None" /></div>
               <div style={fw()}><label style={lbl}>Submitted By</label><input name="submitted_by" style={inp} value={form.submitted_by} onChange={handleChange}/></div>
               <div/>
               <div style={fw()}><label style={lbl}>Time Started</label><input name="time_started" style={inp} type="time" value={form.time_started} onChange={handleChange}/></div>
@@ -2673,7 +2767,7 @@ const AttendancePage = ({ db, user, onEditRecord }) => {
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:18 }}>
           {[
-            ["Basic Info", [["Date",fmtDate(r.date)],["Day",r.day_of_week],["Service",r.service_type],["Class",r.class_name],["Teacher",r.teacher_name],["Delivered By",r.delivered_by],["Asst. Teacher 1",r.assistant_teacher],["Asst. Teacher 2",r.assistant_teacher_2],["Asst. Teacher 3",r.assistant_teacher_3],["Time",`${r.time_started||""} – ${r.time_ended||""}`]]],
+            ["Basic Info", [["Date",fmtDate(r.date)],["Day",r.day_of_week],["Service",r.service_type],["Class",r.class_name],["Teacher 1 (Main)",r.teacher_name],["Delivered By",r.delivered_by],["Teacher 2",r.assistant_teacher],["Teacher 3",r.assistant_teacher_2],["Teacher 4",r.assistant_teacher_3],["Time",`${r.time_started||""} – ${r.time_ended||""}`]]],
             ["Attendance", [["At Beginning",r.total_beginning],["At Closing",r.total_closing],["Male",r.male_present],["Female",r.female_present],["First Timers",r.first_timers],["Visitors",r.visitors],["Absent",r.absent_members]]],
             ["Bible Records", [["Bibles (Begin)",r.bibles_beginning],["Bibles (Closing)",r.bibles_closing],["Without Bibles",r.members_without_bibles]]],
             ["Lesson", [["Topic",r.topic],["Bible Refs",r.bible_references],["Memory Verse",r.memory_verse],["Key Notes",r.key_notes],["Assignment",r.assignment]]],
