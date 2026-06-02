@@ -1426,8 +1426,20 @@ const SearchableSelect = ({ value, onChange, options, placeholder="Select…", a
     <div ref={wrapRef} style={{ position:"relative", width:"100%" }}>
       {/* Trigger */}
       <div style={baseStyle} onClick={() => { setOpen(v => !v); setTimeout(()=>inputRef.current?.focus(),50); }}>
-        <span style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{displayLabel()}</span>
-        <span style={{ fontSize:10, color:t.textMuted, flexShrink:0 }}>{open ? "▲" : "▼"}</span>
+        <span style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>{displayLabel()}</span>
+        <span style={{ display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
+          {value && (
+            <span
+              onClick={e => { e.stopPropagation(); onChange(""); setQuery(""); setOpen(false); }}
+              title="Clear"
+              style={{ fontSize:14, color:t.textMuted, lineHeight:1, padding:"0 2px", borderRadius:4,
+                cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}
+              onMouseEnter={e => e.currentTarget.style.color = t.danger}
+              onMouseLeave={e => e.currentTarget.style.color = t.textMuted}
+            >×</span>
+          )}
+          <span style={{ fontSize:10, color:t.textMuted }}>{open ? "▲" : "▼"}</span>
+        </span>
       </div>
 
       {/* Dropdown */}
