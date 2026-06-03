@@ -2393,7 +2393,7 @@ const BulkRowCard = ({ row, idx, t, lbl, inp, sel, card, GF, FF, toggleExpand, u
           <div style={{ fontSize:11, fontWeight:700, color:t.gold, fontFamily:FF, textTransform:"uppercase", letterSpacing:1.2, marginBottom:8 }}>Attendance</div>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:8, marginBottom:14 }}>
             {[["total_beginning","Begin"],["total_closing","Closing"],["male_present","Male"],
-              ["female_present","Female"],["first_timers","1st Timers"],["visitors","Visitors"],["absent_members","Absent"]].map(([k,label])=>(
+              ["female_present","Female"],["first_timers","1st Timers"],["visitors","Visitors"]]].map(([k,label])=>(
               <div key={k} style={{ display:"flex", flexDirection:"column", gap:3 }}>
                 <label style={{ fontSize:10, color:t.textMuted, fontFamily:FF }}>{label}</label>
                 <input style={{ ...inp, fontSize:12, padding:"5px 8px" }} type="number" value={row[k]}
@@ -2444,9 +2444,12 @@ const BulkRowCard = ({ row, idx, t, lbl, inp, sel, card, GF, FF, toggleExpand, u
                 onChange={e => updateBulkRow(idx,"teacher_names",e.target.value)} placeholder="Names"/>
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:3, gridColumn:"1/-1" }}>
-              <label style={{ fontSize:10, color:t.textMuted, fontFamily:FF }}>Prayer Requests / Announcements</label>
-              <textarea style={{ ...inp, fontSize:12, minHeight:45, resize:"vertical" }} value={row.prayer_requests}
-                onChange={e => updateBulkRow(idx,"prayer_requests",e.target.value)} placeholder="Prayer requests or announcements"/>
+              <label style={{ fontSize:10, color:t.textMuted, fontFamily:FF }}>
+                📝 General Remarks <span style={{ fontSize:9, opacity:0.7 }}>(e.g. low attendance due to rain)</span>
+              </label>
+              <textarea style={{ ...inp, fontSize:12, minHeight:60, resize:"vertical", border:`1.5px solid ${t.gold}55`, background:t.gold+"08" }}
+                value={row.general_remarks||""} onChange={e => updateBulkRow(idx,"general_remarks",e.target.value)}
+                placeholder="Add a general remark for this class session…"/>
             </div>
           </div>
         </div>
@@ -2481,10 +2484,11 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
   const makeBulkRow = (cls) => ({
     class_name:cls.name, teacher_name:"", assistant_teacher:"", assistant_teacher_2:"", assistant_teacher_3:"", delivered_by:"",
     total_beginning:"", total_closing:"", male_present:"", female_present:"",
-    first_timers:"", visitors:"", absent_members:"",
+    first_timers:"", visitors:"",
     bibles_beginning:"", bibles_closing:"", members_without_bibles:"",
     topic:"", bible_references:"", memory_verse:"", key_notes:"", assignment:"",
-    teachers_present:"", teacher_names:"", challenges:"", prayer_requests:"", announcements:"",
+    teachers_present:"", teacher_names:"", challenges:"", announcements:"",
+    general_remarks:"",
     _expanded:false,
   });
   const [bulkRows,    setBulkRows]    = useState(() => activeClasses.map(makeBulkRow));
@@ -2498,10 +2502,11 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
     teacher_name:lockedTeacher, assistant_teacher:"", assistant_teacher_2:"", assistant_teacher_3:"", delivered_by:"", submitted_by:user?.name||"",
     time_started:"08:30", time_ended:"09:25",
     total_beginning:"", total_closing:"", male_present:"", female_present:"",
-    first_timers:"", visitors:"", absent_members:"",
+    first_timers:"", visitors:"",
     bibles_beginning:"", bibles_closing:"", members_without_bibles:"",
     topic:"", bible_references:"", memory_verse:"", key_notes:"", assignment:"",
-    teachers_present:"", teacher_names:"", challenges:"", prayer_requests:"", announcements:""
+    teachers_present:"", teacher_names:"", challenges:"", announcements:"",
+    general_remarks:""
   });
   const [form,       setForm]       = useState(() => isEditMode ? { ...makeBlank(), ...editProp } : makeBlank());
   const [loading,    setLoading]    = useState(false);
@@ -2761,7 +2766,6 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
               <div style={fw()}><label style={lbl}>Female Present</label><input name="female_present" style={inp} type="number" value={form.female_present} onChange={handleChange}/></div>
               <div style={fw()}><label style={lbl}>First Timers</label><input name="first_timers" style={inp} type="number" value={form.first_timers} onChange={handleChange}/></div>
               <div style={fw()}><label style={lbl}>Visitors</label><input name="visitors" style={inp} type="number" value={form.visitors} onChange={handleChange}/></div>
-              <div style={fw()}><label style={lbl}>Absent Members</label><input name="absent_members" style={inp} type="number" value={form.absent_members} onChange={handleChange}/></div>
             </div>
 
             <div style={sec}>Bible Records</div>
@@ -2789,8 +2793,15 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
             <div style={sec}>Additional Notes</div>
             <div style={g2}>
               <div style={fw(2)}><label style={lbl}>Challenges</label><textarea name="challenges" style={{...inp,minHeight:65,resize:"vertical"}} value={form.challenges} onChange={handleChange}/></div>
-              <div style={fw(2)}><label style={lbl}>Prayer Requests</label><textarea name="prayer_requests" style={{...inp,minHeight:65,resize:"vertical"}} value={form.prayer_requests} onChange={handleChange}/></div>
               <div style={fw(2)}><label style={lbl}>Announcements</label><textarea name="announcements" style={{...inp,minHeight:65,resize:"vertical"}} value={form.announcements} onChange={handleChange}/></div>
+            </div>
+
+            <div style={sec}>📝 General Remarks</div>
+            <div style={g2}>
+              <div style={fw(2)}>
+                <label style={lbl}>General Remarks <span style={{fontSize:11,color:t.textMuted,fontWeight:400}}>(e.g. "Low attendance due to rain")</span></label>
+                <textarea name="general_remarks" style={{...inp,minHeight:90,resize:"vertical",border:`1.5px solid ${t.gold}55`,background:t.gold+"08"}} value={form.general_remarks} onChange={handleChange} placeholder="Add any general remarks about this session…"/>
+              </div>
             </div>
 
             <div style={{ marginTop:24, display:"flex", gap:12, flexWrap:"wrap" }}>
@@ -2890,7 +2901,7 @@ const AttendancePage = ({ db, user, onEditRecord }) => {
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:18 }}>
           {[
             ["Basic Info", [["Date",fmtDate(r.date)],["Day",r.day_of_week],["Service",r.service_type],["Class",r.class_name],["Teacher 1 (Main)",r.teacher_name],["Delivered By",r.delivered_by],["Teacher 2",r.assistant_teacher],["Teacher 3",r.assistant_teacher_2],["Teacher 4",r.assistant_teacher_3],["Time",`${r.time_started||""} – ${r.time_ended||""}`]]],
-            ["Attendance", [["At Beginning",r.total_beginning],["At Closing",r.total_closing],["Male",r.male_present],["Female",r.female_present],["First Timers",r.first_timers],["Visitors",r.visitors],["Absent",r.absent_members]]],
+            ["Attendance", [["At Beginning",r.total_beginning],["At Closing",r.total_closing],["Male",r.male_present],["Female",r.female_present],["First Timers",r.first_timers],["Visitors",r.visitors],]],
             ["Bible Records", [["Bibles (Begin)",r.bibles_beginning],["Bibles (Closing)",r.bibles_closing],["Without Bibles",r.members_without_bibles]]],
             ["Lesson", [["Topic",r.topic],["Bible Refs",r.bible_references],["Memory Verse",r.memory_verse],["Key Notes",r.key_notes],["Assignment",r.assignment]]],
           ].map(([sec,rows])=>(
@@ -2902,8 +2913,8 @@ const AttendancePage = ({ db, user, onEditRecord }) => {
           <div style={{ ...card, gridColumn:"1 / -1" }}>
             <div style={{ fontSize:11, fontWeight:700, color:t.gold, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1.5, marginBottom:10 }}>Additional Notes</div>
             <Row l="Challenges"       v={r.challenges} />
-            <Row l="Prayer Requests"  v={r.prayer_requests} />
             <Row l="Announcements"    v={r.announcements} />
+            {r.general_remarks && <Row l="📝 General Remarks" v={r.general_remarks} />}
             <Row l="Teachers Present" v={`${r.teachers_present||""} — ${r.teacher_names||""}`} />
           </div>
         </div>
@@ -7418,6 +7429,8 @@ const SSReportPage = ({ db }) => {
   const [filterDate, setFilterDate]   = useState(new Date().toISOString().slice(0,10));
   const [filterClass, setFilterClass] = useState("");
 
+  const [remarksModal, setRemarksModal] = useState(false);
+
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadAll();
@@ -7604,6 +7617,13 @@ const SSReportPage = ({ db }) => {
           Comparing <strong style={{ color:t.gold }}>{currentDate ? fmtDate(currentDate) : "—"}</strong>
           {" "}vs previous <strong style={{ color:t.info }}>{prevDate ? fmtDate(prevDate) : "—"}</strong>
         </div>
+        <button
+          onClick={() => setRemarksModal(true)}
+          style={{ display:"flex", alignItems:"center", gap:6, padding:"9px 18px", borderRadius:9, marginLeft:"auto",
+            border:`1.5px solid ${t.gold}66`, background:t.gold+"15", color:t.gold,
+            fontFamily:"'Trebuchet MS',sans-serif", fontSize:13, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
+          📝 View Remarks
+        </button>
       </div>
 
       {/* Summary KPIs */}
@@ -7857,6 +7877,87 @@ const SSReportPage = ({ db }) => {
           <span style={{ fontSize:11, color:t.danger,  fontFamily:"'Trebuchet MS',sans-serif" }}>● &lt;50% = Poor</span>
         </div>
       </div>
+
+      {/* ── REMARKS MODAL ── */}
+      {remarksModal && (() => {
+        const FF2 = "'Trebuchet MS',sans-serif";
+        const GF2 = "'Georgia',serif";
+        // All records for currentDate (all classes, no class filter)
+        const dayRecs = records.filter(r => r.date === currentDate);
+        const hasRemarks = dayRecs.some(r => r.general_remarks && r.general_remarks.trim());
+        return (
+          <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:9000,
+            display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}
+            onClick={() => setRemarksModal(false)}>
+            <div style={{ background:t.surface, borderRadius:16, width:"100%", maxWidth:560,
+              boxShadow:"0 24px 80px rgba(0,0,0,0.35)", overflow:"hidden" }}
+              onClick={e => e.stopPropagation()}>
+              {/* Modal header */}
+              <div style={{ background:t.sidebar, padding:"18px 24px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                <div>
+                  <div style={{ fontSize:17, fontWeight:700, color:"#FFFFFF", fontFamily:GF2 }}>
+                    📝 Session Remarks
+                  </div>
+                  <div style={{ fontSize:12, color:"rgba(255,255,255,0.6)", fontFamily:FF2, marginTop:3 }}>
+                    {currentDate ? fmtDate(currentDate) : "—"} · {dayRecs.length} class report{dayRecs.length !== 1 ? "s" : ""}
+                  </div>
+                </div>
+                <button onClick={() => setRemarksModal(false)}
+                  style={{ background:"rgba(255,255,255,0.12)", border:"none", borderRadius:8,
+                    color:"#FFFFFF", fontSize:18, width:32, height:32, cursor:"pointer",
+                    display:"flex", alignItems:"center", justifyContent:"center", fontWeight:700 }}>×</button>
+              </div>
+
+              {/* Modal body */}
+              <div style={{ padding:"20px 24px", maxHeight:"65vh", overflowY:"auto" }}>
+                {!hasRemarks ? (
+                  <div style={{ textAlign:"center", padding:"32px 0", color:t.textMuted, fontFamily:FF2, fontSize:13 }}>
+                    <div style={{ fontSize:36, marginBottom:10 }}>🗒️</div>
+                    No general remarks were recorded for this session.
+                  </div>
+                ) : (
+                  <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+                    {dayRecs
+                      .filter(r => r.general_remarks && r.general_remarks.trim())
+                      .map((r, i) => (
+                        <div key={r.id || i} style={{
+                          borderRadius:10, padding:"14px 16px",
+                          background:t.surfaceAlt, border:`1px solid ${t.border}`,
+                          borderLeft:`4px solid ${t.gold}`,
+                        }}>
+                          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8, flexWrap:"wrap", gap:6 }}>
+                            <span style={{ fontSize:13, fontWeight:700, color:t.gold, fontFamily:GF2 }}>
+                              {r.class_name || "Unassigned"}
+                            </span>
+                            {r.teacher_name && (
+                              <span style={{ fontSize:11, color:t.textMuted, fontFamily:FF2 }}>
+                                🧑‍🏫 {r.teacher_name}
+                              </span>
+                            )}
+                          </div>
+                          <p style={{ margin:0, fontSize:13, color:t.text, fontFamily:FF2,
+                            lineHeight:1.65, whiteSpace:"pre-wrap" }}>
+                            {r.general_remarks}
+                          </p>
+                        </div>
+                      ))
+                    }
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div style={{ padding:"12px 24px", borderTop:`1px solid ${t.border}`, display:"flex", justifyContent:"flex-end" }}>
+                <button onClick={() => setRemarksModal(false)}
+                  style={{ padding:"9px 24px", borderRadius:9, border:`1px solid ${t.border}`,
+                    background:"transparent", color:t.textMuted, fontFamily:FF2, fontSize:13, cursor:"pointer" }}>
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };
