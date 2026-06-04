@@ -2032,14 +2032,16 @@ const DashboardPage = ({ db }) => {
   const [filters, setFilters] = useState({});
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
+  const [autoRefreshPaused, setAutoRefreshPaused] = useState(false);
 
   // Auto-refresh every 30 seconds to catch new submissions without logout
   useEffect(() => {
+    if (autoRefreshPaused) return;
     const interval = setInterval(() => {
       loadAll().then ? loadAll().then(()=>setLastRefresh(new Date())) : (loadAll(), setLastRefresh(new Date()));
     }, 30000);
     return () => clearInterval(interval);
-  }, [loadAll]);
+  }, [loadAll, autoRefreshPaused]);
 
   const handleManualRefresh = async () => {
     setRefreshing(true);
@@ -2140,18 +2142,31 @@ const DashboardPage = ({ db }) => {
             <FilterBar filters={filters} setFilters={setFilters} months={allMonths}
               programs={programs} classes={classes} showClass={true} showProgram={false} />
           </div>
-          {/* Refresh button */}
-          <button onClick={handleManualRefresh} disabled={refreshing}
-            style={{ display:"flex", alignItems:"center", gap:7, padding:"9px 18px", borderRadius:9,
-              border:`1px solid ${t.gold}44`, background:t.gold+"11", color:t.gold,
-              fontFamily:"'Trebuchet MS',sans-serif", fontSize:13, cursor:"pointer" }}>
-            <span style={{ fontSize:16, lineHeight:1, display:"inline-block",
-              animation: refreshing ? "spin 0.7s linear infinite" : "none" }}>↻</span>
-            {refreshing ? "Refreshing…" : "Refresh"}
-            <span style={{ fontSize:10, color:t.textMuted }}>
-              · {lastRefresh.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}
-            </span>
-          </button>
+          {/* Auto-refresh controls */}
+          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+            <button onClick={handleManualRefresh} disabled={refreshing}
+              style={{ display:"flex", alignItems:"center", gap:7, padding:"9px 18px", borderRadius:9,
+                border:`1px solid ${t.gold}44`, background:t.gold+"11", color:t.gold,
+                fontFamily:"'Trebuchet MS',sans-serif", fontSize:13, cursor:"pointer" }}>
+              <span style={{ fontSize:16, lineHeight:1, display:"inline-block",
+                animation: refreshing ? "spin 0.7s linear infinite" : "none" }}>↻</span>
+              {refreshing ? "Refreshing…" : "Refresh"}
+              <span style={{ fontSize:10, color:t.textMuted }}>
+                · {lastRefresh.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}
+              </span>
+            </button>
+            <button
+              onClick={() => setAutoRefreshPaused(p => !p)}
+              title={autoRefreshPaused ? "Auto-refresh is paused — click to resume" : "Auto-refresh is active — click to pause"}
+              style={{ display:"flex", alignItems:"center", gap:6, padding:"9px 16px", borderRadius:9,
+                border: autoRefreshPaused ? `1px solid ${t.warn}77` : `1px solid ${t.success}55`,
+                background: autoRefreshPaused ? t.warn+"18" : t.success+"11",
+                color: autoRefreshPaused ? t.warn : t.success,
+                fontFamily:"'Trebuchet MS',sans-serif", fontSize:13, fontWeight:600,
+                cursor:"pointer", whiteSpace:"nowrap", transition:"all 0.2s" }}>
+              {autoRefreshPaused ? "▶ Resume Auto-refresh" : "⏸ Pause Auto-refresh"}
+            </button>
+          </div>
           <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
         </div>
       </div>
@@ -9600,16 +9615,19 @@ const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => 
   });
 
   const navItem = (active) => ({
-    display:"flex", alignItems:"center", gap:10, padding:"10px 18px", cursor:"pointer",
-    borderLeft: active ? `3px solid ${ACTIVE_COLOR}` : "3px solid transparent",
+    display:"flex", alignItems:"center", gap:10,
+    padding: collapsed ? "10px 0" : "10px 18px 10px 16px",
+    justifyContent: collapsed ? "center" : "flex-start",
+    cursor:"pointer", position:"relative",
     background: active ? t.bg : "transparent",
     color: active ? t.text : t.sidebarMuted,
     fontSize:13, fontFamily:"'Trebuchet MS',sans-serif",
-    transition:"all 0.18s cubic-bezier(0.34,1.56,0.64,1)",
+    transition:"color 0.15s",
     whiteSpace:"nowrap",
-    transform: active ? "translateX(6px) scale(1.02)" : "translateX(0) scale(1)",
-    boxShadow: active ? `4px 0 16px rgba(0,0,0,0.25)` : "none",
-    borderRadius: active ? "0 8px 8px 0" : "0",
+    borderRadius: active ? "10px 0 0 10px" : "0",
+    marginLeft: active ? 10 : 0,
+    marginRight: active ? 0 : 0,
+    fontWeight: active ? 600 : 400,
   });
 
   const modeLabel = mode==="light"?"☀ Light":mode==="navy"?"🌊 Navy":mode==="dark"?"🌙 Dark":mode==="darkBlue"?"🌊🌙 Dark Blue":mode==="orange"?"🔥 Orange":"🔥🌙 Dark Orange";
@@ -9631,15 +9649,34 @@ const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => 
           )}
         </div>
       </div>
-      <nav style={{ flex:1, paddingTop:8 }}>
-        {nav.map(n => (
-          <div key={n.id} style={navItem(page===n.id)} onClick={()=>setPage(n.id)} title={collapsed?n.label:""}
-            onMouseEnter={e=>{ if(page!==n.id) e.currentTarget.style.background="rgba(255,255,255,0.08)"; }}
-            onMouseLeave={e=>{ if(page!==n.id) e.currentTarget.style.background="transparent"; }}>
-            <Icon name={n.icon} size={17} color={page===n.id ? t.gold : t.sidebarMuted} />
-            {!collapsed && <span style={{ color: page===n.id ? t.text : t.sidebarMuted }}>{n.label}</span>}
-          </div>
-        ))}
+      <nav style={{ flex:1, paddingTop:8, overflow:"hidden" }}>
+        {nav.map(n => {
+          const active = page === n.id;
+          return (
+            <div key={n.id} style={{ position:"relative" }}>
+              {/* Top concave notch */}
+              {active && (
+                <div style={{ position:"absolute", top:-16, right:0, width:16, height:16,
+                  background:t.bg, pointerEvents:"none", zIndex:1 }}>
+                  <div style={{ position:"absolute", inset:0, background:t.sidebar, borderBottomRightRadius:12 }} />
+                </div>
+              )}
+              <div style={navItem(active)} onClick={()=>setPage(n.id)} title={collapsed?n.label:""}
+                onMouseEnter={e=>{ if(!active) e.currentTarget.style.background="rgba(255,255,255,0.08)"; }}
+                onMouseLeave={e=>{ if(!active) e.currentTarget.style.background="transparent"; }}>
+                <Icon name={n.icon} size={17} color={active ? ACTIVE_COLOR : t.sidebarMuted} />
+                {!collapsed && <span>{n.label}</span>}
+              </div>
+              {/* Bottom concave notch */}
+              {active && (
+                <div style={{ position:"absolute", bottom:-16, right:0, width:16, height:16,
+                  background:t.bg, pointerEvents:"none", zIndex:1 }}>
+                  <div style={{ position:"absolute", inset:0, background:t.sidebar, borderTopRightRadius:12 }} />
+                </div>
+              )}
+            </div>
+          );
+        })}
       </nav>
       <div style={{ padding:collapsed?"12px 0":"14px 18px", borderTop:`1px solid ${t.sidebarBorder}` }}>
         {!collapsed && (
@@ -9920,14 +9957,35 @@ const MobileDrawer = ({ open, onClose, page, setPage, user, onLogout, db }) => {
           {allNav.map(n => {
             const active = page === n.id;
             return (
-              <div key={n.id} onClick={()=>{ setPage(n.id); onClose(); }}
-                style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 18px", cursor:"pointer",
-                  background: active ? t.sidebarActive : "transparent",
-                  borderLeft: active ? `3px solid ${ACTIVE_COLOR}` : "3px solid transparent",
-                  color: active ? "#FFFFFF" : t.sidebarMuted,
-                  fontFamily:"'Trebuchet MS',sans-serif", fontSize:13 }}>
-                <Icon name={n.icon} size={18} color={active ? ACTIVE_COLOR : "rgba(255,255,255,0.5)"} />
-                {n.label}
+              <div key={n.id} style={{ position:"relative" }}>
+                {active && (
+                  <div style={{ position:"absolute", top:-16, right:0, width:16, height:16,
+                    background:t.bg, pointerEvents:"none", zIndex:1 }}>
+                    <div style={{ position:"absolute", inset:0, background:t.sidebar, borderBottomRightRadius:12 }} />
+                  </div>
+                )}
+                <div onClick={()=>{ setPage(n.id); onClose(); }}
+                  style={{ display:"flex", alignItems:"center", gap:12,
+                    padding: active ? "12px 18px 12px 16px" : "12px 18px",
+                    cursor:"pointer", position:"relative",
+                    background: active ? t.bg : "transparent",
+                    color: active ? t.text : t.sidebarMuted,
+                    fontFamily:"'Trebuchet MS',sans-serif", fontSize:13,
+                    fontWeight: active ? 600 : 400,
+                    borderRadius: active ? "10px 0 0 10px" : 0,
+                    marginLeft: active ? 10 : 0,
+                  }}
+                  onMouseEnter={e=>{ if(!active) e.currentTarget.style.background="rgba(255,255,255,0.08)"; }}
+                  onMouseLeave={e=>{ if(!active) e.currentTarget.style.background="transparent"; }}>
+                  <Icon name={n.icon} size={18} color={active ? ACTIVE_COLOR : "rgba(255,255,255,0.5)"} />
+                  {n.label}
+                </div>
+                {active && (
+                  <div style={{ position:"absolute", bottom:-16, right:0, width:16, height:16,
+                    background:t.bg, pointerEvents:"none", zIndex:1 }}>
+                    <div style={{ position:"absolute", inset:0, background:t.sidebar, borderTopRightRadius:12 }} />
+                  </div>
+                )}
               </div>
             );
           })}
