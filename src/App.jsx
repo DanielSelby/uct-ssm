@@ -3420,7 +3420,7 @@ const AnalyticsPage = ({ db }) => {
     padding:"8px 16px", borderRadius:8, border:"none", cursor:"pointer",
     fontFamily:"'Trebuchet MS',sans-serif", fontSize:12, fontWeight:700,
     background: tab===id ? t.gold : "transparent",
-    color: tab===id ? "#0B1628" : t.textMuted,
+    color: tab===id ? "#FFFFFF" : t.textMuted,
     borderBottom: tab===id ? "none" : `1px solid ${t.border}`,
   });
 
