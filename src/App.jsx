@@ -2030,7 +2030,7 @@ const DashboardPage = ({ db }) => {
   const active = teachers.filter(x=>x.is_active==="YES").length;
 
   const [filters, setFilters] = useState({});
-  const [chartRange, setChartRange] = useState("month"); // "month" | "qtr" | "year"
+  const [chartRange, setChartRange] = useState("day"); // "day" | "month" | "qtr" | "year"
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
   const [autoRefreshPaused, setAutoRefreshPaused] = useState(false);
@@ -2083,42 +2083,52 @@ const DashboardPage = ({ db }) => {
   const retentionRate = chTotal > 0 ? Math.round(ssTotal/chTotal*100) : 0;
   const pending       = records.filter(r=>r.status==="pending").length;
 
-  // Chart range filter — separate from the main filter bar
-  const applyChartRange = (arr) => {
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = now.getMonth(); // 0-indexed
-    if (chartRange === "month") {
-      const from = new Date(y, m, 1).toISOString().slice(0,10);
-      return arr.filter(r => r.date >= from);
-    }
-    if (chartRange === "qtr") {
-      const qStart = new Date(y, Math.floor(m/3)*3, 1).toISOString().slice(0,10);
-      return arr.filter(r => r.date >= qStart);
-    }
-    if (chartRange === "year") {
-      const yStart = `${y}-01-01`;
-      return arr.filter(r => r.date >= yStart);
-    }
-    return arr;
+  // Chart range: group data by day / month / quarter / year
+  const buildGrouped = (ssRecs, chRecs, groupBy) => {
+    if (groupBy === "day") return buildComparison(ssRecs, chRecs, {});
+    const getKey = (date) => {
+      if (groupBy === "month") return date.slice(0, 7);
+      if (groupBy === "qtr")   { const [y,m] = date.split("-"); return `${y}-Q${Math.ceil(Number(m)/3)}`; }
+      return date.slice(0, 4);
+    };
+    const getLabel = (key) => {
+      if (groupBy === "month") return monthLabel(key);
+      if (groupBy === "qtr")   return key.replace("-", " ");
+      return key;
+    };
+    const map = {};
+    ssRecs.forEach(r => {
+      if (!r.date) return;
+      const k = getKey(r.date);
+      if (!map[k]) map[k] = { key:k, label:getLabel(k), ssBegin:0, ssClose:0, chBegin:0, chClose:0 };
+      map[k].ssClose += Number(r.total_closing)||0;
+      map[k].ssBegin += Number(r.total_beginning)||0;
+    });
+    chRecs.forEach(r => {
+      if (!r.date) return;
+      const k = getKey(r.date);
+      if (!map[k]) map[k] = { key:k, label:getLabel(k), ssBegin:0, ssClose:0, chBegin:0, chClose:0 };
+      map[k].chClose += Number(r.total_closing)||0;
+      map[k].chBegin += Number(r.total_beginning)||0;
+    });
+    return Object.values(map)
+      .sort((a,b) => a.key > b.key ? 1 : -1)
+      .map(r => ({ ...r, retention: r.chClose > 0 ? Math.round(r.ssClose/r.chClose*100) : 0 }))
+      .filter(r => r.ssClose > 0 || r.chClose > 0);
   };
 
-  const crRec    = applyChartRange(fRec);
-  const crChurch = applyChartRange(fChurch);
+  const compData = buildGrouped(fRec, fChurch, chartRange);
 
-  // SS vs Church comparison by date
-  const compData = buildComparison(crRec, crChurch, {});
-
-  // Weekly trend
+  // Weekly trend (always individual sessions)
   const weekMap = {};
-  crRec.forEach(r => {
+  fRec.forEach(r => {
     if (!r.date) return;
     const wk = getWeekKey(r.date);
     if (!weekMap[wk]) weekMap[wk] = { wk, label: r.date.slice(5), ss:0, church:0, bibles:0 };
     weekMap[wk].ss     += Number(r.total_closing)||0;
     weekMap[wk].bibles += Number(r.bibles_closing)||0;
   });
-  crChurch.forEach(r => {
+  fChurch.forEach(r => {
     if (!r.date) return;
     const wk = getWeekKey(r.date);
     if (!weekMap[wk]) weekMap[wk] = { wk, label: r.date.slice(5), ss:0, church:0, bibles:0 };
@@ -2126,10 +2136,10 @@ const DashboardPage = ({ db }) => {
   });
   const weeklyTrend = Object.values(weekMap).sort((a,b)=>a.wk>b.wk?1:-1).slice(-10);
 
-  // Class pie
+  // Class pie (always all filtered data)
   const classTotals = classes.map((cls,i)=>({
     name: cls.name.split(" ")[0],
-    value: crRec.filter(r=>r.class_name===cls.name).reduce((s,r)=>s+(Number(r.total_closing)||0),0),
+    value: fRec.filter(r=>r.class_name===cls.name).reduce((s,r)=>s+(Number(r.total_closing)||0),0),
     color: CLASS_COLORS[i%CLASS_COLORS.length],
   })).filter(x=>x.value>0);
 
@@ -2230,13 +2240,13 @@ const DashboardPage = ({ db }) => {
       </div>
 
       {/* ── Chart Range Toggle ── */}
-      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16 }}>
+      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16, flexWrap:"wrap" }}>
         <span style={{ fontSize:11, fontWeight:700, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1.1 }}>
-          Charts showing:
+          Group charts by:
         </span>
-        {[["month","This Month"],["qtr","This Quarter"],["year","This Year"]].map(([val,label]) => (
+        {[["day","Day"],["month","Month"],["qtr","Quarter"],["year","Year"]].map(([val,label]) => (
           <button key={val} onClick={() => setChartRange(val)}
-            style={{ padding:"6px 16px", borderRadius:20, border:`1.5px solid ${chartRange===val ? t.gold : t.border}`,
+            style={{ padding:"6px 18px", borderRadius:20, border:`1.5px solid ${chartRange===val ? t.gold : t.border}`,
               background: chartRange===val ? t.gold : "transparent",
               color: chartRange===val ? "#0B1628" : t.textMuted,
               fontFamily:"'Trebuchet MS',sans-serif", fontSize:12, fontWeight: chartRange===val ? 700 : 400,
@@ -3239,7 +3249,7 @@ const AnalyticsPage = ({ db }) => {
 
   const [filters, setFilters] = useState({});
   const [tab, setTab] = useState("comparison"); // comparison | ss | church | gender
-  const [chartRange, setChartRange] = useState("month"); // "month" | "qtr" | "year"
+  const [chartRange, setChartRange] = useState("day"); // "day" | "month" | "qtr" | "year"
 
   const allMonths = [...new Set([
     ...records.map(r=>(r.date||"").slice(0,7)),
@@ -3259,35 +3269,46 @@ const AnalyticsPage = ({ db }) => {
   const fRec    = applyRange(records);
   const fChurch = applyRange(churchRecs);
 
-  // Chart range filter — separate from the main filter bar
-  const applyChartRange = (arr) => {
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = now.getMonth();
-    if (chartRange === "month") {
-      const from = new Date(y, m, 1).toISOString().slice(0,10);
-      return arr.filter(r => r.date >= from);
-    }
-    if (chartRange === "qtr") {
-      const qStart = new Date(y, Math.floor(m/3)*3, 1).toISOString().slice(0,10);
-      return arr.filter(r => r.date >= qStart);
-    }
-    if (chartRange === "year") {
-      const yStart = `${y}-01-01`;
-      return arr.filter(r => r.date >= yStart);
-    }
-    return arr;
+  // Chart range: group/aggregate by day / month / quarter / year
+  const buildGrouped = (ssRecs, chRecs, groupBy) => {
+    if (groupBy === "day") return buildComparison(ssRecs, chRecs, {});
+    const getKey = (date) => {
+      if (groupBy === "month") return date.slice(0, 7);
+      if (groupBy === "qtr")   { const [y,m] = date.split("-"); return `${y}-Q${Math.ceil(Number(m)/3)}`; }
+      return date.slice(0, 4);
+    };
+    const getLabel = (key) => {
+      if (groupBy === "month") return monthLabel(key);
+      if (groupBy === "qtr")   return key.replace("-", " ");
+      return key;
+    };
+    const map = {};
+    ssRecs.forEach(r => {
+      if (!r.date) return;
+      const k = getKey(r.date);
+      if (!map[k]) map[k] = { key:k, label:getLabel(k), ssBegin:0, ssClose:0, chBegin:0, chClose:0 };
+      map[k].ssClose += Number(r.total_closing)||0;
+      map[k].ssBegin += Number(r.total_beginning)||0;
+    });
+    chRecs.forEach(r => {
+      if (!r.date) return;
+      const k = getKey(r.date);
+      if (!map[k]) map[k] = { key:k, label:getLabel(k), ssBegin:0, ssClose:0, chBegin:0, chClose:0 };
+      map[k].chClose += Number(r.total_closing)||0;
+      map[k].chBegin += Number(r.total_beginning)||0;
+    });
+    return Object.values(map)
+      .sort((a,b) => a.key > b.key ? 1 : -1)
+      .map(r => ({ ...r, retention: r.chClose > 0 ? Math.round(r.ssClose/r.chClose*100) : 0 }))
+      .filter(r => r.ssClose > 0 || r.chClose > 0);
   };
 
-  const crRec    = applyChartRange(fRec);
-  const crChurch = applyChartRange(fChurch);
+  // ── Comparison data (respects chartRange grouping) ───────
+  const compData = buildGrouped(fRec, fChurch, chartRange);
 
-  // ── Comparison data ──────────────────────────────────────
-  const compData = buildComparison(crRec, crChurch, {});
-
-  // ── Monthly grouped: SS + Church ─────────────────────────
+  // ── Monthly grouped data (always month-level for trend charts) ──
   const monthMap = {};
-  crRec.forEach(r => {
+  fRec.forEach(r => {
     const m = (r.date||"").slice(0,7); if(!m) return;
     if (!monthMap[m]) monthMap[m] = { m, label:monthLabel(m), ssClose:0, ssBegin:0, chClose:0, chBegin:0, bibles:0, ft:0 };
     monthMap[m].ssClose += Number(r.total_closing)||0;
@@ -3295,7 +3316,7 @@ const AnalyticsPage = ({ db }) => {
     monthMap[m].bibles  += Number(r.bibles_closing)||0;
     monthMap[m].ft      += Number(r.first_timers)||0;
   });
-  crChurch.forEach(r => {
+  fChurch.forEach(r => {
     const m = (r.date||"").slice(0,7); if(!m) return;
     if (!monthMap[m]) monthMap[m] = { m, label:monthLabel(m), ssClose:0, ssBegin:0, chClose:0, chBegin:0, bibles:0, ft:0 };
     monthMap[m].chClose += Number(r.total_closing)||0;
@@ -3306,7 +3327,7 @@ const AnalyticsPage = ({ db }) => {
 
   // ── SS per-class monthly ──────────────────────────────────
   const classMonthMap = {};
-  crRec.forEach(r => {
+  fRec.forEach(r => {
     const m = (r.date||"").slice(0,7); if(!m||!r.class_name) return;
     if (!classMonthMap[m]) classMonthMap[m] = { label: monthLabel(m) };
     classMonthMap[m][r.class_name] = (classMonthMap[m][r.class_name]||0) + (Number(r.total_closing)||0);
@@ -3315,14 +3336,14 @@ const AnalyticsPage = ({ db }) => {
 
   // ── Bible participation ───────────────────────────────────
   const bibleClass = classes.map((cls,i) => {
-    const recs = crRec.filter(r=>r.class_name===cls.name && Number(r.total_closing)>0);
+    const recs = fRec.filter(r=>r.class_name===cls.name && Number(r.total_closing)>0);
     const rate = recs.length ? Math.round(recs.reduce((s,r)=>s+((Number(r.bibles_closing)||0)/Number(r.total_closing)*100),0)/recs.length) : 0;
     return { name:cls.name.split(" ")[0], rate, fill:CLASS_COLORS[i%CLASS_COLORS.length] };
   }).filter(x=>x.rate>0);
 
   // ── Gender breakdown ──────────────────────────────────────
   const genderMonthSS = {};
-  crRec.forEach(r => {
+  fRec.forEach(r => {
     const m=(r.date||"").slice(0,7); if(!m) return;
     if (!genderMonthSS[m]) genderMonthSS[m]={label:monthLabel(m),male:0,female:0};
     genderMonthSS[m].male   += Number(r.male_present)||0;
@@ -3331,7 +3352,7 @@ const AnalyticsPage = ({ db }) => {
   const genderSSData = Object.values(genderMonthSS).sort((a,b)=>a.label>b.label?1:-1);
 
   const genderMonthCh = {};
-  crChurch.forEach(r => {
+  fChurch.forEach(r => {
     const m=(r.date||"").slice(0,7); if(!m) return;
     if (!genderMonthCh[m]) genderMonthCh[m]={label:monthLabel(m),male:0,female:0};
     genderMonthCh[m].male   += Number(r.male_closing)||0;
@@ -3341,7 +3362,7 @@ const AnalyticsPage = ({ db }) => {
 
   // ── Church by program ─────────────────────────────────────
   const progMap = {};
-  crChurch.forEach(r => {
+  fChurch.forEach(r => {
     const p = r.program||"Unknown";
     if (!progMap[p]) progMap[p] = { name:p, total:0, sessions:0 };
     progMap[p].total    += Number(r.total_closing)||0;
@@ -3356,15 +3377,15 @@ const AnalyticsPage = ({ db }) => {
   })).filter(m => m.rate !== null);
 
   // ── Aggregate KPIs ────────────────────────────────────────
-  const ssBeginTotal = crRec.reduce((s,r)=>s+(Number(r.total_beginning)||0),0);
-  const ssTotal      = crRec.reduce((s,r)=>s+(Number(r.total_closing)||0),0);
-  const chBeginTotal = crChurch.reduce((s,r)=>s+(Number(r.total_beginning)||0),0);
-  const chTotal      = crChurch.reduce((s,r)=>s+(Number(r.total_closing)||0),0);
+  const ssBeginTotal = fRec.reduce((s,r)=>s+(Number(r.total_beginning)||0),0);
+  const ssTotal      = fRec.reduce((s,r)=>s+(Number(r.total_closing)||0),0);
+  const chBeginTotal = fChurch.reduce((s,r)=>s+(Number(r.total_beginning)||0),0);
+  const chTotal      = fChurch.reduce((s,r)=>s+(Number(r.total_closing)||0),0);
   const avgRetention = retentionMonthly.length ? Math.round(retentionMonthly.reduce((s,m)=>s+m.rate,0)/retentionMonthly.length) : 0;
-  const bibleBeginTotal = crRec.reduce((s,r)=>s+(Number(r.bibles_beginning)||0),0);
-  const bibleTotal   = crRec.reduce((s,r)=>s+(Number(r.bibles_closing)||0),0);
+  const bibleBeginTotal = fRec.reduce((s,r)=>s+(Number(r.bibles_beginning)||0),0);
+  const bibleTotal   = fRec.reduce((s,r)=>s+(Number(r.bibles_closing)||0),0);
   const bibleRate    = ssTotal > 0 ? Math.round(bibleTotal/ssTotal*100) : 0;
-  const ftTotal      = crRec.reduce((s,r)=>s+(Number(r.first_timers)||0),0) + crChurch.reduce((s,r)=>s+(Number(r.first_timers)||0),0);
+  const ftTotal      = fRec.reduce((s,r)=>s+(Number(r.first_timers)||0),0) + fChurch.reduce((s,r)=>s+(Number(r.first_timers)||0),0);
 
   // ── Insight generator ─────────────────────────────────────
   const insights = [];
@@ -3427,7 +3448,7 @@ const AnalyticsPage = ({ db }) => {
         <KpiCard label="Sund. Sch. Close"      value={ssTotal}           sub="At close"         icon="attendance" color={t.gold} />
         <KpiCard label="Bible Begin"     value={bibleBeginTotal}   sub="Brought at start" icon="bible"      color="#9B59B6" />
         <KpiCard label="Bible Closing"   value={bibleTotal}        sub={`${bibleRate}% rate`} icon="bible" color="#7B3FBE" />
-        <KpiCard label="First Timers"    value={crRec.reduce((s,r)=>s+(Number(r.first_timers)||0),0)} sub="SS" icon="plus" color="#E67E22" />
+        <KpiCard label="First Timers"    value={fRec.reduce((s,r)=>s+(Number(r.first_timers)||0),0)} sub="SS" icon="plus" color="#E67E22" />
       </div>
 
       {/* KPI Summary — Church */}
@@ -3436,7 +3457,7 @@ const AnalyticsPage = ({ db }) => {
         <KpiCard label="Church Begin"    value={chBeginTotal}      sub="At opening"       icon="cross"      color={t.info} />
         <KpiCard label="Church Closing"  value={chTotal}           sub="At close"         icon="cross"      color="#1A5DC8" />
         <KpiCard label="Avg Retention"   value={`${avgRetention}%`} sub="SS÷Church avg"  icon="analytics"  color={avgRetention>=80?t.success:avgRetention>=60?t.warn:t.danger} />
-        <KpiCard label="First Timers"    value={crChurch.reduce((s,r)=>s+(Number(r.first_timers)||0),0)} sub="Church" icon="plus" color="#E67E22" />
+        <KpiCard label="First Timers"    value={fChurch.reduce((s,r)=>s+(Number(r.first_timers)||0),0)} sub="Church" icon="plus" color="#E67E22" />
         <KpiCard label="Months of Data"  value={allMonths.length}  sub="On record"        icon="settings"   color={t.success} />
       </div>
 
@@ -3448,13 +3469,13 @@ const AnalyticsPage = ({ db }) => {
       )}
 
       {/* ── Chart Range Toggle ── */}
-      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16 }}>
+      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16, flexWrap:"wrap" }}>
         <span style={{ fontSize:11, fontWeight:700, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1.1 }}>
-          Charts showing:
+          Group charts by:
         </span>
-        {[["month","This Month"],["qtr","This Quarter"],["year","This Year"]].map(([val,label]) => (
+        {[["day","Day"],["month","Month"],["qtr","Quarter"],["year","Year"]].map(([val,label]) => (
           <button key={val} onClick={() => setChartRange(val)}
-            style={{ padding:"6px 16px", borderRadius:20, border:`1.5px solid ${chartRange===val ? t.gold : t.border}`,
+            style={{ padding:"6px 18px", borderRadius:20, border:`1.5px solid ${chartRange===val ? t.gold : t.border}`,
               background: chartRange===val ? t.gold : "transparent",
               color: chartRange===val ? "#0B1628" : t.textMuted,
               fontFamily:"'Trebuchet MS',sans-serif", fontSize:12, fontWeight: chartRange===val ? 700 : 400,
