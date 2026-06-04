@@ -7438,6 +7438,42 @@ const SSReportPage = ({ db }) => {
   const [filterClass, setFilterClass] = useState("");
 
   const [remarksModal, setRemarksModal] = useState(false);
+  const [generalRemarksModal, setGeneralRemarksModal] = useState(false);
+  const [generalRemarksText, setGeneralRemarksText] = useState("");
+  const [generalRemarksSaved, setGeneralRemarksSaved] = useState({}); // { [date]: string }
+  const [grSaving, setGrSaving] = useState(false);
+
+  // Load saved general remarks from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("uct_general_remarks");
+      if (stored) setGeneralRemarksSaved(JSON.parse(stored));
+    } catch(e) {}
+  }, []);
+
+  const openGeneralRemarks = () => {
+    setGeneralRemarksText(generalRemarksSaved[currentDate] || "");
+    setGeneralRemarksModal(true);
+  };
+
+  const saveGeneralRemarks = async () => {
+    setGrSaving(true);
+    const updated = { ...generalRemarksSaved, [currentDate]: generalRemarksText };
+    setGeneralRemarksSaved(updated);
+    try { localStorage.setItem("uct_general_remarks", JSON.stringify(updated)); } catch(e) {}
+    // Also attempt to upsert into Supabase uct_session_remarks table if available
+    if (typeof sbFetch === "function" && typeof SUPABASE_READY !== "undefined" && SUPABASE_READY) {
+      try {
+        await sbFetch("uct_session_remarks", {
+          method: "POST",
+          headers: { "Prefer": "resolution=merge-duplicates" },
+          body: JSON.stringify({ session_date: currentDate, general_remarks: generalRemarksText }),
+        });
+      } catch(e) { /* table may not exist yet — localStorage is the fallback */ }
+    }
+    setGrSaving(false);
+    setGeneralRemarksModal(false);
+  };
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -7625,13 +7661,22 @@ const SSReportPage = ({ db }) => {
           Comparing <strong style={{ color:t.gold }}>{currentDate ? fmtDate(currentDate) : "—"}</strong>
           {" "}vs previous <strong style={{ color:t.info }}>{prevDate ? fmtDate(prevDate) : "—"}</strong>
         </div>
-        <button
-          onClick={() => setRemarksModal(true)}
-          style={{ display:"flex", alignItems:"center", gap:6, padding:"9px 18px", borderRadius:9, marginLeft:"auto",
-            border:`1.5px solid ${t.gold}66`, background:t.gold+"15", color:t.gold,
-            fontFamily:"'Trebuchet MS',sans-serif", fontSize:13, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
-          📝 View Remarks
-        </button>
+        <div style={{ display:"flex", gap:8, marginLeft:"auto" }}>
+          <button
+            onClick={() => setRemarksModal(true)}
+            style={{ display:"flex", alignItems:"center", gap:6, padding:"9px 18px", borderRadius:9,
+              border:`1.5px solid ${t.gold}66`, background:t.gold+"15", color:t.gold,
+              fontFamily:"'Trebuchet MS',sans-serif", fontSize:13, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
+            📝 View Remarks
+          </button>
+          <button
+            onClick={openGeneralRemarks}
+            style={{ display:"flex", alignItems:"center", gap:6, padding:"9px 18px", borderRadius:9,
+              border:`1.5px solid ${t.info}66`, background:t.info+"15", color:t.info,
+              fontFamily:"'Trebuchet MS',sans-serif", fontSize:13, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
+            🗒️ View General Remarks
+          </button>
+        </div>
       </div>
 
       {/* Summary KPIs */}
@@ -7885,6 +7930,94 @@ const SSReportPage = ({ db }) => {
           <span style={{ fontSize:11, color:t.danger,  fontFamily:"'Trebuchet MS',sans-serif" }}>● &lt;50% = Poor</span>
         </div>
       </div>
+
+      {/* ── GENERAL REMARKS MODAL ── */}
+      {generalRemarksModal && (() => {
+        const FF2 = "'Trebuchet MS',sans-serif";
+        const GF2 = "'Georgia',serif";
+        const existingRemark = generalRemarksSaved[currentDate];
+        return (
+          <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:9000,
+            display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}
+            onClick={() => setGeneralRemarksModal(false)}>
+            <div style={{ background:t.surface, borderRadius:16, width:"100%", maxWidth:580,
+              boxShadow:"0 24px 80px rgba(0,0,0,0.35)", overflow:"hidden" }}
+              onClick={e => e.stopPropagation()}>
+
+              {/* Modal header */}
+              <div style={{ background:t.sidebar, padding:"18px 24px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                <div>
+                  <div style={{ fontSize:17, fontWeight:700, color:"#FFFFFF", fontFamily:GF2 }}>
+                    🗒️ General Remarks — Entire Class
+                  </div>
+                  <div style={{ fontSize:12, color:"rgba(255,255,255,0.6)", fontFamily:FF2, marginTop:3 }}>
+                    {currentDate ? fmtDate(currentDate) : "—"} · Overall session overview
+                  </div>
+                </div>
+                <button onClick={() => setGeneralRemarksModal(false)}
+                  style={{ background:"rgba(255,255,255,0.12)", border:"none", borderRadius:8,
+                    color:"#FFFFFF", fontSize:18, width:32, height:32, cursor:"pointer",
+                    display:"flex", alignItems:"center", justifyContent:"center", fontWeight:700 }}>×</button>
+              </div>
+
+              {/* Modal body */}
+              <div style={{ padding:"22px 24px" }}>
+                <label style={{ display:"block", fontSize:12, color:t.textMuted, fontFamily:FF2,
+                  textTransform:"uppercase", letterSpacing:1, marginBottom:8, fontWeight:700 }}>
+                  Session Overview / General Remarks
+                </label>
+                <p style={{ margin:"0 0 12px", fontSize:12, color:t.textMuted, fontFamily:FF2, lineHeight:1.6 }}>
+                  Write a single general overview for <strong style={{ color:t.text }}>{currentDate ? fmtDate(currentDate) : "this session"}</strong>.
+                  This applies to the entire Sunday School session across all classes.
+                </p>
+                <textarea
+                  value={generalRemarksText}
+                  onChange={e => setGeneralRemarksText(e.target.value)}
+                  placeholder="e.g. Low attendance across all classes due to heavy rain. Bible memorisation was excellent in most groups. The joint session was particularly energetic…"
+                  rows={6}
+                  style={{
+                    width:"100%", boxSizing:"border-box",
+                    padding:"12px 14px", borderRadius:10, resize:"vertical",
+                    border:`1.5px solid ${t.info}55`, background:t.info+"08",
+                    color:t.text, fontFamily:FF2, fontSize:13, lineHeight:1.65,
+                    outline:"none",
+                  }}
+                />
+                {existingRemark && (
+                  <div style={{ marginTop:10, padding:"8px 12px", borderRadius:8,
+                    background:t.success+"12", border:`1px solid ${t.success}33`,
+                    display:"flex", alignItems:"center", gap:8 }}>
+                    <span style={{ fontSize:15 }}>✅</span>
+                    <span style={{ fontSize:11, color:t.success, fontFamily:FF2 }}>
+                      Saved remarks exist for this session date.
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div style={{ padding:"12px 24px", borderTop:`1px solid ${t.border}`,
+                display:"flex", justifyContent:"space-between", alignItems:"center", gap:10 }}>
+                <button onClick={() => setGeneralRemarksModal(false)}
+                  style={{ padding:"9px 20px", borderRadius:9, border:`1px solid ${t.border}`,
+                    background:"transparent", color:t.textMuted, fontFamily:FF2, fontSize:13, cursor:"pointer" }}>
+                  Cancel
+                </button>
+                <button
+                  onClick={saveGeneralRemarks}
+                  disabled={grSaving}
+                  style={{ padding:"9px 26px", borderRadius:9, border:"none",
+                    background: grSaving ? t.textFaint : t.info,
+                    color:"#FFFFFF", fontFamily:FF2, fontSize:13, fontWeight:700,
+                    cursor: grSaving ? "not-allowed" : "pointer",
+                    display:"flex", alignItems:"center", gap:7 }}>
+                  {grSaving ? "Saving…" : "💾 Save General Remarks"}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── REMARKS MODAL ── */}
       {remarksModal && (() => {
