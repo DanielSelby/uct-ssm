@@ -2248,7 +2248,7 @@ const DashboardPage = ({ db }) => {
           <button key={val} onClick={() => setChartRange(val)}
             style={{ padding:"6px 18px", borderRadius:20, border:`1.5px solid ${chartRange===val ? t.gold : t.border}`,
               background: chartRange===val ? t.gold : "transparent",
-              color: chartRange===val ? "#0B1628" : t.textMuted,
+              color: chartRange===val ? "#FFFFFF" : t.textMuted,
               fontFamily:"'Trebuchet MS',sans-serif", fontSize:12, fontWeight: chartRange===val ? 700 : 400,
               cursor:"pointer", transition:"all 0.15s" }}>
             {label}
@@ -3477,7 +3477,7 @@ const AnalyticsPage = ({ db }) => {
           <button key={val} onClick={() => setChartRange(val)}
             style={{ padding:"6px 18px", borderRadius:20, border:`1.5px solid ${chartRange===val ? t.gold : t.border}`,
               background: chartRange===val ? t.gold : "transparent",
-              color: chartRange===val ? "#0B1628" : t.textMuted,
+              color: chartRange===val ? "#FFFFFF" : t.textMuted,
               fontFamily:"'Trebuchet MS',sans-serif", fontSize:12, fontWeight: chartRange===val ? 700 : 400,
               cursor:"pointer", transition:"all 0.15s" }}>
             {label}
