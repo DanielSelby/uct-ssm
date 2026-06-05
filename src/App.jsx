@@ -2673,15 +2673,26 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
     if (bulkMode) setBulkRows(activeClasses.map(r => makeBulkRow(r)));
   }, [bulkMode, classes.length]);
 
+  const DAYS_OF_WEEK = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  const dayFromDate  = (d) => d ? DAYS_OF_WEEK[new Date(d + "T12:00:00").getDay()] : "";
+
   // Handlers
   const handleChange = useCallback((e) => {
     const { name, value } = e.target;
-    setForm(prev => ({ ...prev, [name]: value }));
+    setForm(prev => ({
+      ...prev,
+      [name]: value,
+      ...(name === "date" ? { day_of_week: dayFromDate(value) } : {}),
+    }));
   }, []);
 
   const updateBulkShared = useCallback((e) => {
     const { name, value } = e.target;
-    setBulkShared(p => ({ ...p, [name]: value }));
+    setBulkShared(p => ({
+      ...p,
+      [name]: value,
+      ...(name === "date" ? { day_of_week: dayFromDate(value) } : {}),
+    }));
   }, []);
 
   const updateBulkRow = useCallback((idx, name, value) => {
@@ -2695,6 +2706,24 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
   const handleSubmit = () => {
     if (!form.class_name)   { alert("Please select a class."); return; }
     if (!form.topic.trim()) { alert("Please enter the lesson topic."); return; }
+
+    // Duplicate check — same class + same date already exists (skip when editing)
+    if (!isEditMode) {
+      const dup = records.find(r =>
+        r.class_name === form.class_name &&
+        r.date       === form.date
+      );
+      if (dup) {
+        alert(
+          `⚠️ Duplicate Entry Detected!\n\n` +
+          `A report for "${form.class_name}" on ${fmtDate(form.date)} already exists.\n\n` +
+          `Status: ${dup.status?.toUpperCase() || "PENDING"}\n\n` +
+          `Please select a different date, or edit the existing record instead.`
+        );
+        return;
+      }
+    }
+
     setLoading(true);
     setTimeout(() => {
       if (isEditMode) updateRecord(editProp.id, { ...form, status:"pending" });
@@ -2711,6 +2740,22 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
   const handleBulkSubmit = async () => {
     const filled = bulkRows.filter(r => r.topic.trim() || r.total_closing);
     if (!filled.length) { alert("Please fill in at least one class report."); return; }
+
+    // Duplicate check — find any class+date combo that already exists
+    const dups = filled.filter(r =>
+      records.some(ex => ex.class_name === r.class_name && ex.date === bulkShared.date)
+    );
+    if (dups.length) {
+      const names = dups.map(r => `• ${r.class_name}`).join("\n");
+      alert(
+        `⚠️ Duplicate Entry Detected!\n\n` +
+        `The following classes already have a report for ${fmtDate(bulkShared.date)}:\n\n` +
+        `${names}\n\n` +
+        `Please select a different date, or remove those classes before submitting.`
+      );
+      return;
+    }
+
     setBulkLoading(true);
     for (const row of filled) {
       const { _expanded, ...data } = row;
@@ -2794,8 +2839,11 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
                 </div>
               ))}
               <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-                <label style={lbl}>Day</label>
-                <SearchableSelect value={bulkShared.day_of_week} onChange={v=>setBulkShared(p=>({...p,day_of_week:v}))} options={["Sunday","Saturday","Wednesday"]} />
+                <label style={lbl}>Day <span style={{ fontSize:10, color:t.success, fontWeight:400 }}>auto-detected</span></label>
+                <div style={{ ...inp, background:t.surfaceAlt, color:t.textMuted, display:"flex", alignItems:"center", gap:8, cursor:"default" }}>
+                  📅 <span style={{ fontWeight:600, color:t.text }}>{bulkShared.day_of_week || "—"}</span>
+                  <span style={{ fontSize:10, color:t.success, marginLeft:"auto" }}>From date</span>
+                </div>
               </div>
               <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
                 <label style={lbl}>Service Type</label>
@@ -2949,8 +2997,12 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
             <div style={sec}>Basic Information</div>
             <div style={g2}>
               <div style={fw()}><label style={lbl}>Date</label><input name="date" style={inp} type="date" value={form.date} onChange={handleChange}/></div>
-              <div style={fw()}><label style={lbl}>Day</label>
-                <SearchableSelect value={form.day_of_week} onChange={v=>setForm(p=>({...p,day_of_week:v}))} options={["Sunday","Saturday","Wednesday"]} /></div>
+              <div style={fw()}><label style={lbl}>Day <span style={{ fontSize:10, color:t.success, fontWeight:400 }}>auto-detected</span></label>
+                <div style={{ ...inp, background:t.surfaceAlt, color:t.textMuted, display:"flex", alignItems:"center", gap:8, cursor:"default" }}>
+                  📅 <span style={{ fontWeight:600, color:t.text }}>{form.day_of_week || "—"}</span>
+                  <span style={{ fontSize:10, color:t.success, marginLeft:"auto" }}>From date</span>
+                </div>
+              </div>
               <div style={fw()}><label style={lbl}>Service Type</label>
                 <SearchableSelect value={form.service_type} onChange={v=>setForm(p=>({...p,service_type:v}))} options={["Regular Sunday School","Joint Sunday School","Special Service"]} /></div>
               <div style={fw()}><label style={lbl}>Class Name *</label>
