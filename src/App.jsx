@@ -138,32 +138,90 @@ const T = {
   },
   // ── Orange: warm amber sidebar, light cream page ───────────
   orange: {
-    bg:          "#fff8f0",
+    bg:          "#fdf6ef",
     surface:     "#FFFFFF",
-    surfaceAlt:  "#fff0e0",
-    surfaceHover:"#ffe4c4",
-    sidebar:     "#cc5803",
+    surfaceAlt:  "#f5ece0",
+    surfaceHover:"#ecdcc8",
+    sidebar:     "#583101",
     sidebarText: "#FFFFFF",
     sidebarMuted:"rgba(255,255,255,0.55)",
     sidebarBorder:"rgba(255,255,255,0.14)",
     sidebarActive:"rgba(255,255,255,0.18)",
-    border:      "rgba(204,88,3,0.16)",
-    borderStrong:"rgba(204,88,3,0.40)",
-    text:        "#4a1a00",
-    textMuted:   "#8a4010",
-    textFaint:   "#e8b890",
-    gold:        "#cc5803",
-    goldLight:   "#e87020",
-    goldDark:    "#8a3a00",
+    border:      "rgba(88,49,1,0.16)",
+    borderStrong:"rgba(88,49,1,0.40)",
+    text:        "#2e1800",
+    textMuted:   "#6b3d10",
+    textFaint:   "#d4a87a",
+    gold:        "#583101",
+    goldLight:   "#7a4a1a",
+    goldDark:    "#3a1f00",
     success:     "#2e7d32",
     danger:      "#c0392b",
     info:        "#1565c0",
-    warn:        "#cc5803",
-    navy:        "#4a1a00",
-    btnFrom:     "#cc5803",
-    btnTo:       "#e87020",
+    warn:        "#583101",
+    navy:        "#2e1800",
+    btnFrom:     "#583101",
+    btnTo:       "#7a4a1a",
     btnText:     "#FFFFFF",
-    topbar:      "#cc5803",
+    topbar:      "#583101",
+  },
+  // ── Teal: fresh teal sidebar, light mint page ─────────────
+  teal: {
+    bg:          "#f0fafa",
+    surface:     "#FFFFFF",
+    surfaceAlt:  "#e0f5f5",
+    surfaceHover:"#c8ecec",
+    sidebar:     "#2ec4b6",
+    sidebarText: "#FFFFFF",
+    sidebarMuted:"rgba(255,255,255,0.60)",
+    sidebarBorder:"rgba(255,255,255,0.16)",
+    sidebarActive:"rgba(255,255,255,0.18)",
+    border:      "rgba(46,196,182,0.20)",
+    borderStrong:"rgba(46,196,182,0.45)",
+    text:        "#0a3d3a",
+    textMuted:   "#2a7d78",
+    textFaint:   "#a0dbd8",
+    gold:        "#2ec4b6",
+    goldLight:   "#4dd6ca",
+    goldDark:    "#1a9b8f",
+    success:     "#0A7A45",
+    danger:      "#C0392B",
+    info:        "#1565C0",
+    warn:        "#C87A0A",
+    navy:        "#0a3d3a",
+    btnFrom:     "#2ec4b6",
+    btnTo:       "#4dd6ca",
+    btnText:     "#FFFFFF",
+    topbar:      "#2ec4b6",
+  },
+  // ── Dark Teal: deep teal bg + teal sidebar ─────────────────
+  darkTeal: {
+    bg:          "#061a19",
+    surface:     "#0c2e2c",
+    surfaceAlt:  "#123e3b",
+    surfaceHover:"#1a5250",
+    sidebar:     "#2ec4b6",
+    sidebarText: "#FFFFFF",
+    sidebarMuted:"rgba(255,255,255,0.50)",
+    sidebarBorder:"rgba(255,255,255,0.10)",
+    sidebarActive:"rgba(255,255,255,0.16)",
+    border:      "rgba(46,196,182,0.18)",
+    borderStrong:"rgba(46,196,182,0.40)",
+    text:        "#d0f5f3",
+    textMuted:   "#7acac5",
+    textFaint:   "#1a5250",
+    gold:        "#4dd6ca",
+    goldLight:   "#80e8e2",
+    goldDark:    "#2ec4b6",
+    success:     "#66bb6a",
+    danger:      "#ef5350",
+    info:        "#64b5f6",
+    warn:        "#ffa726",
+    navy:        "#061a19",
+    btnFrom:     "#2ec4b6",
+    btnTo:       "#4dd6ca",
+    btnText:     "#FFFFFF",
+    topbar:      "#2ec4b6",
   },
   // ── Dark Orange: deep brown-black bg + orange sidebar ──────
   darkOrange: {
@@ -171,7 +229,7 @@ const T = {
     surface:     "#2a1200",
     surfaceAlt:  "#3d1c00",
     surfaceHover:"#552700",
-    sidebar:     "#cc5803",
+    sidebar:     "#583101",
     sidebarText: "#FFFFFF",
     sidebarMuted:"rgba(255,255,255,0.50)",
     sidebarBorder:"rgba(255,255,255,0.10)",
@@ -183,21 +241,21 @@ const T = {
     textFaint:   "#5a2e00",
     gold:        "#ffaa55",
     goldLight:   "#ffc880",
-    goldDark:    "#cc5803",
+    goldDark:    "#583101",
     success:     "#66bb6a",
     danger:      "#ef5350",
     info:        "#64b5f6",
     warn:        "#ffa726",
     navy:        "#1a0a00",
-    btnFrom:     "#cc5803",
-    btnTo:       "#e87020",
+    btnFrom:     "#583101",
+    btnTo:       "#7a4a1a",
     btnText:     "#FFFFFF",
-    topbar:      "#cc5803",
+    topbar:      "#583101",
   },
 };
 
 // Convenience: is the mode "dark" for dark-specific branches
-const isDark = (mode) => mode === "dark" || mode === "darkBlue" || mode === "darkOrange";
+const isDark = (mode) => mode === "dark" || mode === "darkBlue" || mode === "darkOrange" || mode === "darkTeal";
 
 // ─── RESPONSIVE HOOK ─────────────────────────────────────────────────────────
 const useIsMobile = () => {
@@ -9785,7 +9843,7 @@ const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => 
     fontWeight: active ? 600 : 400,
   });
 
-  const modeLabel = mode==="light"?"☀ Light":mode==="navy"?"🌊 Navy":mode==="dark"?"🌙 Dark":mode==="darkBlue"?"🌊🌙 Dark Blue":mode==="orange"?"🔥 Orange":"🔥🌙 Dark Orange";
+  const modeLabel = mode==="light"?"☀ Light":mode==="navy"?"🌊 Navy":mode==="dark"?"🌙 Dark":mode==="darkBlue"?"🌊🌙 Dark Blue":mode==="orange"?"🟤 Brown":mode==="darkOrange"?"🟤🌙 Dark Brown":mode==="teal"?"🩵 Teal":"🩵🌙 Dark Teal";
 
   return (
     <div style={{ width:collapsed?60:260, background:t.sidebar, borderRight:`1px solid ${t.sidebarBorder}`,
@@ -10149,7 +10207,7 @@ const MobileDrawer = ({ open, onClose, page, setPage, user, onLogout, db }) => {
         <div style={{ padding:"13px 18px", borderTop:`1px solid ${t.sidebarBorder}`, display:"flex", gap:8 }}>
           <button onClick={toggle} style={{ flex:1, padding:"9px 0", borderRadius:8, border:`1px solid ${ACTIVE_COLOR}55`, background:`${ACTIVE_COLOR}18`, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6, color:"rgba(255,255,255,0.9)", fontFamily:"'Trebuchet MS',sans-serif", fontSize:11 }}>
             <Icon name={isDark(mode)?"sun":"moon"} size={13} color={ACTIVE_COLOR} />
-            {mode==="light"?"☀ Light":mode==="navy"?"🌊 Navy":mode==="dark"?"🌙 Dark":mode==="darkBlue"?"🌊🌙 Dark Blue":mode==="orange"?"🔥 Orange":"🔥🌙 Dark Orange"}
+            {mode==="light"?"☀ Light":mode==="navy"?"🌊 Navy":mode==="dark"?"🌙 Dark":mode==="darkBlue"?"🌊🌙 Dark Blue":mode==="orange"?"🟤 Brown":mode==="darkOrange"?"🟤🌙 Dark Brown":mode==="teal"?"🩵 Teal":"🩵🌙 Dark Teal"}
           </button>
           {can("export") && (
             <button onClick={()=>{ db.downloadWorkbook(); onClose(); }} style={{ flex:1, padding:"9px 0", borderRadius:8, border:"1px solid rgba(255,255,255,0.2)", background:"transparent", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6, color:"rgba(255,255,255,0.75)", fontFamily:"'Trebuchet MS',sans-serif", fontSize:12 }}>
@@ -10167,7 +10225,7 @@ const MobileDrawer = ({ open, onClose, page, setPage, user, onLogout, db }) => {
 
 // ─── ROOT APP ─────────────────────────────────────────────────────────────────
 export default function App() {
-  const MODES = ["light","navy","dark","darkBlue","orange","darkOrange"];
+  const MODES = ["light","navy","dark","darkBlue","orange","darkOrange","teal","darkTeal"];
   const [modeIdx, setModeIdx]         = useState(0);
   const mode = MODES[modeIdx];
   const dark = isDark(mode);
@@ -10337,7 +10395,7 @@ export default function App() {
                   background:`${ACTIVE_COLOR}22`, cursor:"pointer", display:"flex", alignItems:"center", gap:5,
                   color:"rgba(255,255,255,0.9)", fontFamily:"'Trebuchet MS',sans-serif", fontSize:11 }}>
                 <Icon name={isDark(mode)?"sun":"moon"} size={13} color={ACTIVE_COLOR} />
-                {!mobile && (mode==="light"?"☀ Light":mode==="navy"?"🌊 Navy":mode==="dark"?"🌙 Dark":mode==="darkBlue"?"🌊🌙 Dark Blue":mode==="orange"?"🔥 Orange":"🔥🌙 Dark Orange")}
+                {!mobile && (mode==="light"?"☀ Light":mode==="navy"?"🌊 Navy":mode==="dark"?"🌙 Dark":mode==="darkBlue"?"🌊🌙 Dark Blue":mode==="orange"?"🟤 Brown":mode==="darkOrange"?"🟤🌙 Dark Brown":mode==="teal"?"🩵 Teal":"🩵🌙 Dark Teal")}
               </button>
               {!mobile && can("export") && (
                 <button onClick={db.downloadWorkbook}
