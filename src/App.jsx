@@ -2177,29 +2177,43 @@ const DashboardPage = ({ db }) => {
 
   const compData = buildGrouped(fRec, fChurch, chartRange);
 
-  // Weekly trend (always individual sessions)
-  const weekMap = {};
+  // Weekly trend — grouped by the same chartRange
+  const trendMap = {};
+  const getTrendKey = (date) => {
+    if (chartRange === "day")   return date; // individual day
+    if (chartRange === "month") return date.slice(0,7);
+    if (chartRange === "qtr")   { const [y,m] = date.split("-"); return `${y}-Q${Math.ceil(Number(m)/3)}`; }
+    return date.slice(0,4);
+  };
+  const getTrendLabel = (date) => {
+    const k = getTrendKey(date);
+    if (chartRange === "day")   return date.slice(5);
+    if (chartRange === "month") return monthLabel(k);
+    if (chartRange === "qtr")   return k.replace("-"," ");
+    return k;
+  };
   fRec.forEach(r => {
     if (!r.date) return;
-    const wk = getWeekKey(r.date);
-    if (!weekMap[wk]) weekMap[wk] = { wk, label: r.date.slice(5), ss:0, church:0, bibles:0 };
-    weekMap[wk].ss     += Number(r.total_closing)||0;
-    weekMap[wk].bibles += Number(r.bibles_closing)||0;
+    const k = getTrendKey(r.date);
+    if (!trendMap[k]) trendMap[k] = { key:k, label:getTrendLabel(r.date), ss:0, church:0, bibles:0 };
+    trendMap[k].ss     += Number(r.total_closing)||0;
+    trendMap[k].bibles += Number(r.bibles_closing)||0;
   });
   fChurch.forEach(r => {
     if (!r.date) return;
-    const wk = getWeekKey(r.date);
-    if (!weekMap[wk]) weekMap[wk] = { wk, label: r.date.slice(5), ss:0, church:0, bibles:0 };
-    weekMap[wk].church += Number(r.total_closing)||0;
+    const k = getTrendKey(r.date);
+    if (!trendMap[k]) trendMap[k] = { key:k, label:getTrendLabel(r.date), ss:0, church:0, bibles:0 };
+    trendMap[k].church += Number(r.total_closing)||0;
   });
-  const weeklyTrend = Object.values(weekMap).sort((a,b)=>a.wk>b.wk?1:-1).slice(-10);
+  const weeklyTrend = Object.values(trendMap).sort((a,b)=>a.key>b.key?1:-1);
 
-  // Class pie (always all filtered data)
-  const classTotals = classes.map((cls,i)=>({
-    name: cls.name.split(" ")[0],
-    value: fRec.filter(r=>r.class_name===cls.name).reduce((s,r)=>s+(Number(r.total_closing)||0),0),
-    color: CLASS_COLORS[i%CLASS_COLORS.length],
-  })).filter(x=>x.value>0);
+  // Class donut — grouped by chartRange (sum all records in each period per class, then aggregate)
+  const classTotals = classes.map((cls,i) => {
+    const clsRecs = fRec.filter(r => r.class_name === cls.name);
+    // When grouping, we still want the total across all grouped periods
+    const value = clsRecs.reduce((s,r) => s + (Number(r.total_closing)||0), 0);
+    return { name: cls.name.split(" ")[0], fullName: cls.name, value, color: CLASS_COLORS[i%CLASS_COLORS.length] };
+  }).filter(x => x.value > 0);
 
   const retentionStory = retentionRate > 0
     ? retentionRate >= 80 ? `✝ Strong: ${retentionRate}% of Sunday service attendees are in Sunday School.`
@@ -2353,8 +2367,9 @@ const DashboardPage = ({ db }) => {
 
       {/* Row 2: Weekly combined trend + Class pie */}
       <div style={{ display:"grid", gridTemplateColumns:"1.5fr 1fr", gap:20, marginBottom:20 }}>
-        <ChartCard title="Weekly Trend — SS & Church Attendance"
-          sub="How Sunday School and main service attendance move together week by week">
+        <ChartCard
+          title={chartRange==="day" ? "Weekly Trend — SS & Church Attendance" : `SS & Church Attendance — by ${chartRange==="month"?"Month":chartRange==="qtr"?"Quarter":"Year"}`}
+          sub={chartRange==="day" ? "How Sunday School and main service attendance move together week by week" : `Attendance totals grouped by ${chartRange==="month"?"month":chartRange==="qtr"?"quarter":"year"}`}>
           <ResponsiveContainer width="100%" height={210}>
             <AreaChart data={weeklyTrend.length ? weeklyTrend : [{label:"No data",ss:0,church:0}]}>
               <defs>
@@ -2376,7 +2391,7 @@ const DashboardPage = ({ db }) => {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Sunday School by Class" sub="Closing attendance share">
+        <ChartCard title="Sunday School by Class" sub={`Closing attendance share${chartRange!=="day"?` — by ${chartRange==="month"?"month":chartRange==="qtr"?"quarter":"year"}`:""}`}>
           {classTotals.length > 0 ? (() => {
             const total = classTotals.reduce((s,d) => s + d.value, 0);
             const renderLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
@@ -2496,7 +2511,7 @@ const DashboardPage = ({ db }) => {
 // ─── SUBMIT PAGE ──────────────────────────────────────────────────────────────
 // ─── BULK ROW CARD (outside SubmitPage to prevent focus-loss on re-render) ────
 const BulkRowCard = ({ row, idx, t, lbl, inp, sel, card, GF, FF, toggleExpand, updateBulkRow, activeTeachers }) => {
-  const filled = row.topic.trim() || row.total_closing || row.total_beginning;
+  const filled = (row.topic||"").trim() || row.total_closing || row.total_beginning;
   return (
     <div style={{ ...card, padding:0, border:`1px solid ${filled ? t.gold+"55" : t.border}`,
       borderLeft:`4px solid ${filled ? t.gold : t.border}`, marginBottom:10 }}>
@@ -2613,7 +2628,7 @@ const BulkRowCard = ({ row, idx, t, lbl, inp, sel, card, GF, FF, toggleExpand, u
 
 const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit }) => {
   const { t, inp, sel, lbl, btnGold, btnOutline, btnGhost, card } = useThemeStyles();
-  const { teachers, classes, addRecord, updateRecord } = db;
+  const { records, teachers, classes, addRecord, updateRecord } = db;
   const activeTeachers = teachers.filter(x => x.is_active === "YES");
   const activeClasses  = classes.filter(x => x.is_active !== "NO");
   const FF = "'Trebuchet MS',sans-serif";
@@ -2725,9 +2740,12 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
     setBulkRows(rows => rows.map((r, i) => ({ ...r, _expanded: i === idx ? !r._expanded : r._expanded })));
   }, []);
 
-  const handleSubmit = () => {
-    if (!form.class_name)   { alert("Please select a class."); return; }
-    if (!form.topic.trim()) { alert("Please enter the lesson topic."); return; }
+  const [submitError, setSubmitError] = useState("");
+
+  const handleSubmit = async () => {
+    setSubmitError("");
+    if (!form.class_name)          { setSubmitError("Please select a class."); return; }
+    if (!(form.topic||"").trim())  { setSubmitError("Please enter the lesson topic."); return; }
 
     // Duplicate check — same class + same date already exists (skip when editing)
     if (!isEditMode) {
@@ -2736,59 +2754,69 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
         r.date       === form.date
       );
       if (dup) {
-        alert(
-          `⚠️ Duplicate Entry Detected!\n\n` +
-          `A report for "${form.class_name}" on ${fmtDate(form.date)} already exists.\n\n` +
-          `Status: ${dup.status?.toUpperCase() || "PENDING"}\n\n` +
-          `Please select a different date, or edit the existing record instead.`
+        setSubmitError(
+          `A report for "${form.class_name}" on ${fmtDate(form.date)} already exists (Status: ${dup.status?.toUpperCase() || "PENDING"}). Please choose a different date or edit the existing record.`
         );
         return;
       }
     }
 
     setLoading(true);
-    setTimeout(() => {
-      if (isEditMode) updateRecord(editProp.id, { ...form, status:"pending" });
-      else            addRecord(form);
-      setLoading(false);
+    try {
+      if (isEditMode) await updateRecord(editProp.id, { ...form, status:"pending" });
+      else            await addRecord(form);
       setDone(true);
       setTimeout(() => {
-        setDone(false); setForm(makeBlank());
-        onSuccess && onSuccess(); onCancelEdit && onCancelEdit();
+        setDone(false);
+        setForm(makeBlank());
+        setSubmitError("");
+        onSuccess && onSuccess();
+        onCancelEdit && onCancelEdit();
       }, 2200);
-    }, 400);
+    } catch(e) {
+      setSubmitError("❌ Failed to save: " + (e.message || "Unknown error"));
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const [bulkSubmitError, setBulkSubmitError] = useState("");
+
   const handleBulkSubmit = async () => {
-    const filled = bulkRows.filter(r => r.topic.trim() || r.total_closing);
-    if (!filled.length) { alert("Please fill in at least one class report."); return; }
+    setBulkSubmitError("");
+    const filled = bulkRows.filter(r => (r.topic||"").trim() || r.total_closing);
+    if (!filled.length) { setBulkSubmitError("Please fill in at least one class report (topic or attendance)."); return; }
 
     // Duplicate check — find any class+date combo that already exists
     const dups = filled.filter(r =>
       records.some(ex => ex.class_name === r.class_name && ex.date === bulkShared.date)
     );
     if (dups.length) {
-      const names = dups.map(r => `• ${r.class_name}`).join("\n");
-      alert(
-        `⚠️ Duplicate Entry Detected!\n\n` +
-        `The following classes already have a report for ${fmtDate(bulkShared.date)}:\n\n` +
-        `${names}\n\n` +
-        `Please select a different date, or remove those classes before submitting.`
+      const names = dups.map(r => `"${r.class_name}"`).join(", ");
+      setBulkSubmitError(
+        `Duplicate detected: ${names} already have a report for ${fmtDate(bulkShared.date)}. Please choose a different date or remove those classes.`
       );
       return;
     }
 
     setBulkLoading(true);
-    for (const row of filled) {
-      const { _expanded, ...data } = row;
-      await addRecord({ ...bulkShared, ...data, status:"pending" });
+    try {
+      for (const row of filled) {
+        const { _expanded, ...data } = row;
+        await addRecord({ ...bulkShared, ...data, status:"pending" });
+      }
+      setBulkDone(true);
+      setTimeout(() => {
+        setBulkDone(false);
+        setBulkRows(activeClasses.map(makeBulkRow));
+        setBulkSubmitError("");
+        onSuccess && onSuccess();
+      }, 2200);
+    } catch(e) {
+      setBulkSubmitError("❌ Bulk submit failed: " + (e.message || "Unknown error"));
+    } finally {
+      setBulkLoading(false);
     }
-    setBulkLoading(false);
-    setBulkDone(true);
-    setTimeout(() => {
-      setBulkDone(false); setBulkRows(activeClasses.map(makeBulkRow));
-      onSuccess && onSuccess();
-    }, 2200);
   };
 
   // Layout helpers
@@ -2812,7 +2840,7 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
           </div>
           <div style={{ fontSize:24, color:t.gold, fontFamily:GF }}>Bulk Reports Submitted!</div>
           <div style={{ color:t.textMuted, fontFamily:FF, fontSize:14 }}>
-            {bulkRows.filter(r => r.topic.trim() || r.total_closing).length} class reports saved successfully.
+            {bulkRows.filter(r => (r.topic||"").trim() || r.total_closing).length} class reports saved successfully.
           </div>
         </div>
       )}
@@ -2876,7 +2904,7 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
 
           <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap", alignItems:"center" }}>
             <div style={{ fontSize:13, color:t.textMuted, fontFamily:FF }}>
-              <strong style={{ color:t.gold }}>{bulkRows.filter(r => r.topic.trim() || r.total_closing).length}</strong> of {bulkRows.length} classes have data entered
+              <strong style={{ color:t.gold }}>{bulkRows.filter(r => (r.topic||"").trim() || r.total_closing).length}</strong> of {bulkRows.length} classes have data entered
             </div>
             <button style={{ ...btnGhost, padding:"5px 12px", fontSize:12, marginLeft:"auto" }}
               onClick={() => setBulkRows(rows => rows.map(r => ({ ...r, _expanded:true })))}>Expand All</button>
@@ -2895,6 +2923,14 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
           ))}
 
           <div style={{ display:"flex", gap:12, marginTop:20, paddingTop:20, borderTop:`1px solid ${t.border}`, flexWrap:"wrap", alignItems:"center" }}>
+            {bulkSubmitError && (
+              <div style={{ width:"100%", padding:"10px 14px", borderRadius:9, background:t.danger+"15",
+                border:`1px solid ${t.danger}44`, color:t.danger,
+                fontFamily:"'Trebuchet MS',sans-serif", fontSize:13, display:"flex", gap:8, alignItems:"flex-start" }}>
+                <span style={{ fontSize:16, flexShrink:0 }}>⚠️</span>
+                <span>{bulkSubmitError}</span>
+              </div>
+            )}
             <button style={{ ...btnGold, padding:"14px 40px", fontSize:15 }} disabled={bulkLoading} onClick={handleBulkSubmit}>
               {bulkLoading ? "Submitting…" : "📤 Submit All Class Reports"}
             </button>
@@ -3099,13 +3135,23 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
               </div>
             </div>
 
-            <div style={{ marginTop:24, display:"flex", gap:12, flexWrap:"wrap" }}>
-              <button onClick={handleSubmit} disabled={loading} style={{ ...btnGold, padding:"13px 36px", fontSize:14 }}>
-                {loading ? "Saving…" : isEditMode ? "💾 Save Changes" : "Submit Report"}
-              </button>
-              {isEditMode
-                ? <button onClick={onCancelEdit} style={{ ...btnOutline, padding:"13px 24px" }}>Cancel</button>
-                : <button onClick={()=>setForm(makeBlank())} style={{ ...btnOutline, padding:"13px 24px" }}>Clear Form</button>}
+            <div style={{ marginTop:24, display:"flex", flexDirection:"column", gap:10 }}>
+              {submitError && (
+                <div style={{ padding:"10px 14px", borderRadius:9, background:t.danger+"15",
+                  border:`1px solid ${t.danger}44`, color:t.danger,
+                  fontFamily:"'Trebuchet MS',sans-serif", fontSize:13, display:"flex", gap:8, alignItems:"flex-start" }}>
+                  <span style={{ fontSize:16, flexShrink:0 }}>⚠️</span>
+                  <span>{submitError}</span>
+                </div>
+              )}
+              <div style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
+                <button onClick={handleSubmit} disabled={loading} style={{ ...btnGold, padding:"13px 36px", fontSize:14 }}>
+                  {loading ? "Saving…" : isEditMode ? "💾 Save Changes" : "Submit Report"}
+                </button>
+                {isEditMode
+                  ? <button onClick={onCancelEdit} style={{ ...btnOutline, padding:"13px 24px" }}>Cancel</button>
+                  : <button onClick={()=>{ setForm(makeBlank()); setSubmitError(""); }} style={{ ...btnOutline, padding:"13px 24px" }}>Clear Form</button>}
+              </div>
             </div>
           </div>
         </div>
