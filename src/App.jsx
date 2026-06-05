@@ -2377,26 +2377,48 @@ const DashboardPage = ({ db }) => {
         </ChartCard>
 
         <ChartCard title="Sunday School by Class" sub="Closing attendance share">
-          {classTotals.length > 0 ? (
-            <>
-              <ResponsiveContainer width="100%" height={165}>
-                <PieChart>
-                  <Pie data={classTotals} cx="50%" cy="50%" innerRadius={44} outerRadius={76} dataKey="value" paddingAngle={3}>
-                    {classTotals.map((e,i)=><Cell key={i} fill={e.color}/>)}
-                  </Pie>
-                  <Tooltip {...tooltip} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div style={{ display:"flex", flexWrap:"wrap", gap:7, marginTop:8 }}>
-                {classTotals.map(d=>(
-                  <div key={d.name} style={{ display:"flex", alignItems:"center", gap:4 }}>
-                    <div style={{ width:7, height:7, borderRadius:2, background:d.color }} />
-                    <span style={{ fontSize:10, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}>{d.name} ({d.value})</span>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : <div style={{ height:165, display:"flex", alignItems:"center", justifyContent:"center", color:t.textMuted, fontSize:13, fontFamily:"'Trebuchet MS',sans-serif" }}>No SS records yet</div>}
+          {classTotals.length > 0 ? (() => {
+            const total = classTotals.reduce((s,d) => s + d.value, 0);
+            const renderLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+              if (percent < 0.06) return null; // skip tiny slices
+              const RADIAN = Math.PI / 180;
+              const r = innerRadius + (outerRadius - innerRadius) * 0.55;
+              const x = cx + r * Math.cos(-midAngle * RADIAN);
+              const y = cy + r * Math.sin(-midAngle * RADIAN);
+              return (
+                <text x={x} y={y} fill="#fff" textAnchor="middle" dominantBaseline="central"
+                  fontSize={10} fontWeight={700} fontFamily="'Trebuchet MS',sans-serif">
+                  {`${(percent*100).toFixed(0)}%`}
+                </text>
+              );
+            };
+            return (
+              <>
+                <ResponsiveContainer width="100%" height={165}>
+                  <PieChart>
+                    <Pie data={classTotals} cx="50%" cy="50%" innerRadius={44} outerRadius={76}
+                      dataKey="value" paddingAngle={3} labelLine={false} label={renderLabel}>
+                      {classTotals.map((e,i) => <Cell key={i} fill={e.color}/>)}
+                    </Pie>
+                    <Tooltip {...tooltip} formatter={(v) => [`${v} (${total>0?((v/total)*100).toFixed(1):0}%)`, "Attendance"]} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div style={{ display:"flex", flexWrap:"wrap", gap:7, marginTop:8 }}>
+                  {classTotals.map(d => {
+                    const pct = total > 0 ? ((d.value / total) * 100).toFixed(1) : 0;
+                    return (
+                      <div key={d.name} style={{ display:"flex", alignItems:"center", gap:4 }}>
+                        <div style={{ width:7, height:7, borderRadius:2, background:d.color }} />
+                        <span style={{ fontSize:10, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}>
+                          {d.name} — <strong style={{ color:t.text }}>{pct}%</strong> <span style={{ opacity:0.6 }}>({d.value})</span>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            );
+          })() : <div style={{ height:165, display:"flex", alignItems:"center", justifyContent:"center", color:t.textMuted, fontSize:13, fontFamily:"'Trebuchet MS',sans-serif" }}>No SS records yet</div>}
         </ChartCard>
       </div>
 
@@ -3918,20 +3940,36 @@ const AnalyticsPage = ({ db }) => {
 
           {/* Gender pie SS */}
           {(() => {
-            const totalM = fRec.reduce((s,r)=>s+(Number(r.male_present)||0),0);
-            const totalF = fRec.reduce((s,r)=>s+(Number(r.female_present)||0),0);
+            const totalM  = fRec.reduce((s,r)=>s+(Number(r.male_present)||0),0);
+            const totalF  = fRec.reduce((s,r)=>s+(Number(r.female_present)||0),0);
             const totalMC = fChurch.reduce((s,r)=>s+(Number(r.male_closing)||0),0);
             const totalFC = fChurch.reduce((s,r)=>s+(Number(r.female_closing)||0),0);
+
+            const RADIAN = Math.PI / 180;
+            const pctLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+              if (percent < 0.06) return null;
+              const r = innerRadius + (outerRadius - innerRadius) * 0.55;
+              const x = cx + r * Math.cos(-midAngle * RADIAN);
+              const y = cy + r * Math.sin(-midAngle * RADIAN);
+              return (
+                <text x={x} y={y} fill="#fff" textAnchor="middle" dominantBaseline="central"
+                  fontSize={11} fontWeight={700} fontFamily="'Trebuchet MS',sans-serif">
+                  {`${(percent*100).toFixed(1)}%`}
+                </text>
+              );
+            };
+
             return <>
               <ChartCard title="SS Gender Split" sub="Overall male vs female in Sunday School">
                 {totalM+totalF > 0 ? (
                   <ResponsiveContainer width="100%" height={220}>
                     <PieChart>
                       <Pie data={[{name:"Male",value:totalM},{name:"Female",value:totalF}]}
-                        cx="50%" cy="50%" innerRadius={50} outerRadius={85} dataKey="value" paddingAngle={4}>
+                        cx="50%" cy="50%" innerRadius={50} outerRadius={85} dataKey="value"
+                        paddingAngle={4} labelLine={false} label={pctLabel}>
                         <Cell fill={t.info}/><Cell fill="#E67E22"/>
                       </Pie>
-                      <Tooltip {...tooltip} />
+                      <Tooltip {...tooltip} formatter={(v,n,p)=>[`${v} (${(p.payload.percent*100).toFixed(1)}%)`, n]} />
                       <Legend wrapperStyle={{ fontSize:11, color:t.textMuted }} />
                     </PieChart>
                   </ResponsiveContainer>
@@ -3943,10 +3981,11 @@ const AnalyticsPage = ({ db }) => {
                   <ResponsiveContainer width="100%" height={220}>
                     <PieChart>
                       <Pie data={[{name:"Male",value:totalMC},{name:"Female",value:totalFC}]}
-                        cx="50%" cy="50%" innerRadius={50} outerRadius={85} dataKey="value" paddingAngle={4}>
+                        cx="50%" cy="50%" innerRadius={50} outerRadius={85} dataKey="value"
+                        paddingAngle={4} labelLine={false} label={pctLabel}>
                         <Cell fill={t.info}/><Cell fill="#E67E22"/>
                       </Pie>
-                      <Tooltip {...tooltip} />
+                      <Tooltip {...tooltip} formatter={(v,n,p)=>[`${v} (${(p.payload.percent*100).toFixed(1)}%)`, n]} />
                       <Legend wrapperStyle={{ fontSize:11, color:t.textMuted }} />
                     </PieChart>
                   </ResponsiveContainer>
