@@ -2985,8 +2985,9 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
 // ─── ATTENDANCE PAGE ──────────────────────────────────────────────────────────
 const AttendancePage = ({ db, user, onEditRecord }) => {
   const { t, card, btnGhost, th, td } = useThemeStyles();
-  const { records, classes, approveRecord, deleteRecord } = db;
+  const { records, classes, approveRecord, deleteRecord, updateRecord } = db;
   const [detail, setDetail] = useState(null);
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   const isAdmin      = user?.role === "admin";
   const isTeacher    = user?.role === "teacher";
@@ -3030,12 +3031,31 @@ const AttendancePage = ({ db, user, onEditRecord }) => {
     ? (a.date||"").localeCompare(b.date||"")
     : (b.date||"").localeCompare(a.date||""));
 
+  const pendingInView = sorted.filter(r => r.status === "pending");
+
   const hasActiveFilter = Object.values(filter).some((v,i) => {
-    // lockedClass on cls is not a "user" filter — don't count it
     const keys = Object.keys(filter);
     if (keys[i] === "cls" && lockedClass) return false;
     return v !== "";
   });
+
+  const handleApproveAll = async () => {
+    if (!pendingInView.length) return;
+    const count = pendingInView.length;
+    if (!window.confirm(`Approve all ${count} pending record${count>1?"s":""}?`)) return;
+    setBulkLoading("approve");
+    for (const r of pendingInView) await approveRecord(r.id);
+    setBulkLoading(false);
+  };
+
+  const handleDeleteAll = async () => {
+    if (!sorted.length) return;
+    const count = sorted.length;
+    if (!window.confirm(`Permanently delete all ${count} record${count>1?"s":""}${hasActiveFilter?" matching current filters":" in the register"}? This cannot be undone.`)) return;
+    setBulkLoading("delete");
+    for (const r of sorted) await deleteRecord(r.id);
+    setBulkLoading(false);
+  };
 
   // Summary stats for the filtered set
   const stats = sorted.reduce((acc, r) => ({
@@ -3089,7 +3109,39 @@ const AttendancePage = ({ db, user, onEditRecord }) => {
   return (
     <div>
       {/* Page title */}
-      <div style={{ fontSize:23, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif", marginBottom:3 }}>Sunday School Register</div>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:10, marginBottom:3 }}>
+        <div style={{ fontSize:23, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif" }}>Sunday School Register</div>
+        {isAdmin && (
+          <div style={{ display:"flex", gap:8 }}>
+            <button
+              onClick={handleApproveAll}
+              disabled={!!bulkLoading || pendingInView.length === 0}
+              title={pendingInView.length === 0 ? "No pending records in current view" : `Approve all ${pendingInView.length} pending records`}
+              style={{ display:"flex", alignItems:"center", gap:7, padding:"9px 18px", borderRadius:9,
+                border:`1.5px solid ${t.success}66`,
+                background: bulkLoading==="approve" ? t.success+"33" : pendingInView.length===0 ? "transparent" : t.success+"18",
+                color: pendingInView.length===0 ? t.textFaint : t.success,
+                fontFamily:"'Trebuchet MS',sans-serif", fontSize:13, fontWeight:700,
+                cursor: pendingInView.length===0 ? "not-allowed" : "pointer",
+                opacity: pendingInView.length===0 ? 0.45 : 1, transition:"all 0.15s" }}>
+              {bulkLoading==="approve" ? "⏳ Approving…" : `✅ Approve All${pendingInView.length > 0 ? ` (${pendingInView.length})` : ""}`}
+            </button>
+            <button
+              onClick={handleDeleteAll}
+              disabled={!!bulkLoading || sorted.length === 0}
+              title={sorted.length === 0 ? "No records to delete" : `Delete all ${sorted.length} records in current view`}
+              style={{ display:"flex", alignItems:"center", gap:7, padding:"9px 18px", borderRadius:9,
+                border:`1.5px solid ${t.danger}66`,
+                background: bulkLoading==="delete" ? t.danger+"33" : sorted.length===0 ? "transparent" : t.danger+"18",
+                color: sorted.length===0 ? t.textFaint : t.danger,
+                fontFamily:"'Trebuchet MS',sans-serif", fontSize:13, fontWeight:700,
+                cursor: sorted.length===0 ? "not-allowed" : "pointer",
+                opacity: sorted.length===0 ? 0.45 : 1, transition:"all 0.15s" }}>
+              {bulkLoading==="delete" ? "⏳ Deleting…" : `🗑️ Delete All${sorted.length > 0 ? ` (${sorted.length})` : ""}`}
+            </button>
+          </div>
+        )}
+      </div>
       <div style={{ fontSize:13, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:18 }}>
         {records.length} total records · {sorted.length} shown
       </div>
