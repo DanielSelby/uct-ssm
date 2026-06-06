@@ -1366,7 +1366,42 @@ const useSupabaseDB = () => {
 
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
-const CLASS_COLORS = ["#004b23","#1565C0","#2ECC71","#9B59B6","#E67E22","#E74C3C","#1ABC9C"];
+// Generate a professional analytical palette anchored to a base hex colour.
+// Produces 8 perceptually distinct, harmonious colours using hue rotation + controlled saturation/lightness.
+const hexToHsl = (hex) => {
+  let r = parseInt(hex.slice(1,3),16)/255, g = parseInt(hex.slice(3,5),16)/255, b = parseInt(hex.slice(5,7),16)/255;
+  const max = Math.max(r,g,b), min = Math.min(r,g,b), l = (max+min)/2;
+  if (max===min) return [0,0,Math.round(l*100)];
+  const d = max-min, s = l>0.5 ? d/(2-max-min) : d/(max+min);
+  let h = max===r ? (g-b)/d+(g<b?6:0) : max===g ? (b-r)/d+2 : (r-g)/d+4;
+  return [Math.round(h*60), Math.round(s*100), Math.round(l*100)];
+};
+const hslToHex = (h,s,l) => {
+  h=((h%360)+360)%360; s/=100; l/=100;
+  const k=n=>(n+h/30)%12, a=s*Math.min(l,1-l);
+  const f=n=>Math.round((l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1))))*255).toString(16).padStart(2,"0");
+  return `#${f(0)}${f(8)}${f(4)}`;
+};
+const getChartPalette = (baseHex) => {
+  try {
+    const [h,s,l] = hexToHsl(baseHex);
+    // 8 analytically distinct hues: base + 7 rotations at varied saturation/lightness
+    const stops = [
+      [h,         Math.min(s,75),  Math.max(l,32)],  // base
+      [h+45,      70,              42],
+      [h+90,      65,              38],
+      [h+135,     72,              45],
+      [h+180,     68,              35],
+      [h+210,     60,              50],
+      [h+270,     75,              40],
+      [h+315,     55,              55],
+    ];
+    return stops.map(([hh,ss,ll]) => hslToHex(hh,ss,ll));
+  } catch(e) {
+    return ["#335c67","#718355","#1d2f6f","#C0392B","#E67E22","#9B59B6","#1ABC9C","#E74C3C"];
+  }
+};
+const CLASS_COLORS = ["#335c67","#718355","#1d2f6f","#C0392B","#E67E22","#9B59B6","#1ABC9C","#E74C3C"]; // fallback only
 const fmtDate = (d) => { try { return new Date(d).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}); } catch { return d||"—"; } };
 const fmtNum  = (n) => { const v = Number(n); if (isNaN(v)) return n; return v.toLocaleString("en-US"); };
 const statusInfo = (s) => ({ approved:{color:"#0E8A5F",label:"Approved"}, pending:{color:"#C87A0A",label:"Pending"}, rejected:{color:"#E74C3C",label:"Rejected"} }[s]||{color:"#7A8AAD",label:s||"—"});
@@ -1819,6 +1854,8 @@ const TeacherForm = ({ initial, classes, onSave, onClose }) => {
 // ─── TEACHERS PAGE ────────────────────────────────────────────────────────────
 const TeachersPage = ({ db }) => {
   const { t, card, btnGold, btnGhost, th, td } = useThemeStyles();
+  const { mode } = useTheme();
+  const chartPalette = getChartPalette((T[mode]||T.light).gold);
   const { teachers, classes, addTeacher, updateTeacher, deleteTeacher, toggleTeacherActive } = db;
   const [modal, setModal]   = useState(null); // null | "add" | teacher-obj
   const [search, setSearch] = useState("");
@@ -1897,7 +1934,7 @@ const TeachersPage = ({ db }) => {
             {filtered.map((teacher, i) => {
               const active = teacher.is_active === "YES";
               const clrIdx = classes.findIndex(c=>c.name===teacher.class_name);
-              const color  = CLASS_COLORS[clrIdx >= 0 ? clrIdx % CLASS_COLORS.length : i % CLASS_COLORS.length];
+              const color  = chartPalette[clrIdx >= 0 ? clrIdx % chartPalette.length : i % chartPalette.length];
               return (
                 <tr key={teacher.id} style={{ transition:"background 0.15s" }}
                   onMouseEnter={e=>e.currentTarget.style.background=t.surfaceHover}
@@ -1963,7 +2000,7 @@ const TeachersPage = ({ db }) => {
         <div style={{ display:"flex", flexWrap:"wrap", gap:10 }}>
           {classes.map((cls, i) => {
             const count = teachers.filter(x=>x.class_name===cls.name&&x.is_active==="YES").length;
-            const color = CLASS_COLORS[i % CLASS_COLORS.length];
+            const color = chartPalette[i % chartPalette.length];
             return (
               <div key={cls.name} style={{ padding:"8px 16px", borderRadius:24, border:`1px solid ${color}44`,
                 background:color+"11", display:"flex", gap:8, alignItems:"center" }}>
@@ -2084,6 +2121,7 @@ const Insight = ({ text, color, icon="info" }) => {
 // ─── DASHBOARD PAGE ───────────────────────────────────────────────────────────
 const DashboardPage = ({ db }) => {
   const { t, card, tooltip, sel } = useThemeStyles();
+  const chartPalette = getChartPalette(t.gold);
   const { records, teachers, classes, churchRecs, programs, loadAll } = db;
   const active = teachers.filter(x=>x.is_active==="YES").length;
 
@@ -2235,7 +2273,7 @@ const DashboardPage = ({ db }) => {
     const value = filteredForDonut
       .filter(r => r.class_name === cls.name)
       .reduce((s,r) => s + (Number(r.total_closing)||0), 0);
-    return { name: cls.name.split(" ")[0], fullName: cls.name, value, color: CLASS_COLORS[i%CLASS_COLORS.length] };
+    return { name: cls.name.split(" ")[0], fullName: cls.name, value, color: chartPalette[i%chartPalette.length] };
   }).filter(x => x.value > 0);
 
   const retentionStory = retentionRate > 0
@@ -3523,6 +3561,7 @@ const AttendancePage = ({ db, user, onEditRecord }) => {
 // ─── ANALYTICS PAGE ───────────────────────────────────────────────────────────
 const AnalyticsPage = ({ db }) => {
   const { t, card, tooltip } = useThemeStyles();
+  const chartPalette = getChartPalette(t.gold);
   const { records, classes, churchRecs, programs } = db;
 
   const [filters, setFilters] = useState({});
@@ -3619,7 +3658,7 @@ const AnalyticsPage = ({ db }) => {
   const bibleClass = classes.map((cls,i) => {
     const recs = fRec.filter(r=>r.class_name===cls.name && Number(r.total_closing)>0);
     const rate = recs.length ? Math.round(recs.reduce((s,r)=>s+((Number(r.bibles_closing)||0)/Number(r.total_closing)*100),0)/recs.length) : 0;
-    return { name:cls.name.split(" ")[0], rate, fill:CLASS_COLORS[i%CLASS_COLORS.length] };
+    return { name:cls.name.split(" ")[0], rate, fill:chartPalette[i%chartPalette.length] };
   }).filter(x=>x.rate>0);
 
   // ── Gender breakdown ──────────────────────────────────────
@@ -3888,7 +3927,7 @@ const AnalyticsPage = ({ db }) => {
                   <YAxis stroke={t.textMuted} fontSize={11} />
                   <Tooltip {...tooltip} />
                   <Bar dataKey="ssClose" fill={t.gold} radius={[4,4,0,0]} name="Sund. Sch. Close">
-                    {monthlyData.map((_,i)=><Cell key={i} fill={CLASS_COLORS[i%CLASS_COLORS.length]}/>)}
+                    {monthlyData.map((_,i)=><Cell key={i} fill={chartPalette[i%chartPalette.length]}/>)}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -3905,7 +3944,7 @@ const AnalyticsPage = ({ db }) => {
                   <Tooltip {...tooltip} />
                   <Legend wrapperStyle={{ fontSize:10, color:t.textMuted }} />
                   {classes.map((cls,i)=>(
-                    <Bar key={cls.name} dataKey={cls.name} stackId="a" fill={CLASS_COLORS[i%CLASS_COLORS.length]} name={cls.name.split(" ")[0]} radius={i===classes.length-1?[3,3,0,0]:[0,0,0,0]} />
+                    <Bar key={cls.name} dataKey={cls.name} stackId="a" fill={chartPalette[i%chartPalette.length]} name={cls.name.split(" ")[0]} radius={i===classes.length-1?[3,3,0,0]:[0,0,0,0]} />
                   ))}
                 </BarChart>
               </ResponsiveContainer>
@@ -3978,7 +4017,7 @@ const AnalyticsPage = ({ db }) => {
                   <YAxis type="category" dataKey="name" stroke={t.textMuted} fontSize={9} width={120} />
                   <Tooltip {...tooltip} />
                   <Bar dataKey="total" name="Total Attendance" radius={[0,4,4,0]}>
-                    {progData.map((_,i)=><Cell key={i} fill={CLASS_COLORS[i%CLASS_COLORS.length]}/>)}
+                    {progData.map((_,i)=><Cell key={i} fill={chartPalette[i%chartPalette.length]}/>)}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -3994,7 +4033,7 @@ const AnalyticsPage = ({ db }) => {
                   <YAxis type="category" dataKey="name" stroke={t.textMuted} fontSize={9} width={120} />
                   <Tooltip {...tooltip} />
                   <Bar dataKey="sessions" name="Sessions" radius={[0,4,4,0]}>
-                    {progData.map((_,i)=><Cell key={i} fill={CLASS_COLORS[(i+2)%CLASS_COLORS.length]}/>)}
+                    {progData.map((_,i)=><Cell key={i} fill={chartPalette[(i+2)%chartPalette.length]}/>)}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -5455,6 +5494,8 @@ const YouthPage = ({ db }) => {
 // ─── CLASSES PAGE ─────────────────────────────────────────────────────────────
 const ClassesPage = ({ db }) => {
   const { t, card, btnGold, btnOutline, btnGhost, inp, lbl, th, td, sel } = useThemeStyles();
+  const { mode } = useTheme();
+  const chartPalette = getChartPalette((T[mode]||T.light).gold);
   const { classes, records, teachers } = db;
 
   const [selected,   setSelected]   = useState(null); // class name being viewed
@@ -5478,8 +5519,8 @@ const ClassesPage = ({ db }) => {
   const allMonths = [...new Set(records.map(r=>(r.date||"").slice(0,7)).filter(Boolean))].sort().reverse();
 
   const classStats = classes.map((cls, i) => {
-    const clrIdx = i % CLASS_COLORS.length;
-    const color  = CLASS_COLORS[clrIdx];
+    const clrIdx = i % chartPalette.length;
+    const color  = chartPalette[clrIdx];
     const recs   = records.filter(r => r.class_name === cls.name &&
       (!filterMonth || (r.date||"").slice(0,7) === filterMonth));
     const allRecs= records.filter(r => r.class_name === cls.name);
@@ -6145,7 +6186,7 @@ const ClassesPage = ({ db }) => {
             <tbody>
               {classes.flatMap((cls,ci) => {
                 const clsTeachers = teachers.filter(t2=>t2.class_name===cls.name);
-                const color = CLASS_COLORS[ci%CLASS_COLORS.length];
+                const color = chartPalette[ci%chartPalette.length];
                 return clsTeachers.length > 0
                   ? clsTeachers.map((t2,ti)=>(
                     <tr key={t2.id}
@@ -6225,6 +6266,8 @@ const ClassesPage = ({ db }) => {
 // ─── CHURCH ATTENDANCE PAGE ───────────────────────────────────────────────────
 const ChurchAttendancePage = ({ db, user }) => {
   const { t, card, btnGold, btnOutline, btnGhost, inp, sel, lbl, th, td } = useThemeStyles();
+  const { mode } = useTheme();
+  const chartPalette = getChartPalette((T[mode]||T.light).gold);
   const { churchRecs, programs, addChurchRec, updateChurchRec, deleteChurchRec,
           churchMembers, addChurchMember, updateChurchMember, deleteChurchMember } = db;
   const FF = "'Trebuchet MS',sans-serif";
