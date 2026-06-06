@@ -2088,7 +2088,8 @@ const DashboardPage = ({ db }) => {
   const active = teachers.filter(x=>x.is_active==="YES").length;
 
   const [filters, setFilters] = useState({});
-  const [chartRange, setChartRange] = useState("day"); // "day" | "month" | "qtr" | "year"
+  const [chartRange,  setChartRange]  = useState("day"); // "day" | "month" | "qtr" | "year"
+  const [chartSource, setChartSource] = useState("both"); // "both" | "ss" | "church"
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
   const [autoRefreshPaused, setAutoRefreshPaused] = useState(false);
@@ -2175,12 +2176,16 @@ const DashboardPage = ({ db }) => {
       .filter(r => r.ssClose > 0 || r.chClose > 0);
   };
 
-  const compData = buildGrouped(fRec, fChurch, chartRange);
+  // Chart source filter: SS only, Church only, or both
+  const chartSsRecs = chartSource === "church" ? [] : fRec;
+  const chartChRecs = chartSource === "ss"     ? [] : fChurch;
 
-  // Weekly trend — grouped by the same chartRange
+  const compData = buildGrouped(chartSsRecs, chartChRecs, chartRange);
+
+  // Trend line — same source filter
   const trendMap = {};
   const getTrendKey = (date) => {
-    if (chartRange === "day")   return date; // individual day
+    if (chartRange === "day")   return date;
     if (chartRange === "month") return date.slice(0,7);
     if (chartRange === "qtr")   { const [y,m] = date.split("-"); return `${y}-Q${Math.ceil(Number(m)/3)}`; }
     return date.slice(0,4);
@@ -2192,14 +2197,14 @@ const DashboardPage = ({ db }) => {
     if (chartRange === "qtr")   return k.replace("-"," ");
     return k;
   };
-  fRec.forEach(r => {
+  chartSsRecs.forEach(r => {
     if (!r.date) return;
     const k = getTrendKey(r.date);
     if (!trendMap[k]) trendMap[k] = { key:k, label:getTrendLabel(r.date), ss:0, church:0, bibles:0 };
     trendMap[k].ss     += Number(r.total_closing)||0;
     trendMap[k].bibles += Number(r.bibles_closing)||0;
   });
-  fChurch.forEach(r => {
+  chartChRecs.forEach(r => {
     if (!r.date) return;
     const k = getTrendKey(r.date);
     if (!trendMap[k]) trendMap[k] = { key:k, label:getTrendLabel(r.date), ss:0, church:0, bibles:0 };
@@ -2207,12 +2212,12 @@ const DashboardPage = ({ db }) => {
   });
   const weeklyTrend = Object.values(trendMap).sort((a,b)=>a.key>b.key?1:-1);
 
-  // Class donut — filter records to only those within the chartRange period, then sum per class
+  // Class donut — filter by chartRange period AND chartSource
   const chartRangeFilter = (arr) => {
-    if (chartRange === "day") return arr; // all data
+    if (chartRange === "day") return arr;
     const now = new Date();
     const y = now.getFullYear();
-    const m = now.getMonth(); // 0-indexed
+    const m = now.getMonth();
     if (chartRange === "month") {
       const from = `${y}-${String(m+1).padStart(2,"0")}-01`;
       return arr.filter(r => (r.date||"") >= from);
@@ -2221,11 +2226,10 @@ const DashboardPage = ({ db }) => {
       const qStart = new Date(y, Math.floor(m/3)*3, 1).toISOString().slice(0,10);
       return arr.filter(r => (r.date||"") >= qStart);
     }
-    // year
     return arr.filter(r => (r.date||"").startsWith(String(y)));
   };
 
-  const filteredForDonut = chartRangeFilter(fRec);
+  const filteredForDonut = chartSource === "church" ? [] : chartRangeFilter(chartSsRecs);
 
   const classTotals = classes.map((cls,i) => {
     const value = filteredForDonut
@@ -2330,21 +2334,42 @@ const DashboardPage = ({ db }) => {
         <KpiCard label="Active Teachers"    value={fmtNum(active)}       sub={`of ${teachers.length}`} icon="teachers" color={t.success} />
       </div>
 
-      {/* ── Chart Range Toggle ── */}
-      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16, flexWrap:"wrap" }}>
-        <span style={{ fontSize:11, fontWeight:700, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1.1 }}>
-          Group charts by:
-        </span>
-        {[["day","Day"],["month","Month"],["qtr","Quarter"],["year","Year"]].map(([val,label]) => (
-          <button key={val} onClick={() => setChartRange(val)}
-            style={{ padding:"6px 18px", borderRadius:20, border:`1.5px solid ${chartRange===val ? t.gold : t.border}`,
-              background: chartRange===val ? t.gold : "transparent",
-              color: chartRange===val ? "#FFFFFF" : t.textMuted,
-              fontFamily:"'Trebuchet MS',sans-serif", fontSize:12, fontWeight: chartRange===val ? 700 : 400,
-              cursor:"pointer", transition:"all 0.15s" }}>
-            {label}
-          </button>
-        ))}
+      {/* ── Chart Filters ── */}
+      <div style={{ display:"flex", alignItems:"center", gap:16, marginBottom:16, flexWrap:"wrap" }}>
+        {/* Group By */}
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          <span style={{ fontSize:11, fontWeight:700, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1.1, whiteSpace:"nowrap" }}>
+            Group by:
+          </span>
+          {[["day","Day"],["month","Month"],["qtr","Quarter"],["year","Year"]].map(([val,label]) => (
+            <button key={val} onClick={() => setChartRange(val)}
+              style={{ padding:"6px 16px", borderRadius:20, border:`1.5px solid ${chartRange===val ? t.gold : t.border}`,
+                background: chartRange===val ? t.gold : "transparent",
+                color: chartRange===val ? "#FFFFFF" : t.textMuted,
+                fontFamily:"'Trebuchet MS',sans-serif", fontSize:12, fontWeight: chartRange===val ? 700 : 400,
+                cursor:"pointer", transition:"all 0.15s" }}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div style={{ width:1, height:24, background:t.border, flexShrink:0 }} />
+        {/* Source Filter */}
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          <span style={{ fontSize:11, fontWeight:700, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1.1, whiteSpace:"nowrap" }}>
+            Show:
+          </span>
+          {[["both","SS & Church",t.gold],["ss","Sunday School",t.gold],["church","Church Only",t.info]].map(([val,label,ac]) => (
+            <button key={val} onClick={() => setChartSource(val)}
+              style={{ padding:"6px 16px", borderRadius:20,
+                border:`1.5px solid ${chartSource===val ? ac : t.border}`,
+                background: chartSource===val ? ac : "transparent",
+                color: chartSource===val ? "#FFFFFF" : t.textMuted,
+                fontFamily:"'Trebuchet MS',sans-serif", fontSize:12, fontWeight: chartSource===val ? 700 : 400,
+                cursor:"pointer", transition:"all 0.15s", whiteSpace:"nowrap" }}>
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Row 1: SS vs Church side-by-side comparison by date */}
@@ -3502,7 +3527,8 @@ const AnalyticsPage = ({ db }) => {
 
   const [filters, setFilters] = useState({});
   const [tab, setTab] = useState("comparison"); // comparison | ss | church | gender
-  const [chartRange, setChartRange] = useState("day"); // "day" | "month" | "qtr" | "year"
+  const [chartRange,  setChartRange]  = useState("day"); // "day" | "month" | "qtr" | "year"
+  const [chartSource, setChartSource] = useState("both"); // "both" | "ss" | "church"
 
   const allMonths = [...new Set([
     ...records.map(r=>(r.date||"").slice(0,7)),
@@ -3556,8 +3582,10 @@ const AnalyticsPage = ({ db }) => {
       .filter(r => r.ssClose > 0 || r.chClose > 0);
   };
 
-  // ── Comparison data (respects chartRange grouping) ───────
-  const compData = buildGrouped(fRec, fChurch, chartRange);
+  // ── Comparison data (respects chartRange + chartSource) ──
+  const chartSsRecs = chartSource === "church" ? [] : fRec;
+  const chartChRecs = chartSource === "ss"     ? [] : fChurch;
+  const compData = buildGrouped(chartSsRecs, chartChRecs, chartRange);
 
   // ── Monthly grouped data (always month-level for trend charts) ──
   const monthMap = {};
@@ -3721,21 +3749,40 @@ const AnalyticsPage = ({ db }) => {
         </div>
       )}
 
-      {/* ── Chart Range Toggle ── */}
-      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16, flexWrap:"wrap" }}>
-        <span style={{ fontSize:11, fontWeight:700, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1.1 }}>
-          Group charts by:
-        </span>
-        {[["day","Day"],["month","Month"],["qtr","Quarter"],["year","Year"]].map(([val,label]) => (
-          <button key={val} onClick={() => setChartRange(val)}
-            style={{ padding:"6px 18px", borderRadius:20, border:`1.5px solid ${chartRange===val ? t.gold : t.border}`,
-              background: chartRange===val ? t.gold : "transparent",
-              color: chartRange===val ? "#FFFFFF" : t.textMuted,
-              fontFamily:"'Trebuchet MS',sans-serif", fontSize:12, fontWeight: chartRange===val ? 700 : 400,
-              cursor:"pointer", transition:"all 0.15s" }}>
-            {label}
-          </button>
-        ))}
+      {/* ── Chart Filters ── */}
+      <div style={{ display:"flex", alignItems:"center", gap:16, marginBottom:16, flexWrap:"wrap" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          <span style={{ fontSize:11, fontWeight:700, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1.1, whiteSpace:"nowrap" }}>
+            Group by:
+          </span>
+          {[["day","Day"],["month","Month"],["qtr","Quarter"],["year","Year"]].map(([val,label]) => (
+            <button key={val} onClick={() => setChartRange(val)}
+              style={{ padding:"6px 16px", borderRadius:20, border:`1.5px solid ${chartRange===val ? t.gold : t.border}`,
+                background: chartRange===val ? t.gold : "transparent",
+                color: chartRange===val ? "#FFFFFF" : t.textMuted,
+                fontFamily:"'Trebuchet MS',sans-serif", fontSize:12, fontWeight: chartRange===val ? 700 : 400,
+                cursor:"pointer", transition:"all 0.15s" }}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div style={{ width:1, height:24, background:t.border, flexShrink:0 }} />
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          <span style={{ fontSize:11, fontWeight:700, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1.1, whiteSpace:"nowrap" }}>
+            Show:
+          </span>
+          {[["both","SS & Church",t.gold],["ss","Sunday School",t.gold],["church","Church Only",t.info]].map(([val,label,ac]) => (
+            <button key={val} onClick={() => setChartSource(val)}
+              style={{ padding:"6px 16px", borderRadius:20,
+                border:`1.5px solid ${chartSource===val ? ac : t.border}`,
+                background: chartSource===val ? ac : "transparent",
+                color: chartSource===val ? "#FFFFFF" : t.textMuted,
+                fontFamily:"'Trebuchet MS',sans-serif", fontSize:12, fontWeight: chartSource===val ? 700 : 400,
+                cursor:"pointer", transition:"all 0.15s", whiteSpace:"nowrap" }}>
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Tab navigation */}
