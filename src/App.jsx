@@ -1366,8 +1366,8 @@ const useSupabaseDB = () => {
 
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
-// Generate a professional analytical palette anchored to a base hex colour.
-// Produces 8 perceptually distinct, harmonious colours using hue rotation + controlled saturation/lightness.
+// Generate a professional shade-based palette from the theme's primary colour.
+// Creates 8 tonal variations — same hue family, varied lightness/saturation — like the reference design.
 const hexToHsl = (hex) => {
   let r = parseInt(hex.slice(1,3),16)/255, g = parseInt(hex.slice(3,5),16)/255, b = parseInt(hex.slice(5,7),16)/255;
   const max = Math.max(r,g,b), min = Math.min(r,g,b), l = (max+min)/2;
@@ -1384,21 +1384,21 @@ const hslToHex = (h,s,l) => {
 };
 const getChartPalette = (baseHex) => {
   try {
-    const [h,s,l] = hexToHsl(baseHex);
-    // 8 analytically distinct hues: base + 7 rotations at varied saturation/lightness
-    const stops = [
-      [h,         Math.min(s,75),  Math.max(l,32)],  // base
-      [h+45,      70,              42],
-      [h+90,      65,              38],
-      [h+135,     72,              45],
-      [h+180,     68,              35],
-      [h+210,     60,              50],
-      [h+270,     75,              40],
-      [h+315,     55,              55],
+    const [h, s] = hexToHsl(baseHex);
+    // 8 shades: same hue, progressively lighter with slight saturation shifts
+    // Darkest → lightest, giving a cohesive tonal family like the reference image
+    return [
+      hslToHex(h, Math.min(s+5,  95), 22),  // very dark
+      hslToHex(h, Math.min(s+3,  90), 30),  // dark
+      hslToHex(h, Math.min(s,    85), 38),  // medium-dark (close to base)
+      hslToHex(h, Math.min(s-2,  80), 46),  // base-ish
+      hslToHex(h, Math.min(s-5,  72), 54),  // medium-light
+      hslToHex(h, Math.min(s-8,  65), 63),  // light
+      hslToHex(h, Math.min(s-12, 55), 72),  // lighter
+      hslToHex(h, Math.min(s-16, 45), 80),  // lightest
     ];
-    return stops.map(([hh,ss,ll]) => hslToHex(hh,ss,ll));
   } catch(e) {
-    return ["#335c67","#718355","#1d2f6f","#C0392B","#E67E22","#9B59B6","#1ABC9C","#E74C3C"];
+    return ["#0d3324","#145232","#1a6e42","#2a9d5c","#4db87a","#80cc9e","#b3dfc2","#d9efe3"];
   }
 };
 const CLASS_COLORS = ["#335c67","#718355","#1d2f6f","#C0392B","#E67E22","#9B59B6","#1ABC9C","#E74C3C"]; // fallback only
