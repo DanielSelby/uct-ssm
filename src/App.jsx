@@ -2144,6 +2144,138 @@ const Insight = ({ text, color, icon="info" }) => {
 };
 
 // ─── DASHBOARD PAGE ───────────────────────────────────────────────────────────
+const ZoomDonutChart = ({ classTotals, tooltip, t }) => {
+  const [zoomedSlice, setZoomedSlice] = useState(null);
+
+  // Reset zoom when data changes (e.g. chartRange switch)
+  const prevLen = useRef(classTotals.length);
+  useEffect(() => {
+    if (prevLen.current !== classTotals.length) {
+      setZoomedSlice(null);
+      prevLen.current = classTotals.length;
+    }
+  }, [classTotals.length]);
+
+  if (classTotals.length === 0) {
+    return (
+      <div style={{ height:165, display:"flex", alignItems:"center", justifyContent:"center",
+        color:t.textMuted, fontSize:13, fontFamily:"'Trebuchet MS',sans-serif" }}>
+        No SS records yet
+      </div>
+    );
+  }
+
+  const total = classTotals.reduce((s,d) => s + d.value, 0);
+  const zoomed = zoomedSlice ? classTotals.filter(d => d.name === zoomedSlice) : classTotals;
+  const zoomTotal = zoomed.reduce((s,d) => s + d.value, 0);
+
+  const renderLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+    if (percent < 0.06) return null;
+    const RADIAN = Math.PI / 180;
+    const r = innerRadius + (outerRadius - innerRadius) * 0.55;
+    const x = cx + r * Math.cos(-midAngle * RADIAN);
+    const y = cy + r * Math.sin(-midAngle * RADIAN);
+    return (
+      <text x={x} y={y} fill="#fff" textAnchor="middle" dominantBaseline="central"
+        fontSize={10} fontWeight={700} fontFamily="'Trebuchet MS',sans-serif">
+        {`${(percent*100).toFixed(0)}%`}
+      </text>
+    );
+  };
+
+  const handleSliceClick = (data) => {
+    if (data && data.name) setZoomedSlice(prev => prev === data.name ? null : data.name);
+  };
+
+  return (
+    <>
+      {zoomedSlice && (
+        <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
+          <button onClick={() => setZoomedSlice(null)}
+            style={{ fontSize:10, padding:"2px 8px", borderRadius:10, border:`1px solid ${t.borderStrong}`,
+              background:t.surfaceAlt, color:t.textMuted, cursor:"pointer", fontFamily:"'Trebuchet MS',sans-serif" }}>
+            ← All Classes
+          </button>
+          <span style={{ fontSize:10, color:t.text, fontWeight:700, fontFamily:"'Trebuchet MS',sans-serif" }}>
+            {zoomedSlice}
+          </span>
+        </div>
+      )}
+      {!zoomedSlice && (
+        <div style={{ fontSize:9, color:t.textFaint, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:2, textAlign:"right" }}>
+          Click a slice to zoom
+        </div>
+      )}
+      <ResponsiveContainer width="100%" height={zoomedSlice ? 150 : 165}>
+        <PieChart>
+          <Pie
+            data={zoomedSlice
+              ? [classTotals.find(d=>d.name===zoomedSlice), ...classTotals.filter(d=>d.name!==zoomedSlice).map(d=>({...d}))]
+              : classTotals}
+            cx="50%" cy="50%"
+            innerRadius={zoomedSlice ? 30 : 44}
+            outerRadius={zoomedSlice ? 68 : 76}
+            dataKey="value" paddingAngle={zoomedSlice ? 1 : 3}
+            labelLine={false} label={renderLabel}
+            onClick={handleSliceClick}
+            style={{ cursor:"pointer" }}
+            isAnimationActive={true}
+            animationBegin={0}
+            animationDuration={450}>
+            {(zoomedSlice
+              ? [classTotals.find(d=>d.name===zoomedSlice), ...classTotals.filter(d=>d.name!==zoomedSlice)]
+              : classTotals
+            ).map((e,i) => (
+              <Cell key={i} fill={e.color}
+                opacity={zoomedSlice && e.name !== zoomedSlice ? 0.22 : 1}
+                stroke={e.name === zoomedSlice ? "#fff" : "none"}
+                strokeWidth={e.name === zoomedSlice ? 2 : 0}
+              />
+            ))}
+          </Pie>
+          <Tooltip {...tooltip} formatter={(v) => [`${v} (${zoomTotal>0?((v/zoomTotal)*100).toFixed(1):0}%)`, "Attendance"]} />
+        </PieChart>
+      </ResponsiveContainer>
+      {zoomedSlice ? (
+        <div style={{ textAlign:"center", marginTop:4 }}>
+          {(() => {
+            const d = classTotals.find(x=>x.name===zoomedSlice);
+            if (!d) return null;
+            const pct = total > 0 ? ((d.value/total)*100).toFixed(1) : 0;
+            return (
+              <div style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"6px 14px",
+                borderRadius:10, border:`1.5px solid ${d.color}55`, background:d.color+"18" }}>
+                <div style={{ width:10, height:10, borderRadius:3, background:d.color }} />
+                <span style={{ fontSize:12, color:t.text, fontWeight:700, fontFamily:"'Trebuchet MS',sans-serif" }}>
+                  {d.name}
+                </span>
+                <span style={{ fontSize:12, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}>
+                  {d.value} students · <strong style={{ color:d.color }}>{pct}%</strong> of total
+                </span>
+              </div>
+            );
+          })()}
+        </div>
+      ) : (
+        <div style={{ display:"flex", flexWrap:"wrap", gap:7, marginTop:8 }}>
+          {classTotals.map(d => {
+            const pct = total > 0 ? ((d.value / total) * 100).toFixed(1) : 0;
+            return (
+              <div key={d.name} style={{ display:"flex", alignItems:"center", gap:4, cursor:"pointer" }}
+                onClick={() => setZoomedSlice(d.name)}>
+                <div style={{ width:7, height:7, borderRadius:2, background:d.color }} />
+                <span style={{ fontSize:10, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}>
+                  {d.name} — <strong style={{ color:t.text }}>{pct}%</strong> <span style={{ opacity:0.6 }}>({d.value})</span>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </>
+  );
+};
+
 const DashboardPage = ({ db }) => {
   const { t, card, tooltip, sel } = useThemeStyles();
   const { mode } = useTheme();
@@ -2504,116 +2636,7 @@ const DashboardPage = ({ db }) => {
                chartRange==="month" ? `Closing attendance — this month (${monthLabel(new Date().toISOString().slice(0,7))})` :
                chartRange==="qtr"   ? `Closing attendance — this quarter` :
                `Closing attendance — ${new Date().getFullYear()}`}>
-          {classTotals.length > 0 ? (() => {
-            const total = classTotals.reduce((s,d) => s + d.value, 0);
-            const [zoomedSlice, setZoomedSlice] = useState(null);
-            const zoomed = zoomedSlice ? classTotals.filter(d => d.name === zoomedSlice) : classTotals;
-            const zoomTotal = zoomed.reduce((s,d) => s + d.value, 0);
-            const renderLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
-              if (percent < 0.06) return null;
-              const RADIAN = Math.PI / 180;
-              const r = innerRadius + (outerRadius - innerRadius) * 0.55;
-              const x = cx + r * Math.cos(-midAngle * RADIAN);
-              const y = cy + r * Math.sin(-midAngle * RADIAN);
-              return (
-                <text x={x} y={y} fill="#fff" textAnchor="middle" dominantBaseline="central"
-                  fontSize={10} fontWeight={700} fontFamily="'Trebuchet MS',sans-serif">
-                  {`${(percent*100).toFixed(0)}%`}
-                </text>
-              );
-            };
-            const handleSliceClick = (data) => {
-              if (data && data.name) {
-                setZoomedSlice(prev => prev === data.name ? null : data.name);
-              }
-            };
-            return (
-              <>
-                {zoomedSlice && (
-                  <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
-                    <button onClick={() => setZoomedSlice(null)}
-                      style={{ fontSize:10, padding:"2px 8px", borderRadius:10, border:`1px solid ${t.borderStrong}`,
-                        background:t.surfaceAlt, color:t.textMuted, cursor:"pointer", fontFamily:"'Trebuchet MS',sans-serif" }}>
-                      ← All Classes
-                    </button>
-                    <span style={{ fontSize:10, color:t.text, fontWeight:700, fontFamily:"'Trebuchet MS',sans-serif" }}>
-                      {zoomedSlice}
-                    </span>
-                  </div>
-                )}
-                {!zoomedSlice && (
-                  <div style={{ fontSize:9, color:t.textFaint, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:2, textAlign:"right" }}>
-                    Click a slice to zoom
-                  </div>
-                )}
-                <ResponsiveContainer width="100%" height={zoomedSlice ? 150 : 165}>
-                  <PieChart>
-                    <Pie
-                      data={zoomedSlice
-                        ? [classTotals.find(d=>d.name===zoomedSlice), ...classTotals.filter(d=>d.name!==zoomedSlice).map(d=>({...d, opacity:0.22}))]
-                        : classTotals}
-                      cx="50%" cy="50%"
-                      innerRadius={zoomedSlice ? 30 : 44}
-                      outerRadius={zoomedSlice ? 68 : 76}
-                      dataKey="value" paddingAngle={zoomedSlice ? 1 : 3}
-                      labelLine={false} label={renderLabel}
-                      onClick={handleSliceClick}
-                      style={{ cursor:"pointer" }}
-                      isAnimationActive={true}
-                      animationBegin={0}
-                      animationDuration={450}>
-                      {(zoomedSlice
-                        ? [classTotals.find(d=>d.name===zoomedSlice), ...classTotals.filter(d=>d.name!==zoomedSlice)]
-                        : classTotals
-                      ).map((e,i) => (
-                        <Cell key={i} fill={e.color}
-                          opacity={zoomedSlice && e.name !== zoomedSlice ? 0.22 : 1}
-                          stroke={e.name === zoomedSlice ? "#fff" : "none"}
-                          strokeWidth={e.name === zoomedSlice ? 2 : 0}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip {...tooltip} formatter={(v) => [`${v} (${zoomTotal>0?((v/zoomTotal)*100).toFixed(1):0}%)`, "Attendance"]} />
-                  </PieChart>
-                </ResponsiveContainer>
-                {zoomedSlice ? (
-                  <div style={{ textAlign:"center", marginTop:4 }}>
-                    {(() => {
-                      const d = classTotals.find(x=>x.name===zoomedSlice);
-                      const pct = total > 0 ? ((d.value/total)*100).toFixed(1) : 0;
-                      return (
-                        <div style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"6px 14px",
-                          borderRadius:10, border:`1.5px solid ${d.color}55`, background:d.color+"18" }}>
-                          <div style={{ width:10, height:10, borderRadius:3, background:d.color }} />
-                          <span style={{ fontSize:12, color:t.text, fontWeight:700, fontFamily:"'Trebuchet MS',sans-serif" }}>
-                            {d.name}
-                          </span>
-                          <span style={{ fontSize:12, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}>
-                            {d.value} students · <strong style={{ color:d.color }}>{pct}%</strong> of total
-                          </span>
-                        </div>
-                      );
-                    })()}
-                  </div>
-                ) : (
-                  <div style={{ display:"flex", flexWrap:"wrap", gap:7, marginTop:8 }}>
-                    {classTotals.map(d => {
-                      const pct = total > 0 ? ((d.value / total) * 100).toFixed(1) : 0;
-                      return (
-                        <div key={d.name} style={{ display:"flex", alignItems:"center", gap:4, cursor:"pointer" }}
-                          onClick={() => setZoomedSlice(d.name)}>
-                          <div style={{ width:7, height:7, borderRadius:2, background:d.color }} />
-                          <span style={{ fontSize:10, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}>
-                            {d.name} — <strong style={{ color:t.text }}>{pct}%</strong> <span style={{ opacity:0.6 }}>({d.value})</span>
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </>
-            );
-          })() : <div style={{ height:165, display:"flex", alignItems:"center", justifyContent:"center", color:t.textMuted, fontSize:13, fontFamily:"'Trebuchet MS',sans-serif" }}>No SS records yet</div>}
+          <ZoomDonutChart classTotals={classTotals} tooltip={tooltip} t={t} />
         </ChartCard>
       </div>
 
