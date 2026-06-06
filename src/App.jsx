@@ -970,10 +970,25 @@ const useSupabaseDB = () => {
   }, []);
 
   const updateRecord = useCallback(async (id, updates) => {
-    setRecords(r => r.map(x => x.id===id ? {...x,...updates} : x));
+    // Capture snapshot before optimistic update (for rollback on failure)
+    let snapshot = null;
+    setRecords(prev => {
+      snapshot = prev.find(x => x.id === id) || null;
+      return prev.map(x => x.id === id ? { ...x, ...updates } : x);
+    });
     if (SUPABASE_READY) {
-      try { await sbFetch(`uct_records?id=eq.${id}`, { method:"PATCH", body:JSON.stringify(updates) }); }
-      catch(e) { console.warn("SS record update failed (local kept):", e.message); }
+      // Strip client-only fields that have no column in uct_records
+      // (mirrors the strip done in addRecord)
+      const { general_remarks, _expanded, created_at, ...dbUpdates } = updates;
+      try {
+        await sbFetch(`uct_records?id=eq.${id}`, { method:"PATCH", body:JSON.stringify(dbUpdates) });
+      } catch(e) {
+        // Roll back optimistic update using the snapshot
+        if (snapshot) setRecords(prev => prev.map(x => x.id === id ? snapshot : x));
+        console.error("SS record update failed:", e.message);
+        alert("⚠️ Save failed: " + e.message + "\nYour edit was NOT saved. Please try again.");
+        throw e;
+      }
     }
   }, []);
 
@@ -2806,13 +2821,23 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
   const lockedClass   = isTeacher && user?.assigned_class ? user.assigned_class : "";
   const lockedTeacher = isTeacher ? (user?.name || "") : "";
 
+  // ── Draft persistence keys ─────────────────────────────────
+  const DRAFT_KEY       = "uct_submit_draft";
+  const BULK_SHARED_KEY = "uct_bulk_shared_draft";
+
   // ── ALL hooks at top (Rules of Hooks) ─────────────────────
   // Bulk mode
   const [bulkMode,    setBulkMode]    = useState(false);
-  const [bulkShared,  setBulkShared]  = useState({
-    date: new Date().toISOString().slice(0,10), day_of_week:"Sunday",
-    service_type:"Regular Sunday School", submitted_by: user?.name||"",
-    time_started:"08:30", time_ended:"09:25",
+  const [bulkShared,  setBulkShared]  = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("uct_bulk_shared_draft") || "null");
+      if (saved) return saved;
+    } catch(e) {}
+    return {
+      date: new Date().toISOString().slice(0,10), day_of_week:"Sunday",
+      service_type:"Regular Sunday School", submitted_by: user?.name||"",
+      time_started:"08:30", time_ended:"09:25",
+    };
   });
   const makeBulkRow = (cls) => ({
     class_name:cls.name, teacher_name:"", assistant_teacher:"", assistant_teacher_2:"", assistant_teacher_3:"", delivered_by:"",
@@ -2860,14 +2885,38 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
     teachers_present:"", teacher_names:"", challenges:"", prayer_requests:"", announcements:"",
     general_remarks:""
   });
-  const [form,       setForm]       = useState(() => isEditMode ? { ...makeBlank(), ...editProp } : makeBlank());
+  const [form,       setForm]       = useState(() => {
+    if (isEditMode) return { ...makeBlank(), ...editProp };
+    try {
+      const saved = JSON.parse(localStorage.getItem("uct_submit_draft") || "null");
+      if (saved) return { ...makeBlank(), ...saved };
+    } catch(e) {}
+    return makeBlank();
+  });
   const [loading,    setLoading]    = useState(false);
   const [done,       setDone]       = useState(false);
+
+  // Persist single-form draft to localStorage on every change (skip edit mode)
+  useEffect(() => {
+    if (!isEditMode) {
+      try { localStorage.setItem("uct_submit_draft", JSON.stringify(form)); } catch(e) {}
+    }
+  }, [form, isEditMode]);
+
+  // Persist bulkShared to localStorage on every change
+  useEffect(() => {
+    try { localStorage.setItem("uct_bulk_shared_draft", JSON.stringify(bulkShared)); } catch(e) {}
+  }, [bulkShared]);
 
   // Sync form when editProp changes
   useEffect(() => {
     if (editProp) setForm({ ...makeBlank(), ...editProp });
-    else          setForm(makeBlank());
+    else {
+      try {
+        const saved = JSON.parse(localStorage.getItem("uct_submit_draft") || "null");
+        setForm(saved ? { ...makeBlank(), ...saved } : makeBlank());
+      } catch(e) { setForm(makeBlank()); }
+    }
   }, [editProp?.id]);
 
   // Re-init bulk rows when classes load
@@ -2931,6 +2980,7 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
       if (isEditMode) await updateRecord(editProp.id, { ...form, status:"pending" });
       else            await addRecord(form);
       setDone(true);
+      try { localStorage.removeItem("uct_submit_draft"); } catch(e) {}
       setTimeout(() => {
         setDone(false);
         setForm(makeBlank());
@@ -2971,6 +3021,7 @@ const SubmitPage = ({ db, user, onSuccess, editRecord: editProp, onCancelEdit })
         await addRecord({ ...bulkShared, ...data, status:"pending" });
       }
       setBulkDone(true);
+      try { localStorage.removeItem("uct_bulk_shared_draft"); } catch(e) {}
       setTimeout(() => {
         setBulkDone(false);
         setBulkRows(activeClasses.map(makeBulkRow));
