@@ -2207,11 +2207,30 @@ const DashboardPage = ({ db }) => {
   });
   const weeklyTrend = Object.values(trendMap).sort((a,b)=>a.key>b.key?1:-1);
 
-  // Class donut — grouped by chartRange (sum all records in each period per class, then aggregate)
+  // Class donut — filter records to only those within the chartRange period, then sum per class
+  const chartRangeFilter = (arr) => {
+    if (chartRange === "day") return arr; // all data
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth(); // 0-indexed
+    if (chartRange === "month") {
+      const from = `${y}-${String(m+1).padStart(2,"0")}-01`;
+      return arr.filter(r => (r.date||"") >= from);
+    }
+    if (chartRange === "qtr") {
+      const qStart = new Date(y, Math.floor(m/3)*3, 1).toISOString().slice(0,10);
+      return arr.filter(r => (r.date||"") >= qStart);
+    }
+    // year
+    return arr.filter(r => (r.date||"").startsWith(String(y)));
+  };
+
+  const filteredForDonut = chartRangeFilter(fRec);
+
   const classTotals = classes.map((cls,i) => {
-    const clsRecs = fRec.filter(r => r.class_name === cls.name);
-    // When grouping, we still want the total across all grouped periods
-    const value = clsRecs.reduce((s,r) => s + (Number(r.total_closing)||0), 0);
+    const value = filteredForDonut
+      .filter(r => r.class_name === cls.name)
+      .reduce((s,r) => s + (Number(r.total_closing)||0), 0);
     return { name: cls.name.split(" ")[0], fullName: cls.name, value, color: CLASS_COLORS[i%CLASS_COLORS.length] };
   }).filter(x => x.value > 0);
 
@@ -2391,7 +2410,11 @@ const DashboardPage = ({ db }) => {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Sunday School by Class" sub={`Closing attendance share${chartRange!=="day"?` — by ${chartRange==="month"?"month":chartRange==="qtr"?"quarter":"year"}`:""}`}>
+        <ChartCard title="Sunday School by Class"
+          sub={chartRange==="day" ? "Closing attendance share — all time" :
+               chartRange==="month" ? `Closing attendance — this month (${monthLabel(new Date().toISOString().slice(0,7))})` :
+               chartRange==="qtr"   ? `Closing attendance — this quarter` :
+               `Closing attendance — ${new Date().getFullYear()}`}>
           {classTotals.length > 0 ? (() => {
             const total = classTotals.reduce((s,d) => s + d.value, 0);
             const renderLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
