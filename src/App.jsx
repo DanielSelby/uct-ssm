@@ -1366,8 +1366,8 @@ const useSupabaseDB = () => {
 
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
-// Generate a professional shade-based palette from the theme's primary colour.
-// Creates 8 tonal variations — same hue family, varied lightness/saturation — like the reference design.
+// Curated chart palettes from Coolors — keyed by theme mode.
+// For uncurated themes, falls back to computed tonal shades of the theme's gold colour.
 const hexToHsl = (hex) => {
   let r = parseInt(hex.slice(1,3),16)/255, g = parseInt(hex.slice(3,5),16)/255, b = parseInt(hex.slice(5,7),16)/255;
   const max = Math.max(r,g,b), min = Math.min(r,g,b), l = (max+min)/2;
@@ -1382,23 +1382,33 @@ const hslToHex = (h,s,l) => {
   const f=n=>Math.round((l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1))))*255).toString(16).padStart(2,"0");
   return `#${f(0)}${f(8)}${f(4)}`;
 };
-const getChartPalette = (baseHex) => {
+const CURATED_PALETTES = {
+  // Green theme  → https://coolors.co/palette/132a13-31572c-4f772d-90a955-ecf39e
+  light:     ["#132a13","#31572c","#4f772d","#90a955","#ecf39e","#c4d97e","#a1c263","#31572c"],
+  dark:      ["#132a13","#31572c","#4f772d","#90a955","#ecf39e","#c4d97e","#a1c263","#31572c"],
+  // Navy/Blue theme → https://coolors.co/palette/cad2c5-84a98c-52796f-354f52-2f3e46
+  navy:      ["#2f3e46","#354f52","#52796f","#84a98c","#cad2c5","#a3b8b0","#6a9891","#354f52"],
+  darkBlue:  ["#2f3e46","#354f52","#52796f","#84a98c","#cad2c5","#a3b8b0","#6a9891","#354f52"],
+  // Olive theme → https://coolors.co/palette/e9f5db-cfe1b9-b5c99a-97a97c-87986a-718355
+  orange:    ["#718355","#87986a","#97a97c","#b5c99a","#cfe1b9","#e9f5db","#a8bd84","#718355"],
+  darkOrange:["#718355","#87986a","#97a97c","#b5c99a","#cfe1b9","#e9f5db","#a8bd84","#718355"],
+};
+const getChartPalette = (baseHex, mode) => {
+  if (mode && CURATED_PALETTES[mode]) return CURATED_PALETTES[mode];
   try {
     const [h, s] = hexToHsl(baseHex);
-    // 8 shades: same hue, progressively lighter with slight saturation shifts
-    // Darkest → lightest, giving a cohesive tonal family like the reference image
     return [
-      hslToHex(h, Math.min(s+5,  95), 22),  // very dark
-      hslToHex(h, Math.min(s+3,  90), 30),  // dark
-      hslToHex(h, Math.min(s,    85), 38),  // medium-dark (close to base)
-      hslToHex(h, Math.min(s-2,  80), 46),  // base-ish
-      hslToHex(h, Math.min(s-5,  72), 54),  // medium-light
-      hslToHex(h, Math.min(s-8,  65), 63),  // light
-      hslToHex(h, Math.min(s-12, 55), 72),  // lighter
-      hslToHex(h, Math.min(s-16, 45), 80),  // lightest
+      hslToHex(h, Math.min(s+5,  95), 22),
+      hslToHex(h, Math.min(s+3,  90), 30),
+      hslToHex(h, Math.min(s,    85), 38),
+      hslToHex(h, Math.min(s-2,  80), 46),
+      hslToHex(h, Math.min(s-5,  72), 54),
+      hslToHex(h, Math.min(s-8,  65), 63),
+      hslToHex(h, Math.min(s-12, 55), 72),
+      hslToHex(h, Math.min(s-16, 45), 80),
     ];
   } catch(e) {
-    return ["#0d3324","#145232","#1a6e42","#2a9d5c","#4db87a","#80cc9e","#b3dfc2","#d9efe3"];
+    return ["#132a13","#31572c","#4f772d","#90a955","#ecf39e","#c4d97e","#a1c263","#31572c"];
   }
 };
 const CLASS_COLORS = ["#335c67","#718355","#1d2f6f","#C0392B","#E67E22","#9B59B6","#1ABC9C","#E74C3C"]; // fallback only
@@ -1855,7 +1865,7 @@ const TeacherForm = ({ initial, classes, onSave, onClose }) => {
 const TeachersPage = ({ db }) => {
   const { t, card, btnGold, btnGhost, th, td } = useThemeStyles();
   const { mode } = useTheme();
-  const chartPalette = getChartPalette((T[mode]||T.light).gold);
+  const chartPalette = getChartPalette((T[mode]||T.light).gold, mode);
   const { teachers, classes, addTeacher, updateTeacher, deleteTeacher, toggleTeacherActive } = db;
   const [modal, setModal]   = useState(null); // null | "add" | teacher-obj
   const [search, setSearch] = useState("");
@@ -2121,7 +2131,8 @@ const Insight = ({ text, color, icon="info" }) => {
 // ─── DASHBOARD PAGE ───────────────────────────────────────────────────────────
 const DashboardPage = ({ db }) => {
   const { t, card, tooltip, sel } = useThemeStyles();
-  const chartPalette = getChartPalette(t.gold);
+  const { mode } = useTheme();
+  const chartPalette = getChartPalette(t.gold, mode);
   const { records, teachers, classes, churchRecs, programs, loadAll } = db;
   const active = teachers.filter(x=>x.is_active==="YES").length;
 
@@ -3561,7 +3572,8 @@ const AttendancePage = ({ db, user, onEditRecord }) => {
 // ─── ANALYTICS PAGE ───────────────────────────────────────────────────────────
 const AnalyticsPage = ({ db }) => {
   const { t, card, tooltip } = useThemeStyles();
-  const chartPalette = getChartPalette(t.gold);
+  const { mode } = useTheme();
+  const chartPalette = getChartPalette(t.gold, mode);
   const { records, classes, churchRecs, programs } = db;
 
   const [filters, setFilters] = useState({});
@@ -5495,7 +5507,7 @@ const YouthPage = ({ db }) => {
 const ClassesPage = ({ db }) => {
   const { t, card, btnGold, btnOutline, btnGhost, inp, lbl, th, td, sel } = useThemeStyles();
   const { mode } = useTheme();
-  const chartPalette = getChartPalette((T[mode]||T.light).gold);
+  const chartPalette = getChartPalette((T[mode]||T.light).gold, mode);
   const { classes, records, teachers } = db;
 
   const [selected,   setSelected]   = useState(null); // class name being viewed
@@ -6267,7 +6279,7 @@ const ClassesPage = ({ db }) => {
 const ChurchAttendancePage = ({ db, user }) => {
   const { t, card, btnGold, btnOutline, btnGhost, inp, sel, lbl, th, td } = useThemeStyles();
   const { mode } = useTheme();
-  const chartPalette = getChartPalette((T[mode]||T.light).gold);
+  const chartPalette = getChartPalette((T[mode]||T.light).gold, mode);
   const { churchRecs, programs, addChurchRec, updateChurchRec, deleteChurchRec,
           churchMembers, addChurchMember, updateChurchMember, deleteChurchMember } = db;
   const FF = "'Trebuchet MS',sans-serif";
