@@ -1383,9 +1383,9 @@ const hslToHex = (h,s,l) => {
   return `#${f(0)}${f(8)}${f(4)}`;
 };
 const CURATED_PALETTES = {
-  // Green theme  → https://coolors.co/palette/132a13-31572c-4f772d-90a955-ecf39e
-  light:     ["#132a13","#31572c","#4f772d","#90a955","#ecf39e","#c4d97e","#a1c263","#31572c"],
-  dark:      ["#132a13","#31572c","#4f772d","#90a955","#ecf39e","#c4d97e","#a1c263","#31572c"],
+  // Green theme  → https://coolors.co/palette/132a13-31572c-4f772d-386641-606c38
+  light:     ["#132a13","#31572c","#4f772d","#386641","#606c38","#c4d97e","#a1c263","#31572c"],
+  dark:      ["#132a13","#31572c","#4f772d","#386641","#606c38","#c4d97e","#a1c263","#31572c"],
   // Navy/Blue theme → https://coolors.co/palette/cad2c5-84a98c-52796f-354f52-2f3e46
   navy:      ["#2f3e46","#354f52","#52796f","#84a98c","#cad2c5","#a3b8b0","#6a9891","#354f52"],
   darkBlue:  ["#2f3e46","#354f52","#52796f","#84a98c","#cad2c5","#a3b8b0","#6a9891","#354f52"],
@@ -1408,7 +1408,7 @@ const getChartPalette = (baseHex, mode) => {
       hslToHex(h, Math.min(s-16, 45), 80),
     ];
   } catch(e) {
-    return ["#132a13","#31572c","#4f772d","#90a955","#ecf39e","#c4d97e","#a1c263","#31572c"];
+    return ["#132a13","#31572c","#4f772d","#386641","#606c38","#c4d97e","#a1c263","#31572c"];
   }
 };
 const CLASS_COLORS = ["#335c67","#718355","#1d2f6f","#C0392B","#E67E22","#9B59B6","#1ABC9C","#E74C3C"]; // fallback only
@@ -2491,46 +2491,98 @@ const DashboardPage = ({ db }) => {
                `Closing attendance — ${new Date().getFullYear()}`}>
           {classTotals.length > 0 ? (() => {
             const total = classTotals.reduce((s,d) => s + d.value, 0);
-            const renderLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
-              if (percent < 0.06) return null; // skip tiny slices
+            const ZoomDonut = () => {
+              const [active, setActive] = React.useState(null);
+              const CX = 110, CY = 110, IR = 48, OR = 84, EXPLODE = 14;
               const RADIAN = Math.PI / 180;
-              const r = innerRadius + (outerRadius - innerRadius) * 0.55;
-              const x = cx + r * Math.cos(-midAngle * RADIAN);
-              const y = cy + r * Math.sin(-midAngle * RADIAN);
+              let startAngle = -90;
+              const slices = classTotals.map((d,i) => {
+                const pct   = d.value / total;
+                const sweep = pct * 360;
+                const sa    = startAngle;
+                const ea    = startAngle + sweep;
+                startAngle  = ea;
+                const mid   = (sa + ea) / 2;
+                const isAct = active === i;
+                const r     = isAct ? OR + EXPLODE : OR;
+                const ir    = isAct ? IR + EXPLODE * 0.3 : IR;
+                const ox    = isAct ? Math.cos(mid * RADIAN) * EXPLODE * 0.5 : 0;
+                const oy    = isAct ? Math.sin(mid * RADIAN) * EXPLODE * 0.5 : 0;
+                // Arc path
+                const x1 = CX + ox + r  * Math.cos(sa * RADIAN);
+                const y1 = CY + oy + r  * Math.sin(sa * RADIAN);
+                const x2 = CX + ox + r  * Math.cos(ea * RADIAN);
+                const y2 = CY + oy + r  * Math.sin(ea * RADIAN);
+                const x3 = CX + ox + ir * Math.cos(ea * RADIAN);
+                const y3 = CY + oy + ir * Math.sin(ea * RADIAN);
+                const x4 = CX + ox + ir * Math.cos(sa * RADIAN);
+                const y4 = CY + oy + ir * Math.sin(sa * RADIAN);
+                const lg  = sweep > 180 ? 1 : 0;
+                const path = `M${x1},${y1} A${r},${r} 0 ${lg},1 ${x2},${y2} L${x3},${y3} A${ir},${ir} 0 ${lg},0 ${x4},${y4} Z`;
+                // Label position
+                const lx = CX + ox + (ir+(r-ir)*0.55) * Math.cos(mid * RADIAN);
+                const ly = CY + oy + (ir+(r-ir)*0.55) * Math.sin(mid * RADIAN);
+                return { ...d, path, lx, ly, pct, isAct, mid, ox, oy };
+              });
+              const act = active !== null ? slices[active] : null;
               return (
-                <text x={x} y={y} fill="#fff" textAnchor="middle" dominantBaseline="central"
-                  fontSize={10} fontWeight={700} fontFamily="'Trebuchet MS',sans-serif">
-                  {`${(percent*100).toFixed(0)}%`}
-                </text>
-              );
-            };
-            return (
-              <>
-                <ResponsiveContainer width="100%" height={165}>
-                  <PieChart>
-                    <Pie data={classTotals} cx="50%" cy="50%" innerRadius={44} outerRadius={76}
-                      dataKey="value" paddingAngle={3} labelLine={false} label={renderLabel}>
-                      {classTotals.map((e,i) => <Cell key={i} fill={e.color}/>)}
-                    </Pie>
-                    <Tooltip {...tooltip} formatter={(v) => [`${v} (${total>0?((v/total)*100).toFixed(1):0}%)`, "Attendance"]} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div style={{ display:"flex", flexWrap:"wrap", gap:7, marginTop:8 }}>
-                  {classTotals.map(d => {
-                    const pct = total > 0 ? ((d.value / total) * 100).toFixed(1) : 0;
-                    return (
-                      <div key={d.name} style={{ display:"flex", alignItems:"center", gap:4 }}>
-                        <div style={{ width:7, height:7, borderRadius:2, background:d.color }} />
-                        <span style={{ fontSize:10, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}>
-                          {d.name} — <strong style={{ color:t.text }}>{pct}%</strong> <span style={{ opacity:0.6 }}>({d.value})</span>
+                <div>
+                  <svg width="220" height="220" style={{ display:"block", margin:"0 auto", cursor:"pointer" }}>
+                    {slices.map((sl,i) => (
+                      <g key={i} onClick={() => setActive(active===i ? null : i)}
+                        style={{ transition:"all 0.25s cubic-bezier(0.34,1.56,0.64,1)" }}>
+                        <path d={sl.path} fill={sl.color}
+                          stroke={t.surface} strokeWidth={2}
+                          opacity={active!==null && active!==i ? 0.55 : 1}
+                          style={{ transition:"all 0.25s cubic-bezier(0.34,1.56,0.64,1)", filter: sl.isAct ? `drop-shadow(0 4px 8px ${sl.color}88)` : "none" }} />
+                        {sl.pct >= 0.06 && (
+                          <text x={sl.lx} y={sl.ly} textAnchor="middle" dominantBaseline="central"
+                            fill="#fff" fontSize={9} fontWeight={700} fontFamily="'Trebuchet MS',sans-serif"
+                            style={{ pointerEvents:"none" }}>
+                            {`${(sl.pct*100).toFixed(0)}%`}
+                          </text>
+                        )}
+                      </g>
+                    ))}
+                    {/* Centre display */}
+                    {act ? (
+                      <>
+                        <text x={CX} y={CY-12} textAnchor="middle" fill={act.color}
+                          fontSize={18} fontWeight={700} fontFamily="'Trebuchet MS',sans-serif">{`${(act.pct*100).toFixed(1)}%`}</text>
+                        <text x={CX} y={CY+8} textAnchor="middle" fill={t.text}
+                          fontSize={9} fontWeight={600} fontFamily="'Trebuchet MS',sans-serif">{act.name}</text>
+                        <text x={CX} y={CY+22} textAnchor="middle" fill={t.textMuted}
+                          fontSize={8} fontFamily="'Trebuchet MS',sans-serif">{act.value} students</text>
+                      </>
+                    ) : (
+                      <>
+                        <text x={CX} y={CY-6} textAnchor="middle" fill={t.text}
+                          fontSize={11} fontWeight={600} fontFamily="'Trebuchet MS',sans-serif">Total</text>
+                        <text x={CX} y={CY+10} textAnchor="middle" fill={t.gold}
+                          fontSize={16} fontWeight={700} fontFamily="'Trebuchet MS',sans-serif">{total.toLocaleString()}</text>
+                      </>
+                    )}
+                  </svg>
+                  {/* Legend */}
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginTop:8, justifyContent:"center" }}>
+                    {slices.map((d,i) => (
+                      <div key={i} onClick={() => setActive(active===i ? null : i)}
+                        style={{ display:"flex", alignItems:"center", gap:4, cursor:"pointer",
+                          opacity: active!==null && active!==i ? 0.45 : 1, transition:"opacity 0.2s" }}>
+                        <div style={{ width:8, height:8, borderRadius:2, background:d.color,
+                          boxShadow: active===i ? `0 0 0 2px ${d.color}55` : "none" }} />
+                        <span style={{ fontSize:10, color: active===i ? t.text : t.textMuted,
+                          fontFamily:"'Trebuchet MS',sans-serif", fontWeight: active===i ? 700 : 400 }}>
+                          {d.name} <span style={{ color:d.color, fontWeight:700 }}>{(d.pct*100).toFixed(1)}%</span>
                         </span>
                       </div>
-                    );
-                  })}
+                    ))}
+                  </div>
                 </div>
-              </>
-            );
-          })() : <div style={{ height:165, display:"flex", alignItems:"center", justifyContent:"center", color:t.textMuted, fontSize:13, fontFamily:"'Trebuchet MS',sans-serif" }}>No SS records yet</div>}
+              );
+            };
+            return <ZoomDonut />;
+          })() : <div style={{ height:220, display:"flex", alignItems:"center", justifyContent:"center", color:t.textMuted, fontSize:13, fontFamily:"'Trebuchet MS',sans-serif" }}>No SS records yet</div>}
         </ChartCard>
       </div>
 
