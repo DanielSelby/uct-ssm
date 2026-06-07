@@ -10251,7 +10251,8 @@ const Sidebar = ({ page, setPage, user, onLogout, collapsed, setCollapsed }) => 
 
   return (
     <div style={{ width:collapsed?60:260, background:t.sidebar, borderRight:`1px solid ${t.sidebarBorder}`,
-      display:"flex", flexDirection:"column", flexShrink:0, transition:"width 0.22s", overflow:"hidden", minHeight:"100vh" }}>
+      display:"flex", flexDirection:"column", flexShrink:0, transition:"width 0.22s", overflow:"hidden",
+      position:"fixed", top:0, left:0, height:"100vh", zIndex:200, overflowY:"auto" }}>
       {/* Header with animated bible */}
       <div style={{ padding:collapsed?"18px 8px":"18px 18px 14px", borderBottom:`1px solid ${t.sidebarBorder}`,
         display:"flex", flexDirection:"column", alignItems:"center", gap:6 }}>
@@ -10760,6 +10761,8 @@ export default function App() {
         {/* Main area */}
         <div style={{ flex:1, display:"flex", flexDirection:"column",
           overflowX:"hidden", minHeight:"100vh",
+          marginLeft: mobile ? 0 : (collapsed ? 60 : 260),
+          transition:"margin-left 0.22s",
           paddingBottom: mobile ? 68 : 0 }}>
 
           {/* Topbar — themed band */}
