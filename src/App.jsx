@@ -2353,6 +2353,7 @@ const DashboardPage = ({ db }) => {
   const [filters, setFilters] = useState({});
   const [chartRange,  setChartRange]  = useState("day"); // "day" | "month" | "qtr" | "year"
   const [chartSource, setChartSource] = useState("both"); // "both" | "ss" | "church"
+  const [chartYear,   setChartYear]   = useState("all");  // "all" | "2024" | "2025" | ...
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
   const [autoRefreshPaused, setAutoRefreshPaused] = useState(false);
@@ -2378,6 +2379,12 @@ const DashboardPage = ({ db }) => {
     ...records.map(r=>(r.date||"").slice(0,7)),
     ...churchRecs.map(r=>(r.date||"").slice(0,7))
   ].filter(Boolean))].sort();
+
+  // All unique years across both datasets (for year slicer)
+  const allYears = [...new Set([
+    ...records.map(r=>(r.date||"").slice(0,4)),
+    ...churchRecs.map(r=>(r.date||"").slice(0,4))
+  ].filter(y => y && y.length===4))].sort();
 
   // Apply date/month/class filters
   const applyRange = (arr) => arr.filter(r => {
@@ -2440,8 +2447,12 @@ const DashboardPage = ({ db }) => {
   };
 
   // Chart source filter: SS only, Church only, or both
-  const chartSsRecs = chartSource === "church" ? [] : fRec;
-  const chartChRecs = chartSource === "ss"     ? [] : fChurch;
+  // Also filter by selected year (only active when month/qtr grouping)
+  const yearFilter = (arr) => (chartYear === "all" || chartRange === "day" || chartRange === "year")
+    ? arr
+    : arr.filter(r => (r.date||"").startsWith(chartYear));
+  const chartSsRecs = chartSource === "church" ? [] : yearFilter(fRec);
+  const chartChRecs = chartSource === "ss"     ? [] : yearFilter(fChurch);
 
   const compData = buildGrouped(chartSsRecs, chartChRecs, chartRange);
 
@@ -2476,19 +2487,30 @@ const DashboardPage = ({ db }) => {
   const weeklyTrend = Object.values(trendMap).sort((a,b)=>a.key>b.key?1:-1);
 
   // Class donut — filter by chartRange period AND chartSource
+  // Uses chartSsRecs (already year-filtered) and narrows further by period
   const chartRangeFilter = (arr) => {
+    // "day" = all time, just return as-is
     if (chartRange === "day") return arr;
     const now = new Date();
-    const y = now.getFullYear();
+    const y = chartYear !== "all" ? parseInt(chartYear) : now.getFullYear();
     const m = now.getMonth();
     if (chartRange === "month") {
+      // If a specific year is selected, show all months of that year's data
+      // If "all years", show only the current month (most recent period)
+      if (chartYear !== "all") {
+        return arr.filter(r => (r.date||"").startsWith(String(y)));
+      }
       const from = `${y}-${String(m+1).padStart(2,"0")}-01`;
       return arr.filter(r => (r.date||"") >= from);
     }
     if (chartRange === "qtr") {
+      if (chartYear !== "all") {
+        return arr.filter(r => (r.date||"").startsWith(String(y)));
+      }
       const qStart = new Date(y, Math.floor(m/3)*3, 1).toISOString().slice(0,10);
       return arr.filter(r => (r.date||"") >= qStart);
     }
+    // year view — show selected year or current year
     return arr.filter(r => (r.date||"").startsWith(String(y)));
   };
 
@@ -2633,6 +2655,38 @@ const DashboardPage = ({ db }) => {
             </button>
           ))}
         </div>
+
+        {/* Year Slicer — shown only for Month / Quarter grouping */}
+        {(chartRange === "month" || chartRange === "qtr") && allYears.length > 1 && (
+          <>
+            <div style={{ width:1, height:24, background:t.border, flexShrink:0 }} />
+            <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+              <span style={{ fontSize:11, fontWeight:700, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1.1, whiteSpace:"nowrap" }}>
+                Year:
+              </span>
+              <button onClick={() => setChartYear("all")}
+                style={{ padding:"6px 14px", borderRadius:20,
+                  border:`1.5px solid ${chartYear==="all" ? t.gold : t.border}`,
+                  background: chartYear==="all" ? t.gold : "transparent",
+                  color: chartYear==="all" ? "#FFFFFF" : t.textMuted,
+                  fontFamily:"'Trebuchet MS',sans-serif", fontSize:12, fontWeight: chartYear==="all" ? 700 : 400,
+                  cursor:"pointer", transition:"all 0.15s" }}>
+                All
+              </button>
+              {allYears.map(yr => (
+                <button key={yr} onClick={() => setChartYear(yr)}
+                  style={{ padding:"6px 14px", borderRadius:20,
+                    border:`1.5px solid ${chartYear===yr ? t.gold : t.border}`,
+                    background: chartYear===yr ? t.gold : "transparent",
+                    color: chartYear===yr ? "#FFFFFF" : t.textMuted,
+                    fontFamily:"'Trebuchet MS',sans-serif", fontSize:12, fontWeight: chartYear===yr ? 700 : 400,
+                    cursor:"pointer", transition:"all 0.15s" }}>
+                  {yr}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Row 1: SS vs Church side-by-side comparison by date */}
@@ -2700,8 +2754,8 @@ const DashboardPage = ({ db }) => {
 
         <ChartCard title="Sunday School by Class"
           sub={chartRange==="day" ? "Closing attendance share — all time" :
-               chartRange==="month" ? `Closing attendance — this month (${monthLabel(new Date().toISOString().slice(0,7))})` :
-               chartRange==="qtr"   ? `Closing attendance — this quarter` :
+               chartRange==="month" ? (chartYear !== "all" ? `Closing attendance — ${chartYear}` : `Closing attendance — this month (${monthLabel(new Date().toISOString().slice(0,7))})`) :
+               chartRange==="qtr"   ? (chartYear !== "all" ? `Closing attendance — ${chartYear}` : `Closing attendance — this quarter`) :
                `Closing attendance — ${new Date().getFullYear()}`}>
           <ZoomDonutChart classTotals={classTotals} tooltip={tooltip} t={t} />
         </ChartCard>
@@ -3789,11 +3843,18 @@ const AnalyticsPage = ({ db }) => {
   const [tab, setTab] = useState("comparison"); // comparison | ss | church | gender
   const [chartRange,  setChartRange]  = useState("day"); // "day" | "month" | "qtr" | "year"
   const [chartSource, setChartSource] = useState("both"); // "both" | "ss" | "church"
+  const [chartYear,   setChartYear]   = useState("all");  // "all" | "2024" | "2025" | ...
 
   const allMonths = [...new Set([
     ...records.map(r=>(r.date||"").slice(0,7)),
     ...churchRecs.map(r=>(r.date||"").slice(0,7))
   ].filter(Boolean))].sort();
+
+  // All unique years across both datasets (for year slicer)
+  const allYears = [...new Set([
+    ...records.map(r=>(r.date||"").slice(0,4)),
+    ...churchRecs.map(r=>(r.date||"").slice(0,4))
+  ].filter(y => y && y.length===4))].sort();
 
   const applyRange = (arr) => arr.filter(r => {
     if (!r.date) return false;
@@ -3843,8 +3904,12 @@ const AnalyticsPage = ({ db }) => {
   };
 
   // ── Comparison data (respects chartRange + chartSource) ──
-  const chartSsRecs = chartSource === "church" ? [] : fRec;
-  const chartChRecs = chartSource === "ss"     ? [] : fChurch;
+  // Filter by selected year (only active when month/qtr grouping)
+  const yearFilter = (arr) => (chartYear === "all" || chartRange === "day" || chartRange === "year")
+    ? arr
+    : arr.filter(r => (r.date||"").startsWith(chartYear));
+  const chartSsRecs = chartSource === "church" ? [] : yearFilter(fRec);
+  const chartChRecs = chartSource === "ss"     ? [] : yearFilter(fChurch);
   const compData = buildGrouped(chartSsRecs, chartChRecs, chartRange);
 
   // ── Monthly grouped data (always month-level for trend charts) ──
@@ -4043,6 +4108,38 @@ const AnalyticsPage = ({ db }) => {
             </button>
           ))}
         </div>
+
+        {/* Year Slicer — shown only for Month / Quarter grouping */}
+        {(chartRange === "month" || chartRange === "qtr") && allYears.length > 1 && (
+          <>
+            <div style={{ width:1, height:24, background:t.border, flexShrink:0 }} />
+            <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+              <span style={{ fontSize:11, fontWeight:700, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1.1, whiteSpace:"nowrap" }}>
+                Year:
+              </span>
+              <button onClick={() => setChartYear("all")}
+                style={{ padding:"6px 14px", borderRadius:20,
+                  border:`1.5px solid ${chartYear==="all" ? t.gold : t.border}`,
+                  background: chartYear==="all" ? t.gold : "transparent",
+                  color: chartYear==="all" ? "#FFFFFF" : t.textMuted,
+                  fontFamily:"'Trebuchet MS',sans-serif", fontSize:12, fontWeight: chartYear==="all" ? 700 : 400,
+                  cursor:"pointer", transition:"all 0.15s" }}>
+                All
+              </button>
+              {allYears.map(yr => (
+                <button key={yr} onClick={() => setChartYear(yr)}
+                  style={{ padding:"6px 14px", borderRadius:20,
+                    border:`1.5px solid ${chartYear===yr ? t.gold : t.border}`,
+                    background: chartYear===yr ? t.gold : "transparent",
+                    color: chartYear===yr ? "#FFFFFF" : t.textMuted,
+                    fontFamily:"'Trebuchet MS',sans-serif", fontSize:12, fontWeight: chartYear===yr ? 700 : 400,
+                    cursor:"pointer", transition:"all 0.15s" }}>
+                  {yr}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Tab navigation */}
