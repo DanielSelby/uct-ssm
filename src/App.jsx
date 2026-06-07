@@ -1398,15 +1398,13 @@ const hslToHex = (h,s,l) => {
   return `#${f(0)}${f(8)}${f(4)}`;
 };
 const CURATED_PALETTES = {
-  // Green theme  → https://coolors.co/palette/132a13-31572c-4f772d-90a955-ecf39e
-  light:     ["#132a13","#31572c","#4f772d","#386641","#606c38","#c4d97e","#a1c263","#31572c"],
-  dark:      ["#132a13","#31572c","#4f772d","#386641","#606c38","#c4d97e","#a1c263","#31572c"],
-  // Navy/Blue theme → https://coolors.co/palette/cad2c5-84a98c-52796f-354f52-2f3e46
-  navy:      ["#2f3e46","#354f52","#52796f","#84a98c","#cad2c5","#a3b8b0","#6a9891","#354f52"],
-  darkBlue:  ["#2f3e46","#354f52","#52796f","#84a98c","#cad2c5","#a3b8b0","#6a9891","#354f52"],
-  // Olive theme → https://coolors.co/palette/e9f5db-cfe1b9-b5c99a-97a97c-87986a-718355
-  orange:    ["#718355","#87986a","#97a97c","#b5c99a","#cfe1b9","#e9f5db","#a8bd84","#718355"],
-  darkOrange:["#718355","#87986a","#97a97c","#b5c99a","#cfe1b9","#e9f5db","#a8bd84","#718355"],
+  // Primary two: #22523b and #004b23, then graduated variants for extra slices
+  light:     ["#22523b","#004b23","#2e6b4f","#1a3d2b","#3a7a5a","#0d2e16","#4a8f6a","#163322"],
+  dark:      ["#22523b","#004b23","#2e6b4f","#1a3d2b","#3a7a5a","#0d2e16","#4a8f6a","#163322"],
+  navy:      ["#22523b","#004b23","#2e6b4f","#1a3d2b","#3a7a5a","#0d2e16","#4a8f6a","#163322"],
+  darkBlue:  ["#22523b","#004b23","#2e6b4f","#1a3d2b","#3a7a5a","#0d2e16","#4a8f6a","#163322"],
+  orange:    ["#22523b","#004b23","#2e6b4f","#1a3d2b","#3a7a5a","#0d2e16","#4a8f6a","#163322"],
+  darkOrange:["#22523b","#004b23","#2e6b4f","#1a3d2b","#3a7a5a","#0d2e16","#4a8f6a","#163322"],
 };
 const getChartPalette = (baseHex, mode) => {
   if (mode && CURATED_PALETTES[mode]) return CURATED_PALETTES[mode];
@@ -1423,7 +1421,7 @@ const getChartPalette = (baseHex, mode) => {
       hslToHex(h, Math.min(s-16, 45), 80),
     ];
   } catch(e) {
-    return ["#132a13","#31572c","#4f772d","#386641","#606c38","#c4d97e","#a1c263","#31572c"];
+    return ["#22523b","#004b23","#2e6b4f","#1a3d2b","#3a7a5a","#0d2e16","#4a8f6a","#163322"];
   }
 };
 const CLASS_COLORS = ["#335c67","#718355","#1d2f6f","#C0392B","#E67E22","#9B59B6","#1ABC9C","#E74C3C"]; // fallback only
