@@ -1319,12 +1319,12 @@ const useSupabaseDB = () => {
       "Date":                  r.date||"",
       "Day":                   r.day_of_week||"",
       "Program":               r.program||"",
-      "Male (Beginning)":      r.male_beginning||0,
-      "Female (Beginning)":    r.female_beginning||0,
+      "Male (Starting)":      r.male_beginning||0,
+      "Female (Starting)":    r.female_beginning||0,
       "Sund. Sch. Starting":    r.total_beginning||0,
       "Male (Closing)":        r.male_closing||0,
       "Female (Closing)":      r.female_closing||0,
-      "Sund. Sch. Close":    r.total_closing||0,
+      "Sund. Sch. Closing":    r.total_closing||0,
       "First Timers":          r.first_timers||0,
       "Visitors":              r.visitors||0,
       "Song Leader":           r.song_leader||"",
@@ -2576,7 +2576,7 @@ const DashboardPage = ({ db }) => {
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:12, marginBottom:16 }}>
         <KpiCard label="Sund. Sch. Starting"   value={fmtNum(ssBeginTotal)} sub="At starting"        icon="attendance" color={t.info} />
-        <KpiCard label="Sund. Sch. Close" value={fmtNum(ssTotal)}      sub="At close"          icon="attendance" color={t.gold} />
+        <KpiCard label="Sund. Sch. Closing" value={fmtNum(ssTotal)}      sub="At closing"          icon="attendance" color={t.gold} />
         <KpiCard label="Bibles at Starting"  value={fmtNum(biblesBegin)} sub={`of ${fmtNum(ssBeginTotal)} at starting`}  icon="bible" color="#9B59B6"
           badge={`${bibleBeginRate}% ratio`} badgeGood={bibleBeginRate >= 75 ? true : bibleBeginRate >= 50 ? null : false} />
         <KpiCard label="Bibles at Close"  value={fmtNum(bibles)}      sub={`of ${fmtNum(ssTotal)} at closing`}        icon="bible" color="#7B3FBE"
@@ -2591,7 +2591,7 @@ const DashboardPage = ({ db }) => {
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:12, marginBottom:24 }}>
         <KpiCard label="Church Starting"       value={fmtNum(chBeginTotal)} sub="At starting"         icon="cross"      color={t.info} />
-        <KpiCard label="Church Closing"     value={fmtNum(chTotal)}      sub="At close"           icon="cross"      color="#1A5DC8" />
+        <KpiCard label="Church Closing"     value={fmtNum(chTotal)}      sub="At closing"           icon="cross"      color="#1A5DC8" />
         <KpiCard label="SS Retention"       value={`${retentionRate}%`} sub="SS÷Church"  icon="analytics"  color={retentionRate>=80?t.success:retentionRate>=50?t.warn:t.danger} />
         <KpiCard label="First Timers"       value={fmtNum(fChurch.reduce((s,r)=>s+(Number(r.first_timers)||0),0))} sub="Church only" icon="plus" color="#E67E22" />
         <KpiCard label="Active Teachers"    value={fmtNum(active)}       sub={`of ${teachers.length}`} icon="teachers" color={t.success} />
@@ -2647,7 +2647,7 @@ const DashboardPage = ({ db }) => {
                 <YAxis stroke={t.textMuted} fontSize={11} />
                 <Tooltip {...tooltip} />
                 <Legend wrapperStyle={{ fontSize:11, color:t.textMuted }} />
-                <Bar dataKey="ssClose"  name="Sund. Sch. Close"     fill={t.gold}    radius={[3,3,0,0]} />
+                <Bar dataKey="ssClose"  name="Sund. Sch. Closing"     fill={t.gold}    radius={[3,3,0,0]} />
                 <Bar dataKey="chClose"  name="Church Closing" fill={t.info}    radius={[3,3,0,0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -3734,7 +3734,7 @@ const AttendancePage = ({ db, user, onEditRecord }) => {
       <div style={{ ...card, padding:0, overflowX:"auto" }}>
         <table style={{ width:"100%", borderCollapse:"collapse", minWidth:900 }}>
           <thead><tr style={{ background:t.surfaceAlt }}>
-            {["Date","Class","Teacher","Starting","Closing","Bible Starting","Bible Close","Bible Ratio","First T.","Topic","Status","Actions"].map(h=><th key={h} style={th}>{h}</th>)}
+            {["Date","Class","Teacher","Starting","Closing","Bible Starting","Bible Closing","Bible Ratio","First T.","Topic","Status","Actions"].map(h=><th key={h} style={th}>{h}</th>)}
           </tr></thead>
           <tbody>
             {sorted.map(r=>{
@@ -3986,7 +3986,7 @@ const AnalyticsPage = ({ db }) => {
       <div style={{ fontSize:11, fontWeight:700, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1.2, marginBottom:10 }}>Sunday School</div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(135px,1fr))", gap:12, marginBottom:16 }}>
         <KpiCard label="Sund. Sch. Starting"        value={ssBeginTotal}      sub="At starting"       icon="attendance" color={t.info} />
-        <KpiCard label="Sund. Sch. Close"      value={ssTotal}           sub="At close"         icon="attendance" color={t.gold} />
+        <KpiCard label="Sund. Sch. Closing"      value={ssTotal}           sub="At closing"         icon="attendance" color={t.gold} />
         <KpiCard label="Bible Begin"     value={bibleBeginTotal}   sub="Brought at start" icon="bible"      color="#9B59B6" />
         <KpiCard label="Bible Closing"   value={bibleTotal}        sub={`${bibleRate}% rate`} icon="bible" color="#7B3FBE" />
         <KpiCard label="First Timers"    value={fRec.reduce((s,r)=>s+(Number(r.first_timers)||0),0)} sub="SS" icon="plus" color="#E67E22" />
@@ -3996,7 +3996,7 @@ const AnalyticsPage = ({ db }) => {
       <div style={{ fontSize:11, fontWeight:700, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1.2, marginBottom:10 }}>Church Service</div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(135px,1fr))", gap:12, marginBottom:24 }}>
         <KpiCard label="Church Starting"    value={chBeginTotal}      sub="At starting"       icon="cross"      color={t.info} />
-        <KpiCard label="Church Closing"  value={chTotal}           sub="At close"         icon="cross"      color="#1A5DC8" />
+        <KpiCard label="Church Closing"  value={chTotal}           sub="At closing"         icon="cross"      color="#1A5DC8" />
         <KpiCard label="Avg Retention"   value={`${avgRetention}%`} sub="SS÷Church avg"  icon="analytics"  color={avgRetention>=80?t.success:avgRetention>=60?t.warn:t.danger} />
         <KpiCard label="First Timers"    value={fChurch.reduce((s,r)=>s+(Number(r.first_timers)||0),0)} sub="Church" icon="plus" color="#E67E22" />
         <KpiCard label="Months of Data"  value={allMonths.length}  sub="On record"        icon="settings"   color={t.success} />
@@ -4070,7 +4070,7 @@ const AnalyticsPage = ({ db }) => {
                   <YAxis stroke={t.textMuted} fontSize={11} />
                   <Tooltip {...tooltip} />
                   <Legend wrapperStyle={{ fontSize:11, color:t.textMuted }} />
-                  <Bar dataKey="ssClose"  name="Sund. Sch. Close"     fill={t.gold}  radius={[3,3,0,0]} />
+                  <Bar dataKey="ssClose"  name="Sund. Sch. Closing"     fill={t.gold}  radius={[3,3,0,0]} />
                   <Bar dataKey="chClose"  name="Church Closing" fill={t.info}  radius={[3,3,0,0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -4104,7 +4104,7 @@ const AnalyticsPage = ({ db }) => {
                   <YAxis stroke={t.textMuted} fontSize={11} />
                   <Tooltip {...tooltip} />
                   <Legend wrapperStyle={{ fontSize:11, color:t.textMuted }} />
-                  <Line type="monotone" dataKey="ssClose"  stroke={t.gold}    strokeWidth={2.5} dot={{ fill:t.gold, r:3 }} name="Sund. Sch. Close" />
+                  <Line type="monotone" dataKey="ssClose"  stroke={t.gold}    strokeWidth={2.5} dot={{ fill:t.gold, r:3 }} name="Sund. Sch. Closing" />
                   <Line type="monotone" dataKey="chClose"  stroke={t.info}    strokeWidth={2.5} dot={{ fill:t.info, r:3 }} name="Church Closing" />
                   <Line type="monotone" dataKey="ssBegin"  stroke={t.gold}    strokeWidth={1.5} dot={false} strokeDasharray="4 2" name="Sund. Sch. Starting" />
                   <Line type="monotone" dataKey="chBegin"  stroke={t.info}    strokeWidth={1.5} dot={false} strokeDasharray="4 2" name="Church Starting" />
@@ -4147,7 +4147,7 @@ const AnalyticsPage = ({ db }) => {
                   <XAxis dataKey="label" stroke={t.textMuted} fontSize={10} />
                   <YAxis stroke={t.textMuted} fontSize={11} />
                   <Tooltip {...tooltip} />
-                  <Bar dataKey="ssClose" fill={t.gold} radius={[4,4,0,0]} name="Sund. Sch. Close">
+                  <Bar dataKey="ssClose" fill={t.gold} radius={[4,4,0,0]} name="Sund. Sch. Closing">
                     {monthlyData.map((_,i)=><Cell key={i} fill={chartPalette[i%chartPalette.length]}/>)}
                   </Bar>
                 </BarChart>
@@ -4188,7 +4188,7 @@ const AnalyticsPage = ({ db }) => {
             ) : noData(220)}
           </ChartCard>
 
-          <ChartCard title="Sund. Sch. Starting vs Sund. Sch. Close" sub="How many started vs ended each month — drop-off indicator">
+          <ChartCard title="Sund. Sch. Starting vs Sund. Sch. Closing" sub="How many started vs ended each month — drop-off indicator">
             {monthlyData.length > 0 ? (
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={monthlyData} barCategoryGap="30%">
@@ -4198,7 +4198,7 @@ const AnalyticsPage = ({ db }) => {
                   <Tooltip {...tooltip} />
                   <Legend wrapperStyle={{ fontSize:11, color:t.textMuted }} />
                   <Bar dataKey="ssBegin" name="Sund. Sch. Starting" fill={t.gold+"88"} radius={[3,3,0,0]} />
-                  <Bar dataKey="ssClose" name="Sund. Sch. Close"   fill={t.gold}     radius={[3,3,0,0]} />
+                  <Bar dataKey="ssClose" name="Sund. Sch. Closing"   fill={t.gold}     radius={[3,3,0,0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : noData(220)}
@@ -6767,18 +6767,18 @@ const ChurchAttendancePage = ({ db, user }) => {
             </div>
           </div>
 
-          {/* Attendance grid: Beginning | Closing side by side */}
+          {/* Attendance grid: Starting | Closing side by side */}
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginBottom:16 }}>
             {/* BEGINNING */}
             <div style={{ background:t.surfaceAlt, borderRadius:12, padding:16, border:`1px solid ${t.info}33` }}>
               <div style={{ fontSize:11, fontWeight:700, color:t.info, fontFamily:"'Trebuchet MS',sans-serif",
-                textTransform:"uppercase", letterSpacing:1.5, marginBottom:14 }}>⏵ Beginning Count</div>
+                textTransform:"uppercase", letterSpacing:1.5, marginBottom:14 }}>⏵ Starting Count</div>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:12 }}>
                 {numBox("Male", "male_beginning", t.info)}
                 {numBox("Female", "female_beginning", "#E67E22")}
               </div>
               <div style={{ background:t.surface, borderRadius:8, padding:"10px 14px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                <span style={{ fontSize:12, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}>Total Beginning</span>
+                <span style={{ fontSize:12, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif" }}>Total Starting</span>
                 <span style={{ fontSize:22, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif" }}>{totalBegin}</span>
               </div>
             </div>
@@ -7027,7 +7027,7 @@ const ChurchAttendancePage = ({ db, user }) => {
                 <td style={td}>
                   <span style={{ fontWeight:600, color:t.gold, fontFamily:"'Trebuchet MS',sans-serif" }}>{r.program}</span>
                 </td>
-                {/* Beginning Male/Female */}
+                {/* Starting Male/Female */}
                 <td style={td}>
                   <span style={{ color:t.info }}>{r.male_beginning||0}M</span>
                   <span style={{ color:t.textFaint, margin:"0 4px" }}>·</span>
@@ -8330,19 +8330,19 @@ const SSReportPage = ({ db }) => {
     const data = rows.map(r => ({
       "Class":            r.cls,
       "Sund. Sch. Starting":         r.ssBegin,
-      "Sund. Sch. Close":         r.ssClose,
+      "Sund. Sch. Closing":         r.ssClose,
       "Bible Begin":      r.bibBegin,
-      "Bible Close":      r.bibClose,
+      "Bible Closing":      r.bibClose,
       "Male":             r.male,
       "Female":           r.female,
       "First Timers":     r.firstT,
       "Visitors":         r.visitors,
       "Prev Sund. Sch. Starting":    r.dSSBegin  ? r.ssBegin  - r.dSSBegin.d  : "",
-      "Prev Sund. Sch. Close":    r.dSSClose  ? r.ssClose  - r.dSSClose.d  : "",
+      "Prev Sund. Sch. Closing":    r.dSSClose  ? r.ssClose  - r.dSSClose.d  : "",
       "Prev Bible Begin": r.dBibBegin ? r.bibBegin - r.dBibBegin.d : "",
-      "Prev Bible Close": r.dBibClose ? r.bibClose - r.dBibClose.d : "",
+      "Prev Bible Closing": r.dBibClose ? r.bibClose - r.dBibClose.d : "",
       "Sund. Sch. Starting Diff":    r.dSSBegin?.d  ?? "",
-      "Sund. Sch. Close Diff":    r.dSSClose?.d  ?? "",
+      "Sund. Sch. Closing Diff":    r.dSSClose?.d  ?? "",
       "Date":             currentDate,
       "Prev Date":        prevDate,
     }));
@@ -8450,9 +8450,9 @@ const SSReportPage = ({ db }) => {
       {/* Summary KPIs */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))", gap:12, marginBottom:20 }}>
         <KpiCard label="Sund. Sch. Starting"     value={fmtNum(tot("ssBegin"))}  sub="Current session" icon="attendance" color={t.info} />
-        <KpiCard label="Sund. Sch. Close"   value={fmtNum(tot("ssClose"))}  sub="Current session" icon="attendance" color={t.gold} />
+        <KpiCard label="Sund. Sch. Closing"   value={fmtNum(tot("ssClose"))}  sub="Current session" icon="attendance" color={t.gold} />
         <KpiCard label="Bible Begin"  value={fmtNum(tot("bibBegin"))} sub="Current session" icon="bible"      color="#9B59B6" />
-        <KpiCard label="Bible Close"  value={fmtNum(tot("bibClose"))} sub="Current session" icon="bible"      color="#7B3FBE" />
+        <KpiCard label="Bible Closing"  value={fmtNum(tot("bibClose"))} sub="Current session" icon="bible"      color="#7B3FBE" />
         <KpiCard label="First Timers" value={fmtNum(tot("firstT"))}   sub="Current session" icon="plus"       color="#E67E22" />
         <KpiCard label="Visitors"     value={fmtNum(tot("visitors"))} sub="Current session" icon="eye"        color={t.success} />
       </div>
@@ -8482,13 +8482,13 @@ const SSReportPage = ({ db }) => {
             <tr style={{ background:t.surfaceAlt }}>
               <th style={{ ...thS, color:t.gold, minWidth:160 }}>Class</th>
               <th style={{ ...thS, color:t.info }}>Sund. Sch. Starting</th>
-              <th style={{ ...thS, color:t.gold }}>Sund. Sch. Close</th>
+              <th style={{ ...thS, color:t.gold }}>Sund. Sch. Closing</th>
               <th style={{ ...thS, color:"#9B59B6" }}>Bible Begin</th>
-              <th style={{ ...thS, color:"#7B3FBE", borderRight:`2px solid ${t.border}` }}>Bible Close</th>
+              <th style={{ ...thS, color:"#7B3FBE", borderRight:`2px solid ${t.border}` }}>Bible Closing</th>
               <th style={{ ...thS, color:t.info }}>Prev. Sund. Sch. Starting</th>
-              <th style={{ ...thS, color:t.gold }}>Prev. Sund. Sch. Close</th>
+              <th style={{ ...thS, color:t.gold }}>Prev. Sund. Sch. Closing</th>
               <th style={{ ...thS, color:"#9B59B6" }}>Prev.Bible Begin</th>
-              <th style={{ ...thS, color:"#7B3FBE", borderRight:`2px solid ${t.border}` }}>Prev.Bible Close</th>
+              <th style={{ ...thS, color:"#7B3FBE", borderRight:`2px solid ${t.border}` }}>Prev.Bible Closing</th>
               <th style={{ ...thS, color:"#E67E22" }}>Male / Female</th>
               <th style={{ ...thS, color:t.success }}>1st T / Visitors</th>
             </tr>
