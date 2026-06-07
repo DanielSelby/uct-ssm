@@ -1321,7 +1321,7 @@ const useSupabaseDB = () => {
       "Program":               r.program||"",
       "Male (Beginning)":      r.male_beginning||0,
       "Female (Beginning)":    r.female_beginning||0,
-      "Sund. Sch. Begin":    r.total_beginning||0,
+      "Sund. Sch. Starting":    r.total_beginning||0,
       "Male (Closing)":        r.male_closing||0,
       "Female (Closing)":      r.female_closing||0,
       "Sund. Sch. Close":    r.total_closing||0,
@@ -1478,97 +1478,166 @@ const Icon = ({ name, size=18, color="currentColor" }) => (
 // ─── ANIMATED BIBLE ───────────────────────────────────────────────────────────
 // Rendered inline in the sidebar header / loading screen
 const AnimatedBible = ({ size = 48 }) => {
-  const styleId = "uct-bible-anim";
+  const styleId = "uct-bible-flip";
   useEffect(() => {
     if (document.getElementById(styleId)) return;
     const s = document.createElement("style");
     s.id = styleId;
     s.textContent = `
-      @keyframes biblePageLeft  { 0%,100%{transform:rotateY(0deg)}   50%{transform:rotateY(-28deg)} }
-      @keyframes biblePageRight { 0%,100%{transform:rotateY(0deg)}   50%{transform:rotateY(28deg)} }
-      @keyframes bibleGlow      { 0%,100%{opacity:0.55} 50%{opacity:1} }
-      @keyframes bibleFloat     { 0%,100%{transform:translateY(0px)} 50%{transform:translateY(-4px)} }
-      @keyframes bibleSpine     { 0%,100%{opacity:0.7} 50%{opacity:1} }
-      .bible-wrap   { animation: bibleFloat 2.8s ease-in-out infinite; display:inline-block; }
-      .bible-left   { transform-origin: right center; animation: biblePageLeft  2.8s ease-in-out infinite; }
-      .bible-right  { transform-origin: left center;  animation: biblePageRight 2.8s ease-in-out infinite; }
-      .bible-glow   { animation: bibleGlow 2.8s ease-in-out infinite; }
-      .bible-spine  { animation: bibleSpine 2.8s ease-in-out infinite; }
+      @keyframes bibleFloat3 {
+        0%,100% { transform: translateY(0px); }
+        50%      { transform: translateY(-4px); }
+      }
+      @keyframes pageFlipL {
+        0%   { transform: rotateY(0deg);   opacity:1; }
+        40%  { transform: rotateY(-70deg); opacity:1; }
+        50%  { transform: rotateY(-90deg); opacity:0; }
+        51%  { transform: rotateY(90deg);  opacity:0; }
+        60%  { transform: rotateY(70deg);  opacity:1; }
+        100% { transform: rotateY(0deg);   opacity:1; }
+      }
+      @keyframes pageFlipR {
+        0%   { transform: rotateY(0deg);  opacity:1; }
+        40%  { transform: rotateY(70deg); opacity:1; }
+        50%  { transform: rotateY(90deg); opacity:0; }
+        51%  { transform: rotateY(-90deg);opacity:0; }
+        60%  { transform: rotateY(-70deg);opacity:1; }
+        100% { transform: rotateY(0deg);  opacity:1; }
+      }
+      @keyframes glowPulse {
+        0%,100% { opacity:0.35; transform:scaleX(0.7); }
+        50%     { opacity:0.65; transform:scaleX(1); }
+      }
+      .bf-wrap  { animation: bibleFloat3 3s ease-in-out infinite; display:inline-block; }
+      .bf-pageL { transform-origin: right center; animation: pageFlipL 2s ease-in-out infinite; }
+      .bf-pageR { transform-origin: left center;  animation: pageFlipR 2s ease-in-out 0.15s infinite; }
+      .bf-glow  { animation: glowPulse 3s ease-in-out infinite; }
     `;
     document.head.appendChild(s);
   }, []);
 
-  const w = size, h = size * 0.75;
-  const bookW = w * 0.44, bookH = h * 0.82;
-  const spineW = w * 0.07;
-  const cx = w / 2, cy = h / 2;
+  const W = size * 2.0;
+  const H = size * 1.2;
+  const cx = W / 2;
+  const cy = H / 2;
+  const bookH = H * 0.82;
+  const halfW = W * 0.46;
+  const spineW = W * 0.04;
+  const coverDepth = H * 0.07;
+  // page lines helper
+  const lines = (x0, x1, yBase, hFrac, n, color, sw) =>
+    Array.from({length: n}, (_, i) => {
+      const y = yBase + hFrac * (0.2 + i * 0.18);
+      return `<line x1="${x0}" y1="${y}" x2="${x1}" y2="${y}" stroke="${color}" stroke-width="${sw}" stroke-linecap="round"/>`;
+    }).join("");
+
+  const coverColor = "#c9a84c";
+  const coverEdge  = "#a07830";
+  const spineCol   = "#b89040";
+  const pageCol    = "#f5eedc";
+  const pageShadow = "#d4c9a8";
+  const lineCol    = "#c8bfa0";
+  const lineW      = size * 0.018;
+  const yTop       = cy - bookH / 2;
+
+  // Left cover (static)
+  const lx0 = cx - spineW / 2 - halfW;
+  const lx1 = cx - spineW / 2;
+  // Right cover (static)
+  const rx0 = cx + spineW / 2;
+  const rx1 = cx + spineW / 2 + halfW;
+
+  const svgContent = `
+    <defs>
+      <linearGradient id="bfCovL" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="${coverColor}"/>
+        <stop offset="100%" stop-color="${coverEdge}"/>
+      </linearGradient>
+      <linearGradient id="bfCovR" x1="1" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${coverColor}"/>
+        <stop offset="100%" stop-color="${coverEdge}"/>
+      </linearGradient>
+      <linearGradient id="bfSpine" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="${coverEdge}"/>
+        <stop offset="50%" stop-color="${spineCol}"/>
+        <stop offset="100%" stop-color="${coverEdge}"/>
+      </linearGradient>
+      <linearGradient id="bfPageL" x1="1" y1="0" x2="0" y2="0">
+        <stop offset="0%" stop-color="${pageShadow}"/>
+        <stop offset="100%" stop-color="${pageCol}"/>
+      </linearGradient>
+      <linearGradient id="bfPageR" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="${pageShadow}"/>
+        <stop offset="100%" stop-color="${pageCol}"/>
+      </linearGradient>
+      <filter id="bfShadow">
+        <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="rgba(0,0,0,0.4)"/>
+      </filter>
+    </defs>
+
+    <!-- Glow beneath -->
+    <ellipse class="bf-glow" cx="${cx}" cy="${cy + bookH * 0.52}" rx="${halfW * 0.75}" ry="${H * 0.055}"
+      fill="rgba(180,150,60,0.4)"/>
+
+    <!-- LEFT static cover -->
+    <rect x="${lx0}" y="${yTop}" width="${halfW}" height="${bookH}" rx="${size * 0.02}"
+      fill="url(#bfCovL)" filter="url(#bfShadow)"/>
+    <!-- cover gold border -->
+    <rect x="${lx0 + size*0.03}" y="${yTop + size*0.04}" width="${halfW - size*0.06}" height="${bookH - size*0.08}"
+      rx="${size*0.01}" fill="none" stroke="rgba(220,180,80,0.45)" stroke-width="${size*0.02}"/>
+    <!-- cross on left cover -->
+    <line x1="${lx0 + halfW*0.5}" y1="${yTop + bookH*0.28}" x2="${lx0 + halfW*0.5}" y2="${yTop + bookH*0.58}"
+      stroke="rgba(220,180,80,0.6)" stroke-width="${size*0.04}" stroke-linecap="round"/>
+    <line x1="${lx0 + halfW*0.28}" y1="${yTop + bookH*0.38}" x2="${lx0 + halfW*0.72}" y2="${yTop + bookH*0.38}"
+      stroke="rgba(220,180,80,0.6)" stroke-width="${size*0.04}" stroke-linecap="round"/>
+
+    <!-- LEFT flipping page (animates) -->
+    <g class="bf-pageL">
+      <rect x="${lx0 + size*0.04}" y="${yTop + size*0.025}" width="${halfW - size*0.06}" height="${bookH - size*0.05}"
+        fill="url(#bfPageL)" rx="${size*0.01}"/>
+      ${lines(lx0 + size*0.12, lx1 - size*0.06, yTop, bookH, 5, lineCol, lineW)}
+      <!-- tiny text-like squiggles -->
+      <rect x="${lx0+size*0.12}" y="${yTop+bookH*0.22}" width="${halfW*0.55}" height="${size*0.013}" rx="${size*0.006}" fill="${lineCol}" opacity="0.6"/>
+      <rect x="${lx0+size*0.12}" y="${yTop+bookH*0.32}" width="${halfW*0.7}" height="${size*0.013}" rx="${size*0.006}" fill="${lineCol}" opacity="0.6"/>
+      <rect x="${lx0+size*0.12}" y="${yTop+bookH*0.42}" width="${halfW*0.6}" height="${size*0.013}" rx="${size*0.006}" fill="${lineCol}" opacity="0.6"/>
+      <rect x="${lx0+size*0.12}" y="${yTop+bookH*0.52}" width="${halfW*0.65}" height="${size*0.013}" rx="${size*0.006}" fill="${lineCol}" opacity="0.6"/>
+      <rect x="${lx0+size*0.12}" y="${yTop+bookH*0.62}" width="${halfW*0.5}" height="${size*0.013}" rx="${size*0.006}" fill="${lineCol}" opacity="0.6"/>
+    </g>
+
+    <!-- RIGHT static cover -->
+    <rect x="${rx0}" y="${yTop}" width="${halfW}" height="${bookH}" rx="${size * 0.02}"
+      fill="url(#bfCovR)" filter="url(#bfShadow)"/>
+    <rect x="${rx0 + size*0.03}" y="${yTop + size*0.04}" width="${halfW - size*0.06}" height="${bookH - size*0.08}"
+      rx="${size*0.01}" fill="none" stroke="rgba(220,180,80,0.45)" stroke-width="${size*0.02}"/>
+
+    <!-- RIGHT flipping page (animates) -->
+    <g class="bf-pageR">
+      <rect x="${rx0 + size*0.02}" y="${yTop + size*0.025}" width="${halfW - size*0.06}" height="${bookH - size*0.05}"
+        fill="url(#bfPageR)" rx="${size*0.01}"/>
+      ${lines(rx0 + size*0.06, rx1 - size*0.12, yTop, bookH, 5, lineCol, lineW)}
+      <rect x="${rx0+size*0.1}" y="${yTop+bookH*0.22}" width="${halfW*0.6}" height="${size*0.013}" rx="${size*0.006}" fill="${lineCol}" opacity="0.6"/>
+      <rect x="${rx0+size*0.1}" y="${yTop+bookH*0.32}" width="${halfW*0.72}" height="${size*0.013}" rx="${size*0.006}" fill="${lineCol}" opacity="0.6"/>
+      <rect x="${rx0+size*0.1}" y="${yTop+bookH*0.42}" width="${halfW*0.55}" height="${size*0.013}" rx="${size*0.006}" fill="${lineCol}" opacity="0.6"/>
+      <rect x="${rx0+size*0.1}" y="${yTop+bookH*0.52}" width="${halfW*0.68}" height="${size*0.013}" rx="${size*0.006}" fill="${lineCol}" opacity="0.6"/>
+      <rect x="${rx0+size*0.1}" y="${yTop+bookH*0.62}" width="${halfW*0.52}" height="${size*0.013}" rx="${size*0.006}" fill="${lineCol}" opacity="0.6"/>
+    </g>
+
+    <!-- Spine (on top) -->
+    <rect x="${cx - spineW/2}" y="${yTop}" width="${spineW}" height="${bookH}"
+      fill="url(#bfSpine)"/>
+    <!-- spine ribbon bookmark -->
+    <rect x="${cx - spineW*0.18}" y="${yTop}" width="${spineW*0.36}" height="${bookH*0.55}"
+      fill="rgba(160,120,40,0.85)" rx="1"/>
+    <polygon points="${cx - spineW*0.18},${yTop + bookH*0.55} ${cx},${yTop + bookH*0.62} ${cx + spineW*0.18},${yTop + bookH*0.55}"
+      fill="rgba(160,120,40,0.85)"/>
+  `;
 
   return (
-    <div className="bible-wrap" style={{ width:w, height:h, position:"relative", display:"inline-flex", alignItems:"center", justifyContent:"center" }}>
-      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ overflow:"visible" }}>
-        <defs>
-          <linearGradient id="bgl" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#d4a843" />
-            <stop offset="100%" stopColor="#a8832a" />
-          </linearGradient>
-          <linearGradient id="bgr" x1="1" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#c49b38" />
-            <stop offset="100%" stopColor="#8c6b1e" />
-          </linearGradient>
-          <linearGradient id="bgs" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#7a5a14" />
-            <stop offset="100%" stopColor="#b8942e" />
-          </linearGradient>
-          <filter id="bglow">
-            <feGaussianBlur stdDeviation="2" result="blur"/>
-            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-          </filter>
-        </defs>
-
-        {/* Glow beneath */}
-        <ellipse className="bible-glow" cx={cx} cy={h*0.93} rx={bookW*0.7} ry={h*0.06}
-          fill="rgba(212,168,67,0.35)" />
-
-        {/* LEFT page */}
-        <g className="bible-left">
-          <rect x={cx - spineW/2 - bookW} y={cy - bookH/2}
-            width={bookW} height={bookH} rx={size*0.025}
-            fill="url(#bgl)" stroke="#8c6b1e" strokeWidth={size*0.018} />
-          {/* Page lines */}
-          {[0.28,0.42,0.56,0.70].map((f,i) => (
-            <line key={i}
-              x1={cx - spineW/2 - bookW + bookW*0.12} y1={cy - bookH/2 + bookH*f}
-              x2={cx - spineW/2 - bookW*0.12}         y2={cy - bookH/2 + bookH*f}
-              stroke="rgba(255,255,255,0.35)" strokeWidth={size*0.018} strokeLinecap="round"/>
-          ))}
-          {/* Cross symbol on left */}
-          <line x1={cx - spineW/2 - bookW*0.56} y1={cy - bookH*0.22}
-                x2={cx - spineW/2 - bookW*0.56} y2={cy + bookH*0.14}
-                stroke="rgba(255,255,255,0.55)" strokeWidth={size*0.033} strokeLinecap="round"/>
-          <line x1={cx - spineW/2 - bookW*0.72} y1={cy - bookH*0.08}
-                x2={cx - spineW/2 - bookW*0.40} y2={cy - bookH*0.08}
-                stroke="rgba(255,255,255,0.55)" strokeWidth={size*0.033} strokeLinecap="round"/>
-        </g>
-
-        {/* RIGHT page */}
-        <g className="bible-right">
-          <rect x={cx + spineW/2} y={cy - bookH/2}
-            width={bookW} height={bookH} rx={size*0.025}
-            fill="url(#bgr)" stroke="#8c6b1e" strokeWidth={size*0.018} />
-          {[0.28,0.42,0.56,0.70].map((f,i) => (
-            <line key={i}
-              x1={cx + spineW/2 + bookW*0.12} y1={cy - bookH/2 + bookH*f}
-              x2={cx + spineW/2 + bookW*0.88} y2={cy - bookH/2 + bookH*f}
-              stroke="rgba(255,255,255,0.28)" strokeWidth={size*0.018} strokeLinecap="round"/>
-          ))}
-        </g>
-
-        {/* Spine */}
-        <rect className="bible-spine"
-          x={cx - spineW/2} y={cy - bookH/2}
-          width={spineW} height={bookH}
-          fill="url(#bgs)" />
-      </svg>
+    <div className="bf-wrap" style={{ display:"inline-flex", alignItems:"center", justifyContent:"center" }}>
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}
+        style={{ overflow:"visible" }}
+        dangerouslySetInnerHTML={{ __html: svgContent }}
+      />
     </div>
   );
 };
@@ -2506,9 +2575,9 @@ const DashboardPage = ({ db }) => {
         Sunday School
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:12, marginBottom:16 }}>
-        <KpiCard label="Sund. Sch. Begin"   value={fmtNum(ssBeginTotal)} sub="At opening"        icon="attendance" color={t.info} />
+        <KpiCard label="Sund. Sch. Starting"   value={fmtNum(ssBeginTotal)} sub="At starting"        icon="attendance" color={t.info} />
         <KpiCard label="Sund. Sch. Close" value={fmtNum(ssTotal)}      sub="At close"          icon="attendance" color={t.gold} />
-        <KpiCard label="Bibles at Begin"  value={fmtNum(biblesBegin)} sub={`of ${fmtNum(ssBeginTotal)} at opening`}  icon="bible" color="#9B59B6"
+        <KpiCard label="Bibles at Starting"  value={fmtNum(biblesBegin)} sub={`of ${fmtNum(ssBeginTotal)} at starting`}  icon="bible" color="#9B59B6"
           badge={`${bibleBeginRate}% ratio`} badgeGood={bibleBeginRate >= 75 ? true : bibleBeginRate >= 50 ? null : false} />
         <KpiCard label="Bibles at Close"  value={fmtNum(bibles)}      sub={`of ${fmtNum(ssTotal)} at closing`}        icon="bible" color="#7B3FBE"
           badge={`${bibleRate}% ratio`}      badgeGood={bibleRate >= 75 ? true : bibleRate >= 50 ? null : false} />
@@ -2521,7 +2590,7 @@ const DashboardPage = ({ db }) => {
         Church Service
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:12, marginBottom:24 }}>
-        <KpiCard label="Church Begin"       value={fmtNum(chBeginTotal)} sub="At opening"         icon="cross"      color={t.info} />
+        <KpiCard label="Church Starting"       value={fmtNum(chBeginTotal)} sub="At starting"         icon="cross"      color={t.info} />
         <KpiCard label="Church Closing"     value={fmtNum(chTotal)}      sub="At close"           icon="cross"      color="#1A5DC8" />
         <KpiCard label="SS Retention"       value={`${retentionRate}%`} sub="SS÷Church"  icon="analytics"  color={retentionRate>=80?t.success:retentionRate>=50?t.warn:t.danger} />
         <KpiCard label="First Timers"       value={fmtNum(fChurch.reduce((s,r)=>s+(Number(r.first_timers)||0),0))} sub="Church only" icon="plus" color="#E67E22" />
@@ -2585,7 +2654,7 @@ const DashboardPage = ({ db }) => {
           ) : <div style={{ height:220, display:"flex", alignItems:"center", justifyContent:"center", color:t.textMuted, fontSize:13, fontFamily:"'Trebuchet MS',sans-serif" }}>Record both SS and Church attendance on the same date to see comparison</div>}
         </ChartCard>
 
-        <ChartCard title="SS vs Church Beginning — by Date"
+        <ChartCard title="SS vs Church Starting — by Date"
           sub="Compares how many people arrived at Sunday School vs the church service">
           {compData.length > 0 ? (
             <ResponsiveContainer width="100%" height={220}>
@@ -2595,8 +2664,8 @@ const DashboardPage = ({ db }) => {
                 <YAxis stroke={t.textMuted} fontSize={11} />
                 <Tooltip {...tooltip} />
                 <Legend wrapperStyle={{ fontSize:11, color:t.textMuted }} />
-                <Bar dataKey="ssBegin"  name="Sund. Sch. Begin"     fill={t.goldDark||"#9A7A2C"} radius={[3,3,0,0]} />
-                <Bar dataKey="chBegin"  name="Church Beginning" fill="#4A9EDB88"   radius={[3,3,0,0]} />
+                <Bar dataKey="ssBegin"  name="Sund. Sch. Starting"     fill={t.goldDark||"#9A7A2C"} radius={[3,3,0,0]} />
+                <Bar dataKey="chBegin"  name="Church Starting" fill="#4A9EDB88"   radius={[3,3,0,0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : <div style={{ height:220, display:"flex", alignItems:"center", justifyContent:"center", color:t.textMuted, fontSize:13, fontFamily:"'Trebuchet MS',sans-serif" }}>No overlapping dates found yet</div>}
@@ -2756,7 +2825,7 @@ const BulkRowCard = ({ row, idx, t, lbl, inp, sel, card, GF, FF, toggleExpand, u
           </div>
           <div style={{ fontSize:11, fontWeight:700, color:t.gold, fontFamily:FF, textTransform:"uppercase", letterSpacing:1.2, marginBottom:8 }}>Attendance</div>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:8, marginBottom:14 }}>
-            {[["total_beginning","Begin"],["total_closing","Closing"],["male_present","Male"],
+            {[["total_beginning","Starting"],["total_closing","Closing"],["male_present","Male"],
               ["female_present","Female"],["first_timers","1st Timers"],["visitors","Visitors"],["absent_members","Absent"]].map(([k,label])=>(
               <div key={k} style={{ display:"flex", flexDirection:"column", gap:3 }}>
                 <label style={{ fontSize:10, color:t.textMuted, fontFamily:FF }}>{label}</label>
@@ -2767,7 +2836,7 @@ const BulkRowCard = ({ row, idx, t, lbl, inp, sel, card, GF, FF, toggleExpand, u
           </div>
           <div style={{ fontSize:11, fontWeight:700, color:t.gold, fontFamily:FF, textTransform:"uppercase", letterSpacing:1.2, marginBottom:8 }}>Bibles</div>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8, marginBottom:14 }}>
-            {[["bibles_beginning","Begin"],["bibles_closing","Closing"],["members_without_bibles","Without"]].map(([k,label])=>(
+            {[["bibles_beginning","Starting"],["bibles_closing","Closing"],["members_without_bibles","Without"]].map(([k,label])=>(
               <div key={k} style={{ display:"flex", flexDirection:"column", gap:3 }}>
                 <label style={{ fontSize:10, color:t.textMuted, fontFamily:FF }}>{label}</label>
                 <input style={{ ...inp, fontSize:12, padding:"5px 8px" }} type="number" value={row[k]}
@@ -3665,7 +3734,7 @@ const AttendancePage = ({ db, user, onEditRecord }) => {
       <div style={{ ...card, padding:0, overflowX:"auto" }}>
         <table style={{ width:"100%", borderCollapse:"collapse", minWidth:900 }}>
           <thead><tr style={{ background:t.surfaceAlt }}>
-            {["Date","Class","Teacher","Begin","Closing","Bible Begin","Bible Close","Bible Ratio","First T.","Topic","Status","Actions"].map(h=><th key={h} style={th}>{h}</th>)}
+            {["Date","Class","Teacher","Starting","Closing","Bible Starting","Bible Close","Bible Ratio","First T.","Topic","Status","Actions"].map(h=><th key={h} style={th}>{h}</th>)}
           </tr></thead>
           <tbody>
             {sorted.map(r=>{
@@ -3916,7 +3985,7 @@ const AnalyticsPage = ({ db }) => {
       {/* KPI Summary — SS */}
       <div style={{ fontSize:11, fontWeight:700, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1.2, marginBottom:10 }}>Sunday School</div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(135px,1fr))", gap:12, marginBottom:16 }}>
-        <KpiCard label="Sund. Sch. Begin"        value={ssBeginTotal}      sub="At opening"       icon="attendance" color={t.info} />
+        <KpiCard label="Sund. Sch. Starting"        value={ssBeginTotal}      sub="At starting"       icon="attendance" color={t.info} />
         <KpiCard label="Sund. Sch. Close"      value={ssTotal}           sub="At close"         icon="attendance" color={t.gold} />
         <KpiCard label="Bible Begin"     value={bibleBeginTotal}   sub="Brought at start" icon="bible"      color="#9B59B6" />
         <KpiCard label="Bible Closing"   value={bibleTotal}        sub={`${bibleRate}% rate`} icon="bible" color="#7B3FBE" />
@@ -3926,7 +3995,7 @@ const AnalyticsPage = ({ db }) => {
       {/* KPI Summary — Church */}
       <div style={{ fontSize:11, fontWeight:700, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", textTransform:"uppercase", letterSpacing:1.2, marginBottom:10 }}>Church Service</div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(135px,1fr))", gap:12, marginBottom:24 }}>
-        <KpiCard label="Church Begin"    value={chBeginTotal}      sub="At opening"       icon="cross"      color={t.info} />
+        <KpiCard label="Church Starting"    value={chBeginTotal}      sub="At starting"       icon="cross"      color={t.info} />
         <KpiCard label="Church Closing"  value={chTotal}           sub="At close"         icon="cross"      color="#1A5DC8" />
         <KpiCard label="Avg Retention"   value={`${avgRetention}%`} sub="SS÷Church avg"  icon="analytics"  color={avgRetention>=80?t.success:avgRetention>=60?t.warn:t.danger} />
         <KpiCard label="First Timers"    value={fChurch.reduce((s,r)=>s+(Number(r.first_timers)||0),0)} sub="Church" icon="plus" color="#E67E22" />
@@ -4008,7 +4077,7 @@ const AnalyticsPage = ({ db }) => {
             ) : noData(240)}
           </ChartCard>
 
-          <ChartCard title="SS vs Church Beginning — by Date"
+          <ChartCard title="SS vs Church Starting — by Date"
             sub="How many arrived at Sunday School vs. the church service at opening" span={2}>
             {compData.length > 0 ? (
               <ResponsiveContainer width="100%" height={220}>
@@ -4018,8 +4087,8 @@ const AnalyticsPage = ({ db }) => {
                   <YAxis stroke={t.textMuted} fontSize={11} />
                   <Tooltip {...tooltip} />
                   <Legend wrapperStyle={{ fontSize:11, color:t.textMuted }} />
-                  <Bar dataKey="ssBegin"  name="Sund. Sch. Begin"     fill="#9A7A2C" radius={[3,3,0,0]} />
-                  <Bar dataKey="chBegin"  name="Church Beginning" fill="#4A9EDB88" radius={[3,3,0,0]} />
+                  <Bar dataKey="ssBegin"  name="Sund. Sch. Starting"     fill="#9A7A2C" radius={[3,3,0,0]} />
+                  <Bar dataKey="chBegin"  name="Church Starting" fill="#4A9EDB88" radius={[3,3,0,0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : noData(220)}
@@ -4037,8 +4106,8 @@ const AnalyticsPage = ({ db }) => {
                   <Legend wrapperStyle={{ fontSize:11, color:t.textMuted }} />
                   <Line type="monotone" dataKey="ssClose"  stroke={t.gold}    strokeWidth={2.5} dot={{ fill:t.gold, r:3 }} name="Sund. Sch. Close" />
                   <Line type="monotone" dataKey="chClose"  stroke={t.info}    strokeWidth={2.5} dot={{ fill:t.info, r:3 }} name="Church Closing" />
-                  <Line type="monotone" dataKey="ssBegin"  stroke={t.gold}    strokeWidth={1.5} dot={false} strokeDasharray="4 2" name="Sund. Sch. Begin" />
-                  <Line type="monotone" dataKey="chBegin"  stroke={t.info}    strokeWidth={1.5} dot={false} strokeDasharray="4 2" name="Church Beginning" />
+                  <Line type="monotone" dataKey="ssBegin"  stroke={t.gold}    strokeWidth={1.5} dot={false} strokeDasharray="4 2" name="Sund. Sch. Starting" />
+                  <Line type="monotone" dataKey="chBegin"  stroke={t.info}    strokeWidth={1.5} dot={false} strokeDasharray="4 2" name="Church Starting" />
                 </LineChart>
               </ResponsiveContainer>
             ) : noData(210)}
@@ -4119,7 +4188,7 @@ const AnalyticsPage = ({ db }) => {
             ) : noData(220)}
           </ChartCard>
 
-          <ChartCard title="Sund. Sch. Begin vs Sund. Sch. Close" sub="How many started vs ended each month — drop-off indicator">
+          <ChartCard title="Sund. Sch. Starting vs Sund. Sch. Close" sub="How many started vs ended each month — drop-off indicator">
             {monthlyData.length > 0 ? (
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={monthlyData} barCategoryGap="30%">
@@ -4128,7 +4197,7 @@ const AnalyticsPage = ({ db }) => {
                   <YAxis stroke={t.textMuted} fontSize={11} />
                   <Tooltip {...tooltip} />
                   <Legend wrapperStyle={{ fontSize:11, color:t.textMuted }} />
-                  <Bar dataKey="ssBegin" name="Sund. Sch. Begin" fill={t.gold+"88"} radius={[3,3,0,0]} />
+                  <Bar dataKey="ssBegin" name="Sund. Sch. Starting" fill={t.gold+"88"} radius={[3,3,0,0]} />
                   <Bar dataKey="ssClose" name="Sund. Sch. Close"   fill={t.gold}     radius={[3,3,0,0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -4154,7 +4223,7 @@ const AnalyticsPage = ({ db }) => {
                   <YAxis stroke={t.textMuted} fontSize={11} />
                   <Tooltip {...tooltip} />
                   <Area type="monotone" dataKey="chClose" stroke={t.info} fill="url(#gCM)" strokeWidth={2.5} name="Church Closing" />
-                  <Area type="monotone" dataKey="chBegin" stroke={t.info} fill="transparent" strokeWidth={1.5} strokeDasharray="4 2" name="Church Beginning" />
+                  <Area type="monotone" dataKey="chBegin" stroke={t.info} fill="transparent" strokeWidth={1.5} strokeDasharray="4 2" name="Church Starting" />
                 </AreaChart>
               </ResponsiveContainer>
             ) : noData(220)}
@@ -8260,7 +8329,7 @@ const SSReportPage = ({ db }) => {
     if (!XLSX_mod) { alert("XLSX not available"); return; }
     const data = rows.map(r => ({
       "Class":            r.cls,
-      "Sund. Sch. Begin":         r.ssBegin,
+      "Sund. Sch. Starting":         r.ssBegin,
       "Sund. Sch. Close":         r.ssClose,
       "Bible Begin":      r.bibBegin,
       "Bible Close":      r.bibClose,
@@ -8268,11 +8337,11 @@ const SSReportPage = ({ db }) => {
       "Female":           r.female,
       "First Timers":     r.firstT,
       "Visitors":         r.visitors,
-      "Prev Sund. Sch. Begin":    r.dSSBegin  ? r.ssBegin  - r.dSSBegin.d  : "",
+      "Prev Sund. Sch. Starting":    r.dSSBegin  ? r.ssBegin  - r.dSSBegin.d  : "",
       "Prev Sund. Sch. Close":    r.dSSClose  ? r.ssClose  - r.dSSClose.d  : "",
       "Prev Bible Begin": r.dBibBegin ? r.bibBegin - r.dBibBegin.d : "",
       "Prev Bible Close": r.dBibClose ? r.bibClose - r.dBibClose.d : "",
-      "Sund. Sch. Begin Diff":    r.dSSBegin?.d  ?? "",
+      "Sund. Sch. Starting Diff":    r.dSSBegin?.d  ?? "",
       "Sund. Sch. Close Diff":    r.dSSClose?.d  ?? "",
       "Date":             currentDate,
       "Prev Date":        prevDate,
@@ -8380,7 +8449,7 @@ const SSReportPage = ({ db }) => {
 
       {/* Summary KPIs */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))", gap:12, marginBottom:20 }}>
-        <KpiCard label="Sund. Sch. Begin"     value={fmtNum(tot("ssBegin"))}  sub="Current session" icon="attendance" color={t.info} />
+        <KpiCard label="Sund. Sch. Starting"     value={fmtNum(tot("ssBegin"))}  sub="Current session" icon="attendance" color={t.info} />
         <KpiCard label="Sund. Sch. Close"   value={fmtNum(tot("ssClose"))}  sub="Current session" icon="attendance" color={t.gold} />
         <KpiCard label="Bible Begin"  value={fmtNum(tot("bibBegin"))} sub="Current session" icon="bible"      color="#9B59B6" />
         <KpiCard label="Bible Close"  value={fmtNum(tot("bibClose"))} sub="Current session" icon="bible"      color="#7B3FBE" />
@@ -8412,11 +8481,11 @@ const SSReportPage = ({ db }) => {
             {/* Column headers */}
             <tr style={{ background:t.surfaceAlt }}>
               <th style={{ ...thS, color:t.gold, minWidth:160 }}>Class</th>
-              <th style={{ ...thS, color:t.info }}>Sund. Sch. Begin</th>
+              <th style={{ ...thS, color:t.info }}>Sund. Sch. Starting</th>
               <th style={{ ...thS, color:t.gold }}>Sund. Sch. Close</th>
               <th style={{ ...thS, color:"#9B59B6" }}>Bible Begin</th>
               <th style={{ ...thS, color:"#7B3FBE", borderRight:`2px solid ${t.border}` }}>Bible Close</th>
-              <th style={{ ...thS, color:t.info }}>Prev. Sund. Sch. Begin</th>
+              <th style={{ ...thS, color:t.info }}>Prev. Sund. Sch. Starting</th>
               <th style={{ ...thS, color:t.gold }}>Prev. Sund. Sch. Close</th>
               <th style={{ ...thS, color:"#9B59B6" }}>Prev.Bible Begin</th>
               <th style={{ ...thS, color:"#7B3FBE", borderRight:`2px solid ${t.border}` }}>Prev.Bible Close</th>
