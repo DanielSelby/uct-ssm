@@ -2601,7 +2601,7 @@ const DashboardPage = ({ db }) => {
         <KpiCard label="Sund. Sch. Closing" value={fmtNum(ssTotal)}      sub="At closing"          icon="attendance" color={t.gold} />
         <KpiCard label="Bibles at Starting"  value={fmtNum(biblesBegin)} sub={`of ${fmtNum(ssBeginTotal)} at starting`}  icon="bible" color="#9B59B6"
           badge={`${bibleBeginRate}% ratio`} badgeGood={bibleBeginRate >= 75 ? true : bibleBeginRate >= 50 ? null : false} />
-        <KpiCard label="Bibles at Close"  value={fmtNum(bibles)}      sub={`of ${fmtNum(ssTotal)} at closing`}        icon="bible" color="#7B3FBE"
+        <KpiCard label="Bibles at Closing"  value={fmtNum(bibles)}      sub={`of ${fmtNum(ssTotal)} at closing`}        icon="bible" color="#7B3FBE"
           badge={`${bibleRate}% ratio`}      badgeGood={bibleRate >= 75 ? true : bibleRate >= 50 ? null : false} />
         <KpiCard label="First Timers"       value={fmtNum(fRec.reduce((s,r)=>s+(Number(r.first_timers)||0),0))} sub="SS only" icon="plus" color="#E67E22" />
         <KpiCard label="Pending Reviews"    value={fmtNum(pending)}      sub="Needs approval"    icon="info"       color={pending>0?t.warn:t.textMuted} />
