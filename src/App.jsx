@@ -9075,11 +9075,12 @@ Give clear, pastoral, ministry-focused insights. Use emojis sparingly. Be concis
     setLoading(true);
 
     try {
-      const headers = { "Content-Type": "application/json", "anthropic-version": "2023-06-01" };
-      if (apiKey) {
-        headers["x-api-key"] = apiKey;
-        headers["anthropic-dangerous-direct-browser-access"] = "true";
-      }
+      // In Claude.ai artifact env the proxy handles auth — only Content-Type needed.
+      // If a custom key is provided, pass it with the required headers for direct access.
+      const headers = apiKey
+        ? { "Content-Type":"application/json", "anthropic-version":"2023-06-01",
+            "x-api-key": apiKey, "anthropic-dangerous-direct-browser-access":"true" }
+        : { "Content-Type":"application/json" };
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers,
@@ -9103,7 +9104,11 @@ Give clear, pastoral, ministry-focused insights. Use emojis sparingly. Be concis
       const reply = data.content?.map(b => b.type==="text" ? b.text : "").join("") || "Sorry, I couldn't get a response.";
       setMessages(m => [...m, { role:"assistant", content:reply }]);
     } catch (e) {
-      setMessages(m => [...m, { role:"assistant", content:`⚠️ Error: ${e.message || "Connection failed. Check your API key or try again."}` }]);
+      const msg = e.message || "";
+      const hint = msg.includes("fetch") || msg.includes("CORS") || msg.includes("network")
+        ? "Network error — if you're running this outside Claude.ai, please add your Anthropic API key using the 'Add custom API key' button above."
+        : msg;
+      setMessages(m => [...m, { role:"assistant", content:`⚠️ ${hint}` }]);
     }
     setLoading(false);
   };
