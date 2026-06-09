@@ -1398,13 +1398,22 @@ const hslToHex = (h,s,l) => {
   return `#${f(0)}${f(8)}${f(4)}`;
 };
 const CURATED_PALETTES = {
-  // Palette: https://coolors.co/palette/582f0e-7f4f24-936639-a68a64-b6ad90-c2c5aa-a4ac86-656d4a-414833-333d29
-  light:     ["#582f0e","#7f4f24","#936639","#a68a64","#b6ad90","#c2c5aa","#a4ac86","#656d4a","#414833","#333d29"],
-  dark:      ["#582f0e","#7f4f24","#936639","#a68a64","#b6ad90","#c2c5aa","#a4ac86","#656d4a","#414833","#333d29"],
-  navy:      ["#582f0e","#7f4f24","#936639","#a68a64","#b6ad90","#c2c5aa","#a4ac86","#656d4a","#414833","#333d29"],
-  darkBlue:  ["#582f0e","#7f4f24","#936639","#a68a64","#b6ad90","#c2c5aa","#a4ac86","#656d4a","#414833","#333d29"],
-  orange:    ["#582f0e","#7f4f24","#936639","#a68a64","#b6ad90","#c2c5aa","#a4ac86","#656d4a","#414833","#333d29"],
-  darkOrange:["#582f0e","#7f4f24","#936639","#a68a64","#b6ad90","#c2c5aa","#a4ac86","#656d4a","#414833","#333d29"],
+  // Green / Light — user palette: 132a13, 333d29, 2c6e49, 8b9b30, 548c2f, 283618
+  light:      ["#132a13","#333d29","#2c6e49","#8b9b30","#548c2f","#283618","#4a7c59","#6b8f3e","#1e4d2b","#3d5a2a"],
+  // Dark green — deeper variants of same palette
+  dark:       ["#2c6e49","#548c2f","#8b9b30","#132a13","#333d29","#283618","#4a7c59","#6b8f3e","#1e4d2b","#3d5a2a"],
+  // Navy — steel-blue tones
+  navy:       ["#1b4f72","#2e86c1","#148f77","#1a5276","#0e6655","#117a65","#2471a3","#1f618d","#196f3d","#1d8348"],
+  // Dark Blue
+  darkBlue:   ["#2e86c1","#1b4f72","#148f77","#6fc5d3","#2471a3","#117a65","#1a5276","#0e6655","#1f618d","#196f3d"],
+  // Olive / Orange
+  orange:     ["#4e5c38","#718355","#8fa06a","#283618","#a0a96a","#566340","#6b7a44","#3d5a2a","#8b9b30","#333d29"],
+  // Dark Olive
+  darkOrange: ["#c0d08a","#8fa06a","#718355","#a0a96a","#d8e8a8","#4e5c38","#b5c99a","#283618","#e0e8cc","#6b7a44"],
+  // Teal / indigo
+  teal:       ["#1d2f6f","#2e469e","#1a6b8a","#2e86c1","#148f77","#1b4f72","#0e6655","#117a65","#196f3d","#1d8348"],
+  // Dark Teal
+  darkTeal:   ["#7a9ef0","#a8bef7","#6fc5d3","#4dd0a1","#9ddae4","#2e469e","#1d2f6f","#148f77","#1a6b8a","#66bb6a"],
 };
 const getChartPalette = (baseHex, mode) => {
   if (mode && CURATED_PALETTES[mode]) return CURATED_PALETTES[mode];
@@ -1421,7 +1430,7 @@ const getChartPalette = (baseHex, mode) => {
       hslToHex(h, Math.min(s-16, 45), 80),
     ];
   } catch(e) {
-    return ["#582f0e","#7f4f24","#936639","#a68a64","#b6ad90","#c2c5aa","#a4ac86","#656d4a","#414833","#333d29"];
+    return ["#132a13","#333d29","#2c6e49","#8b9b30","#548c2f","#283618","#4a7c59","#6b8f3e","#1e4d2b","#3d5a2a"];
   }
 };
 const CLASS_COLORS = ["#335c67","#718355","#1d2f6f","#C0392B","#E67E22","#9B59B6","#1ABC9C","#E74C3C"]; // fallback only
@@ -3912,44 +3921,51 @@ const AnalyticsPage = ({ db }) => {
   const chartChRecs = chartSource === "ss"     ? [] : yearFilter(fChurch);
   const compData = buildGrouped(chartSsRecs, chartChRecs, chartRange);
 
-  // ── Monthly grouped data (always month-level for trend charts) ──
-  const monthMap = {};
-  fRec.forEach(r => {
-    const m = (r.date||"").slice(0,7); if(!m) return;
-    if (!monthMap[m]) monthMap[m] = { m, label:monthLabel(m), ssClose:0, ssBegin:0, chClose:0, chBegin:0, bibles:0, ft:0 };
-    monthMap[m].ssClose += Number(r.total_closing)||0;
-    monthMap[m].ssBegin += Number(r.total_beginning)||0;
-    monthMap[m].bibles  += Number(r.bibles_closing)||0;
-    monthMap[m].ft      += Number(r.first_timers)||0;
-  });
-  fChurch.forEach(r => {
-    const m = (r.date||"").slice(0,7); if(!m) return;
-    if (!monthMap[m]) monthMap[m] = { m, label:monthLabel(m), ssClose:0, ssBegin:0, chClose:0, chBegin:0, bibles:0, ft:0 };
-    monthMap[m].chClose += Number(r.total_closing)||0;
-    monthMap[m].chBegin += Number(r.total_beginning)||0;
-    monthMap[m].ft      += Number(r.first_timers)||0;
-  });
-  const monthlyData = Object.values(monthMap).sort((a,b)=>a.m>b.m?1:-1);
+  // ── Monthly grouped data — respects chartRange/year/source filters ──
+  // Use grouped compData keys to build trend, or fall back to month-level from filtered recs
+  const activeSsRecs = chartSsRecs.length > 0 ? chartSsRecs : (chartSource === "church" ? [] : fRec);
+  const activeChRecs = chartChRecs.length > 0 ? chartChRecs : (chartSource === "ss"     ? [] : fChurch);
 
-  // ── SS per-class monthly ──────────────────────────────────
+  const buildMonthMap = (ssArr, chArr) => {
+    const map = {};
+    ssArr.forEach(r => {
+      const m = (r.date||"").slice(0,7); if(!m) return;
+      if (!map[m]) map[m] = { m, label:monthLabel(m), ssClose:0, ssBegin:0, chClose:0, chBegin:0, bibles:0, ft:0 };
+      map[m].ssClose += Number(r.total_closing)||0;
+      map[m].ssBegin += Number(r.total_beginning)||0;
+      map[m].bibles  += Number(r.bibles_closing)||0;
+      map[m].ft      += Number(r.first_timers)||0;
+    });
+    chArr.forEach(r => {
+      const m = (r.date||"").slice(0,7); if(!m) return;
+      if (!map[m]) map[m] = { m, label:monthLabel(m), ssClose:0, ssBegin:0, chClose:0, chBegin:0, bibles:0, ft:0 };
+      map[m].chClose += Number(r.total_closing)||0;
+      map[m].chBegin += Number(r.total_beginning)||0;
+      map[m].ft      += Number(r.first_timers)||0;
+    });
+    return Object.values(map).sort((a,b)=>a.m>b.m?1:-1);
+  };
+  const monthlyData = buildMonthMap(activeSsRecs, activeChRecs);
+
+  // ── SS per-class monthly — respects filters ───────────────
   const classMonthMap = {};
-  fRec.forEach(r => {
+  activeSsRecs.forEach(r => {
     const m = (r.date||"").slice(0,7); if(!m||!r.class_name) return;
     if (!classMonthMap[m]) classMonthMap[m] = { label: monthLabel(m) };
     classMonthMap[m][r.class_name] = (classMonthMap[m][r.class_name]||0) + (Number(r.total_closing)||0);
   });
   const classMonthlyData = Object.values(classMonthMap).sort((a,b)=>a.label>b.label?1:-1);
 
-  // ── Bible participation ───────────────────────────────────
+  // ── Bible participation — respects filters ────────────────
   const bibleClass = classes.map((cls,i) => {
-    const recs = fRec.filter(r=>r.class_name===cls.name && Number(r.total_closing)>0);
+    const recs = activeSsRecs.filter(r=>r.class_name===cls.name && Number(r.total_closing)>0);
     const rate = recs.length ? Math.round(recs.reduce((s,r)=>s+((Number(r.bibles_closing)||0)/Number(r.total_closing)*100),0)/recs.length) : 0;
     return { name:cls.name.split(" ")[0], rate, fill:chartPalette[i%chartPalette.length] };
   }).filter(x=>x.rate>0);
 
-  // ── Gender breakdown ──────────────────────────────────────
+  // ── Gender breakdown — respects filters ───────────────────
   const genderMonthSS = {};
-  fRec.forEach(r => {
+  activeSsRecs.forEach(r => {
     const m=(r.date||"").slice(0,7); if(!m) return;
     if (!genderMonthSS[m]) genderMonthSS[m]={label:monthLabel(m),male:0,female:0};
     genderMonthSS[m].male   += Number(r.male_present)||0;
@@ -3958,7 +3974,7 @@ const AnalyticsPage = ({ db }) => {
   const genderSSData = Object.values(genderMonthSS).sort((a,b)=>a.label>b.label?1:-1);
 
   const genderMonthCh = {};
-  fChurch.forEach(r => {
+  activeChRecs.forEach(r => {
     const m=(r.date||"").slice(0,7); if(!m) return;
     if (!genderMonthCh[m]) genderMonthCh[m]={label:monthLabel(m),male:0,female:0};
     genderMonthCh[m].male   += Number(r.male_closing)||0;
@@ -3966,9 +3982,9 @@ const AnalyticsPage = ({ db }) => {
   });
   const genderChData = Object.values(genderMonthCh).sort((a,b)=>a.label>b.label?1:-1);
 
-  // ── Church by program ─────────────────────────────────────
+  // ── Church by program — respects filters ─────────────────
   const progMap = {};
-  fChurch.forEach(r => {
+  activeChRecs.forEach(r => {
     const p = r.program||"Unknown";
     if (!progMap[p]) progMap[p] = { name:p, total:0, sessions:0 };
     progMap[p].total    += Number(r.total_closing)||0;
@@ -3983,15 +3999,15 @@ const AnalyticsPage = ({ db }) => {
   })).filter(m => m.rate !== null);
 
   // ── Aggregate KPIs ────────────────────────────────────────
-  const ssBeginTotal = fRec.reduce((s,r)=>s+(Number(r.total_beginning)||0),0);
-  const ssTotal      = fRec.reduce((s,r)=>s+(Number(r.total_closing)||0),0);
-  const chBeginTotal = fChurch.reduce((s,r)=>s+(Number(r.total_beginning)||0),0);
-  const chTotal      = fChurch.reduce((s,r)=>s+(Number(r.total_closing)||0),0);
-  const avgRetention = retentionMonthly.length ? Math.round(retentionMonthly.reduce((s,m)=>s+m.rate,0)/retentionMonthly.length) : 0;
-  const bibleBeginTotal = fRec.reduce((s,r)=>s+(Number(r.bibles_beginning)||0),0);
-  const bibleTotal   = fRec.reduce((s,r)=>s+(Number(r.bibles_closing)||0),0);
-  const bibleRate    = ssTotal > 0 ? Math.round(bibleTotal/ssTotal*100) : 0;
-  const ftTotal      = fRec.reduce((s,r)=>s+(Number(r.first_timers)||0),0) + fChurch.reduce((s,r)=>s+(Number(r.first_timers)||0),0);
+  const ssBeginTotal    = activeSsRecs.reduce((s,r)=>s+(Number(r.total_beginning)||0),0);
+  const ssTotal         = activeSsRecs.reduce((s,r)=>s+(Number(r.total_closing)||0),0);
+  const chBeginTotal    = activeChRecs.reduce((s,r)=>s+(Number(r.total_beginning)||0),0);
+  const chTotal         = activeChRecs.reduce((s,r)=>s+(Number(r.total_closing)||0),0);
+  const avgRetention    = retentionMonthly.length ? Math.round(retentionMonthly.reduce((s,m)=>s+m.rate,0)/retentionMonthly.length) : 0;
+  const bibleBeginTotal = activeSsRecs.reduce((s,r)=>s+(Number(r.bibles_beginning)||0),0);
+  const bibleTotal      = activeSsRecs.reduce((s,r)=>s+(Number(r.bibles_closing)||0),0);
+  const bibleRate       = ssTotal > 0 ? Math.round(bibleTotal/ssTotal*100) : 0;
+  const ftTotal         = activeSsRecs.reduce((s,r)=>s+(Number(r.first_timers)||0),0) + activeChRecs.reduce((s,r)=>s+(Number(r.first_timers)||0),0);
 
   // ── Insight generator ─────────────────────────────────────
   const insights = [];
