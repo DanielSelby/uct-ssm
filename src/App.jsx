@@ -2720,7 +2720,7 @@ const DashboardPage = ({ db }) => {
           {compData.length > 0 ? (
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={compData} barCategoryGap="25%">
-                <CartesianGrid strokeDasharray="3 3" stroke={t.textFaint} />
+                <CartesianGrid horizontal={false} vertical={false} />
                 <XAxis dataKey="label" stroke={t.textMuted} fontSize={10} />
                 <YAxis stroke={t.textMuted} fontSize={11} />
                 <Tooltip {...tooltip} />
@@ -2737,7 +2737,7 @@ const DashboardPage = ({ db }) => {
           {compData.length > 0 ? (
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={compData} barCategoryGap="25%">
-                <CartesianGrid strokeDasharray="3 3" stroke={t.textFaint} />
+                <CartesianGrid horizontal={false} vertical={false} />
                 <XAxis dataKey="label" stroke={t.textMuted} fontSize={10} />
                 <YAxis stroke={t.textMuted} fontSize={11} />
                 <Tooltip {...tooltip} />
@@ -2765,7 +2765,7 @@ const DashboardPage = ({ db }) => {
                   <stop offset="5%"  stopColor={t.info} stopOpacity={0.2}/><stop offset="95%" stopColor={t.info} stopOpacity={0}/>
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke={t.textFaint} />
+              <CartesianGrid horizontal={false} vertical={false} />
               <XAxis dataKey="label" stroke={t.textMuted} fontSize={10} />
               <YAxis stroke={t.textMuted} fontSize={11} />
               <Tooltip {...tooltip} />
@@ -2790,7 +2790,7 @@ const DashboardPage = ({ db }) => {
         <ChartCard title="SS Retention Rate Over Time" sub="What % of church service attendees were in Sunday School on the same day" span={2}>
           <ResponsiveContainer width="100%" height={180}>
             <LineChart data={compData}>
-              <CartesianGrid strokeDasharray="3 3" stroke={t.textFaint} />
+              <CartesianGrid horizontal={false} vertical={false} />
               <XAxis dataKey="label" stroke={t.textMuted} fontSize={10} />
               <YAxis stroke={t.textMuted} fontSize={11} unit="%" domain={[0,110]} />
               <Tooltip {...tooltip} formatter={(v)=>`${v}%`} />
@@ -4193,7 +4193,7 @@ const AnalyticsPage = ({ db }) => {
             {compData.length > 0 ? (
               <ResponsiveContainer width="100%" height={240}>
                 <BarChart data={compData} barCategoryGap="20%">
-                  <CartesianGrid strokeDasharray="3 3" stroke={t.textFaint} />
+                  <CartesianGrid horizontal={false} vertical={false} />
                   <XAxis dataKey="label" stroke={t.textMuted} fontSize={10} />
                   <YAxis stroke={t.textMuted} fontSize={11} />
                   <Tooltip {...tooltip} />
@@ -4210,7 +4210,7 @@ const AnalyticsPage = ({ db }) => {
             {compData.length > 0 ? (
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={compData} barCategoryGap="20%">
-                  <CartesianGrid strokeDasharray="3 3" stroke={t.textFaint} />
+                  <CartesianGrid horizontal={false} vertical={false} />
                   <XAxis dataKey="label" stroke={t.textMuted} fontSize={10} />
                   <YAxis stroke={t.textMuted} fontSize={11} />
                   <Tooltip {...tooltip} />
@@ -4227,7 +4227,7 @@ const AnalyticsPage = ({ db }) => {
             {monthlyData.length > 0 ? (
               <ResponsiveContainer width="100%" height={210}>
                 <LineChart data={monthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={t.textFaint} />
+                  <CartesianGrid horizontal={false} vertical={false} />
                   <XAxis dataKey="label" stroke={t.textMuted} fontSize={10} />
                   <YAxis stroke={t.textMuted} fontSize={11} />
                   <Tooltip {...tooltip} />
@@ -4252,7 +4252,7 @@ const AnalyticsPage = ({ db }) => {
                       <stop offset="95%" stopColor={t.success} stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke={t.textFaint} />
+                  <CartesianGrid horizontal={false} vertical={false} />
                   <XAxis dataKey="label" stroke={t.textMuted} fontSize={10} />
                   <YAxis stroke={t.textMuted} fontSize={11} unit="%" domain={[0,110]} />
                   <Tooltip {...tooltip} formatter={v=>`${v}%`} />
@@ -4271,7 +4271,7 @@ const AnalyticsPage = ({ db }) => {
             {monthlyData.length > 0 ? (
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={monthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={t.textFaint} />
+                  <CartesianGrid horizontal={false} vertical={false} />
                   <XAxis dataKey="label" stroke={t.textMuted} fontSize={10} />
                   <YAxis stroke={t.textMuted} fontSize={11} />
                   <Tooltip {...tooltip} />
@@ -4287,7 +4287,7 @@ const AnalyticsPage = ({ db }) => {
             {classMonthlyData.length > 0 && classes.length > 0 ? (
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={classMonthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={t.textFaint} />
+                  <CartesianGrid horizontal={false} vertical={false} />
                   <XAxis dataKey="label" stroke={t.textMuted} fontSize={10} />
                   <YAxis stroke={t.textMuted} fontSize={11} />
                   <Tooltip {...tooltip} />
@@ -4304,7 +4304,7 @@ const AnalyticsPage = ({ db }) => {
             {bibleClass.length > 0 ? (
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={bibleClass} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke={t.textFaint} />
+                  <CartesianGrid horizontal={false} vertical={false} />
                   <XAxis type="number" stroke={t.textMuted} fontSize={10} unit="%" domain={[0,100]} />
                   <YAxis type="category" dataKey="name" stroke={t.textMuted} fontSize={10} width={70} />
                   <Tooltip {...tooltip} formatter={v=>`${v}%`} />
@@ -4320,7 +4320,7 @@ const AnalyticsPage = ({ db }) => {
             {monthlyData.length > 0 ? (
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={monthlyData} barCategoryGap="30%">
-                  <CartesianGrid strokeDasharray="3 3" stroke={t.textFaint} />
+                  <CartesianGrid horizontal={false} vertical={false} />
                   <XAxis dataKey="label" stroke={t.textMuted} fontSize={10} />
                   <YAxis stroke={t.textMuted} fontSize={11} />
                   <Tooltip {...tooltip} />
@@ -4346,7 +4346,7 @@ const AnalyticsPage = ({ db }) => {
                       <stop offset="5%"  stopColor={t.info} stopOpacity={0.3}/><stop offset="95%" stopColor={t.info} stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke={t.textFaint} />
+                  <CartesianGrid horizontal={false} vertical={false} />
                   <XAxis dataKey="label" stroke={t.textMuted} fontSize={10} />
                   <YAxis stroke={t.textMuted} fontSize={11} />
                   <Tooltip {...tooltip} />
@@ -4361,7 +4361,7 @@ const AnalyticsPage = ({ db }) => {
             {progData.length > 0 ? (
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={progData} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke={t.textFaint} />
+                  <CartesianGrid horizontal={false} vertical={false} />
                   <XAxis type="number" stroke={t.textMuted} fontSize={10} />
                   <YAxis type="category" dataKey="name" stroke={t.textMuted} fontSize={9} width={120} />
                   <Tooltip {...tooltip} />
@@ -4377,7 +4377,7 @@ const AnalyticsPage = ({ db }) => {
             {progData.length > 0 ? (
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={progData} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke={t.textFaint} />
+                  <CartesianGrid horizontal={false} vertical={false} />
                   <XAxis type="number" stroke={t.textMuted} fontSize={10} />
                   <YAxis type="category" dataKey="name" stroke={t.textMuted} fontSize={9} width={120} />
                   <Tooltip {...tooltip} />
@@ -4393,7 +4393,7 @@ const AnalyticsPage = ({ db }) => {
             {monthlyData.length > 0 ? (
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={monthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={t.textFaint} />
+                  <CartesianGrid horizontal={false} vertical={false} />
                   <XAxis dataKey="label" stroke={t.textMuted} fontSize={10} />
                   <YAxis stroke={t.textMuted} fontSize={11} />
                   <Tooltip {...tooltip} />
@@ -4413,7 +4413,7 @@ const AnalyticsPage = ({ db }) => {
             {genderSSData.length > 0 ? (
               <ResponsiveContainer width="100%" height={230}>
                 <BarChart data={genderSSData} barCategoryGap="28%">
-                  <CartesianGrid strokeDasharray="3 3" stroke={t.textFaint} />
+                  <CartesianGrid horizontal={false} vertical={false} />
                   <XAxis dataKey="label" stroke={t.textMuted} fontSize={10} />
                   <YAxis stroke={t.textMuted} fontSize={11} />
                   <Tooltip {...tooltip} />
@@ -4430,7 +4430,7 @@ const AnalyticsPage = ({ db }) => {
             {genderChData.length > 0 ? (
               <ResponsiveContainer width="100%" height={230}>
                 <BarChart data={genderChData} barCategoryGap="28%">
-                  <CartesianGrid strokeDasharray="3 3" stroke={t.textFaint} />
+                  <CartesianGrid horizontal={false} vertical={false} />
                   <XAxis dataKey="label" stroke={t.textMuted} fontSize={10} />
                   <YAxis stroke={t.textMuted} fontSize={11} />
                   <Tooltip {...tooltip} />
@@ -4873,7 +4873,7 @@ const BaptismPage = ({ db }) => {
           </div>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={chartData} margin={{top:5,right:20,left:0,bottom:5}}>
-              <CartesianGrid strokeDasharray="3 3" stroke={t.border}/>
+              <CartesianGrid horizontal={false} vertical={false} />
               <XAxis dataKey="month" tick={{fontSize:10,fill:t.textMuted,fontFamily:FF}}/>
               <YAxis tick={{fontSize:10,fill:t.textMuted,fontFamily:FF}} allowDecimals={false}/>
               <Tooltip content={customTip}/>
@@ -5473,7 +5473,7 @@ const YouthPage = ({ db }) => {
               </div>
               <ResponsiveContainer width="100%" height={260}>
                 <LineChart data={attChartData} margin={{top:5,right:20,left:0,bottom:5}}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={t.border}/>
+                  <CartesianGrid horizontal={false} vertical={false} />
                   <XAxis dataKey="date" tick={{fontSize:10,fill:t.textMuted,fontFamily:FF}}/>
                   <YAxis tick={{fontSize:10,fill:t.textMuted,fontFamily:FF}}/>
                   <Tooltip content={customTip}/>
@@ -6186,7 +6186,7 @@ const ClassesPage = ({ db }) => {
                 </div>
                 <ResponsiveContainer width="100%" height={280}>
                   <LineChart data={memberChartData} margin={{top:5,right:20,left:0,bottom:5}}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={t.border}/>
+                    <CartesianGrid horizontal={false} vertical={false} />
                     <XAxis dataKey="date" tick={{fontSize:10,fill:t.textMuted,fontFamily:FF}} />
                     <YAxis tick={{fontSize:10,fill:t.textMuted,fontFamily:FF}} />
                     <Tooltip content={customTooltip}/>
@@ -6223,7 +6223,7 @@ const ClassesPage = ({ db }) => {
                 </div>
                 <ResponsiveContainer width="100%" height={280}>
                   <BarChart data={teacherChartData} margin={{top:5,right:20,left:0,bottom:5}}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={t.border}/>
+                    <CartesianGrid horizontal={false} vertical={false} />
                     <XAxis dataKey="month" tick={{fontSize:10,fill:t.textMuted,fontFamily:FF}}/>
                     <YAxis tick={{fontSize:10,fill:t.textMuted,fontFamily:FF}} allowDecimals={false}/>
                     <Tooltip content={customTooltip}/>
@@ -6258,7 +6258,7 @@ const ClassesPage = ({ db }) => {
                     <>
                       <ResponsiveContainer width="100%" height={280}>
                         <BarChart data={topicChartData} layout="vertical" margin={{top:5,right:40,left:10,bottom:5}}>
-                          <CartesianGrid strokeDasharray="3 3" stroke={t.border} horizontal={false}/>
+                          <CartesianGrid horizontal={false} vertical={false} />
                           <XAxis type="number" tick={{fontSize:10,fill:t.textMuted,fontFamily:FF}}/>
                           <YAxis type="category" dataKey="topic" tick={{fontSize:10,fill:t.textMuted,fontFamily:FF}} width={120}/>
                           <Tooltip content={({active,payload,label})=>{
