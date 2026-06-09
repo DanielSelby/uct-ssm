@@ -8984,18 +8984,16 @@ const AIAssistantPage = ({ db, user }) => {
   const { mode } = useTheme();
   const { records, classes, churchRecs } = db;
 
-  // API key — stored in sessionStorage so it survives page re-renders but not tab close
+  // API key — optional; if blank the app uses the proxied endpoint (artifact env)
   const [apiKey, setApiKey]   = useState(() => sessionStorage.getItem("uct_ai_key") || "");
   const [keyInput, setKeyInput] = useState("");
   const [showKeyInput, setShowKeyInput] = useState(false);
 
   const saveKey = () => {
     const k = keyInput.trim();
-    if (!k.startsWith("sk-ant-")) { alert("Invalid key — must start with sk-ant-"); return; }
-    sessionStorage.setItem("uct_ai_key", k);
-    setApiKey(k);
-    setKeyInput("");
-    setShowKeyInput(false);
+    if (k && !k.startsWith("sk-ant-")) { alert("Invalid key — must start with sk-ant-"); return; }
+    if (k) { sessionStorage.setItem("uct_ai_key", k); setApiKey(k); }
+    setKeyInput(""); setShowKeyInput(false);
   };
   const forgetKey = () => { sessionStorage.removeItem("uct_ai_key"); setApiKey(""); };
 
@@ -9070,27 +9068,27 @@ Give clear, pastoral, ministry-focused insights. Use emojis sparingly. Be concis
   };
 
   const sendMessage = async () => {
-    if (!input.trim() || loading || !apiKey) return;
+    if (!input.trim() || loading) return;
     const userMsg = input.trim();
     setInput("");
     setMessages(m => [...m, { role:"user", content:userMsg }]);
     setLoading(true);
 
     try {
+      const headers = { "Content-Type": "application/json", "anthropic-version": "2023-06-01" };
+      if (apiKey) {
+        headers["x-api-key"] = apiKey;
+        headers["anthropic-dangerous-direct-browser-access"] = "true";
+      }
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true",
-        },
+        headers,
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
+          max_tokens: 1024,
           system: buildContext(),
           messages: [
-            ...messages.slice(-10).map(m => ({ role:m.role, content:m.content })),
+            ...messages.slice(-14).map(m => ({ role:m.role, content:m.content })),
             { role:"user", content:userMsg },
           ],
         }),
@@ -9102,10 +9100,10 @@ Give clear, pastoral, ministry-focused insights. Use emojis sparingly. Be concis
       }
 
       const data  = await response.json();
-      const reply = data.content?.map(b => b.text||"").join("") || "Sorry, I couldn't get a response.";
+      const reply = data.content?.map(b => b.type==="text" ? b.text : "").join("") || "Sorry, I couldn't get a response.";
       setMessages(m => [...m, { role:"assistant", content:reply }]);
     } catch (e) {
-      setMessages(m => [...m, { role:"assistant", content:`⚠️ ${e.message || "Connection failed. Please try again."}` }]);
+      setMessages(m => [...m, { role:"assistant", content:`⚠️ Error: ${e.message || "Connection failed. Check your API key or try again."}` }]);
     }
     setLoading(false);
   };
@@ -9169,67 +9167,44 @@ Give clear, pastoral, ministry-focused insights. Use emojis sparingly. Be concis
         </div>
       </div>
 
-      {/* ── API Key Setup Banner ───────────────────────────────────────────── */}
-      {!apiKey ? (
-        <div style={{ ...card, marginBottom:18, border:`2px dashed ${ACTIVE_COLOR}66`,
-          background: isDark(mode) ? `${ACTIVE_COLOR}11` : `${ACTIVE_COLOR}08`,
-          display:"flex", flexDirection:"column", gap:14 }}>
-          <div style={{ display:"flex", alignItems:"flex-start", gap:12 }}>
-            <span style={{ fontSize:28 }}>🔑</span>
-            <div>
-              <div style={{ fontWeight:700, fontSize:15, color:t.text, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:4 }}>
-                Connect your Anthropic API Key
-              </div>
-              <div style={{ fontSize:13, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", lineHeight:1.6 }}>
-                To use the AI Assistant you need an Anthropic API key. Your key is stored only in this browser session — it's never sent anywhere except directly to Anthropic's API.
-                <br/>Get a key at <a href="https://console.anthropic.com/keys" target="_blank" rel="noreferrer"
-                  style={{ color:ACTIVE_COLOR, textDecoration:"none", fontWeight:600 }}>console.anthropic.com/keys</a>
-              </div>
-            </div>
+      {/* ── API Key Banner — optional, collapsed by default ─────────────────── */}
+      <div style={{ marginBottom:14 }}>
+        {apiKey ? (
+          <div style={{ display:"flex", alignItems:"center", gap:10,
+            padding:"7px 14px", borderRadius:9, background:t.success+"18",
+            border:`1px solid ${t.success}44`, width:"fit-content" }}>
+            <span style={{ color:t.success, fontSize:13 }}>✓</span>
+            <span style={{ fontSize:12, color:t.success, fontFamily:"'Trebuchet MS',sans-serif", fontWeight:600 }}>Custom API key active</span>
+            <span style={{ fontSize:12, color:t.textMuted, fontFamily:"monospace" }}>{apiKey.slice(0,14)}…</span>
+            <button onClick={forgetKey} style={{ padding:"3px 10px", borderRadius:6, border:`1px solid ${t.danger}44`,
+              background:t.danger+"11", color:t.danger, fontFamily:"'Trebuchet MS',sans-serif", fontSize:11, cursor:"pointer" }}>Remove</button>
           </div>
-          {showKeyInput ? (
-            <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
-              <input
-                type="password"
-                placeholder="sk-ant-api03-…"
-                value={keyInput}
-                onChange={e=>setKeyInput(e.target.value)}
-                onKeyDown={e=>e.key==="Enter" && saveKey()}
-                style={{ flex:1, minWidth:260, background: isDark(mode)?"rgba(255,255,255,0.07)":t.surfaceAlt,
-                  border:`1px solid ${t.border}`, borderRadius:9, padding:"10px 14px",
-                  color:t.text, fontFamily:"monospace", fontSize:13, outline:"none" }}
-              />
-              <button onClick={saveKey} style={{ padding:"10px 20px", borderRadius:9, border:"none",
-                background:ACTIVE_COLOR, color:"#fff", fontFamily:"'Trebuchet MS',sans-serif",
-                fontWeight:700, fontSize:13, cursor:"pointer" }}>Save Key</button>
-              <button onClick={()=>setShowKeyInput(false)} style={{ padding:"10px 14px", borderRadius:9,
+        ) : (
+          <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+            {!showKeyInput ? (
+              <button onClick={()=>setShowKeyInput(true)} style={{ padding:"6px 14px", borderRadius:8,
                 border:`1px solid ${t.border}`, background:"transparent", color:t.textMuted,
-                fontFamily:"'Trebuchet MS',sans-serif", fontSize:13, cursor:"pointer" }}>Cancel</button>
-            </div>
-          ) : (
-            <button onClick={()=>setShowKeyInput(true)} style={{ alignSelf:"flex-start", padding:"10px 22px",
-              borderRadius:9, border:`1px solid ${ACTIVE_COLOR}`, background:ACTIVE_COLOR,
-              color:"#fff", fontFamily:"'Trebuchet MS',sans-serif", fontWeight:700, fontSize:13, cursor:"pointer" }}>
-              + Enter API Key
-            </button>
-          )}
-        </div>
-      ) : (
-        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16,
-          padding:"8px 14px", borderRadius:9, background: t.success+"18",
-          border:`1px solid ${t.success}44`, width:"fit-content" }}>
-          <span style={{ color:t.success, fontSize:13 }}>✓</span>
-          <span style={{ fontSize:12, color:t.success, fontFamily:"'Trebuchet MS',sans-serif", fontWeight:600 }}>
-            API key connected
-          </span>
-          <span style={{ fontSize:12, color:t.textMuted, fontFamily:"monospace" }}>
-            {apiKey.slice(0,14)}…
-          </span>
-          <button onClick={forgetKey} style={{ padding:"3px 10px", borderRadius:6, border:`1px solid ${t.danger}44`,
-            background:t.danger+"11", color:t.danger, fontFamily:"'Trebuchet MS',sans-serif",
-            fontSize:11, cursor:"pointer" }}>Remove</button>
-        </div>
-      )}
+                fontFamily:"'Trebuchet MS',sans-serif", fontSize:12, cursor:"pointer", display:"flex", alignItems:"center", gap:6 }}>
+                🔑 Add custom API key <span style={{ fontSize:10, opacity:0.6 }}>(optional)</span>
+              </button>
+            ) : (
+              <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
+                <input type="password" placeholder="sk-ant-api03-…" value={keyInput}
+                  onChange={e=>setKeyInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveKey()}
+                  style={{ minWidth:260, background:isDark(mode)?"rgba(255,255,255,0.07)":t.surfaceAlt,
+                    border:`1px solid ${t.border}`, borderRadius:8, padding:"8px 12px",
+                    color:t.text, fontFamily:"monospace", fontSize:13, outline:"none" }} />
+                <button onClick={saveKey} style={{ padding:"8px 16px", borderRadius:8, border:"none",
+                  background:t.sidebar, color:"#fff", fontFamily:"'Trebuchet MS',sans-serif",
+                  fontWeight:700, fontSize:12, cursor:"pointer" }}>Save</button>
+                <button onClick={()=>setShowKeyInput(false)} style={{ padding:"8px 12px", borderRadius:8,
+                  border:`1px solid ${t.border}`, background:"transparent", color:t.textMuted,
+                  fontFamily:"'Trebuchet MS',sans-serif", fontSize:12, cursor:"pointer" }}>Cancel</button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Tabs */}
       <div style={{ display:"flex", gap:4, marginBottom:16, background:t.surfaceAlt, borderRadius:10, padding:4, width:"fit-content" }}>
@@ -9334,21 +9309,20 @@ Give clear, pastoral, ministry-focused insights. Use emojis sparingly. Be concis
 
           {/* Input area */}
           <div style={{ ...card, marginTop:12, display:"flex", gap:10, alignItems:"flex-end" }}>
-            <textarea id="ai-input" rows={2} style={{ ...inp, flex:1, minHeight:52,
-              opacity: apiKey ? 1 : 0.5 }}
-              placeholder={apiKey ? "Ask about attendance trends, class performance, recommendations…" : "Enter your API key above to start chatting…"}
+            <textarea id="ai-input" rows={2} style={{ ...inp, flex:1, minHeight:52 }}
+              placeholder="Ask about attendance trends, class performance, recommendations…"
               value={input} onChange={e=>setInput(e.target.value)}
-              disabled={!apiKey}
               onKeyDown={e=>{ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); sendMessage(); } }} />
-            <button onClick={sendMessage} disabled={loading || !input.trim() || !apiKey}
-              style={{ padding:"12px 22px", borderRadius:12, border:"none", cursor:"pointer",
+            <button onClick={sendMessage} disabled={loading || !input.trim()}
+              style={{ padding:"12px 22px", borderRadius:12, border:"none",
+                cursor: (loading||!input.trim()) ? "not-allowed" : "pointer",
                 background: (loading||!input.trim()) ? t.surfaceAlt : `linear-gradient(135deg,${t.sidebar},${t.goldLight||t.sidebar})`,
                 color: (loading||!input.trim()) ? t.textFaint : "#FFFFFF",
                 fontFamily:"'Trebuchet MS',sans-serif", fontSize:14, fontWeight:700,
                 display:"flex", alignItems:"center", gap:7, transition:"all 0.15s",
                 boxShadow: (!loading&&input.trim()) ? `0 4px 14px ${t.sidebar}55` : "none" }}>
               <Icon name="ai" size={16} color={(loading||!input.trim()) ? t.textFaint : "#FFFFFF"} />
-              Send
+              {loading ? "Sending…" : "Send"}
             </button>
           </div>
 
