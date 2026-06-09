@@ -1398,22 +1398,37 @@ const hslToHex = (h,s,l) => {
   return `#${f(0)}${f(8)}${f(4)}`;
 };
 const CURATED_PALETTES = {
-  // Green / Light — user palette: 132a13, 333d29, 2c6e49, 8b9b30, 548c2f, 283618
-  light:      ["#132a13","#333d29","#2c6e49","#8b9b30","#548c2f","#283618","#4a7c59","#6b8f3e","#1e4d2b","#3d5a2a"],
-  // Dark green — deeper variants of same palette
-  dark:       ["#2c6e49","#548c2f","#8b9b30","#132a13","#333d29","#283618","#4a7c59","#6b8f3e","#1e4d2b","#3d5a2a"],
-  // Navy — steel-blue tones
-  navy:       ["#1b4f72","#2e86c1","#148f77","#1a5276","#0e6655","#117a65","#2471a3","#1f618d","#196f3d","#1d8348"],
-  // Dark Blue
-  darkBlue:   ["#2e86c1","#1b4f72","#148f77","#6fc5d3","#2471a3","#117a65","#1a5276","#0e6655","#1f618d","#196f3d"],
-  // Olive / Orange
-  orange:     ["#4e5c38","#718355","#8fa06a","#283618","#a0a96a","#566340","#6b7a44","#3d5a2a","#8b9b30","#333d29"],
-  // Dark Olive
-  darkOrange: ["#c0d08a","#8fa06a","#718355","#a0a96a","#d8e8a8","#4e5c38","#b5c99a","#283618","#e0e8cc","#6b7a44"],
-  // Teal / indigo
-  teal:       ["#1d2f6f","#2e469e","#1a6b8a","#2e86c1","#148f77","#1b4f72","#0e6655","#117a65","#196f3d","#1d8348"],
-  // Dark Teal
-  darkTeal:   ["#7a9ef0","#a8bef7","#6fc5d3","#4dd0a1","#9ddae4","#2e469e","#1d2f6f","#148f77","#1a6b8a","#66bb6a"],
+  // ── Light (Forest Green) ─────────────────────────────────────────────────
+  // Harmonious deep-to-light green sequence — strong contrast, data-viz safe
+  light:      ["#1a3a2a","#1e5c3a","#2d7d52","#3a9e6b","#52b882","#6dc994","#004b23","#006e34","#338a57","#80c49a"],
+
+  // ── Dark (Deep Green Night) ──────────────────────────────────────────────
+  // Luminous greens on dark bg — pop without blinding
+  dark:       ["#4ee88a","#27c76b","#1aa854","#0f8c42","#067230","#38d97a","#6ef0a0","#00b057","#55d48a","#22c46a"],
+
+  // ── Navy (Professional Blue) ─────────────────────────────────────────────
+  // Classic business analytics blue-to-teal — IBM/Tableau-style
+  navy:       ["#003f5c","#2f6690","#3a7abf","#0077b6","#00b4d8","#48cae4","#1b6ca8","#0a4e8a","#2196f3","#5bc0eb"],
+
+  // ── Dark Blue (Neon Blue Night) ───────────────────────────────────────────
+  // High-contrast cyan-blue on near-black — Power BI dark style
+  darkBlue:   ["#4fc3f7","#29b6f6","#039be5","#0288d1","#74d7f7","#a5e8fc","#81d4fa","#00b0ff","#40c4ff","#80d8ff"],
+
+  // ── Olive / Orange (Warm Earth) ───────────────────────────────────────────
+  // Earthy olive + muted sage — sophisticated, Financial Times palette feel
+  orange:     ["#3d3522","#5c4d2e","#7a6640","#9c865a","#b8a47a","#4e5c38","#718355","#8fa06a","#a4b87e","#c8d8a0"],
+
+  // ── Dark Olive (Warm Glow Night) ─────────────────────────────────────────
+  // Glowing amber-olive on dark earth — warm contrast, unique feel
+  darkOrange: ["#e8d07a","#d4b84a","#bfa030","#c8c87a","#a8b840","#f0e090","#d8e878","#b8cc50","#e0d060","#f4f0a0"],
+
+  // ── Teal (Indigo Spectrum) ────────────────────────────────────────────────
+  // Deep indigo → violet → mid-blue — Salesforce / Figma analytics style
+  teal:       ["#1a237e","#283593","#3949ab","#5c6bc0","#7986cb","#303f9f","#1565c0","#1976d2","#42a5f5","#64b5f6"],
+
+  // ── Dark Teal (Electric Spectrum Night) ──────────────────────────────────
+  // Vivid indigo-cyan on near-black — Grafana / DataDog dark dashboard feel
+  darkTeal:   ["#b39ddb","#9575cd","#7c4dff","#7986cb","#64b5f6","#4fc3f7","#80deea","#a5d6a7","#ce93d8","#f48fb1"],
 };
 const getChartPalette = (baseHex, mode) => {
   if (mode && CURATED_PALETTES[mode]) return CURATED_PALETTES[mode];
@@ -1430,7 +1445,7 @@ const getChartPalette = (baseHex, mode) => {
       hslToHex(h, Math.min(s-16, 45), 80),
     ];
   } catch(e) {
-    return ["#132a13","#333d29","#2c6e49","#8b9b30","#548c2f","#283618","#4a7c59","#6b8f3e","#1e4d2b","#3d5a2a"];
+    return ["#1a3a2a","#1e5c3a","#2d7d52","#3a9e6b","#52b882","#6dc994","#004b23","#006e34","#338a57","#80c49a"];
   }
 };
 const CLASS_COLORS = ["#335c67","#718355","#1d2f6f","#C0392B","#E67E22","#9B59B6","#1ABC9C","#E74C3C"]; // fallback only
