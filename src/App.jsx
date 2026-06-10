@@ -8984,25 +8984,27 @@ const AIAssistantPage = ({ db, user }) => {
   const { mode } = useTheme();
   const { records, classes, churchRecs } = db;
 
-  // API key — optional; if blank the app uses the proxied endpoint (artifact env)
-  const [apiKey, setApiKey]   = useState(() => sessionStorage.getItem("uct_ai_key") || "");
+  // API key — persisted in localStorage so it survives refresh
+  const [apiKey, setApiKey]   = useState(() => localStorage.getItem("uct_ai_key") || "");
   const [keyInput, setKeyInput] = useState("");
-  const [showKeyInput, setShowKeyInput] = useState(false);
+  const [showKeyModal, setShowKeyModal] = useState(false);
+  const [keyError, setKeyError] = useState("");
 
   const saveKey = () => {
     const k = keyInput.trim();
-    if (k && !k.startsWith("sk-ant-")) { alert("Invalid key — must start with sk-ant-"); return; }
-    if (k) { sessionStorage.setItem("uct_ai_key", k); setApiKey(k); }
-    setKeyInput(""); setShowKeyInput(false);
+    if (!k) { setKeyError("Please enter your API key."); return; }
+    if (!k.startsWith("sk-ant-")) { setKeyError("Key must start with sk-ant-"); return; }
+    localStorage.setItem("uct_ai_key", k);
+    setApiKey(k); setKeyInput(""); setKeyError(""); setShowKeyModal(false);
   };
-  const forgetKey = () => { sessionStorage.removeItem("uct_ai_key"); setApiKey(""); };
+  const forgetKey = () => { localStorage.removeItem("uct_ai_key"); setApiKey(""); };
 
   const [messages, setMessages] = useState([
     { role:"assistant", content:"Hello! I'm your Sunday School AI Assistant ✨\n\nI have full access to your attendance records, class data, and church reports. Ask me anything — summaries, trends, comparisons, recommendations, or anything else about your ministry data." }
   ]);
   const [input, setInput]         = useState("");
   const [loading, setLoading]     = useState(false);
-  const [activeTab, setActiveTab] = useState("chat");
+  const [activeTab, setActiveTab] = useState("smart");
   const bottomRef = useRef(null);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior:"smooth" }); }, [messages]);
@@ -9069,6 +9071,7 @@ Give clear, pastoral, ministry-focused insights. Use emojis sparingly. Be concis
 
   const sendMessage = async () => {
     if (!input.trim() || loading) return;
+    if (!apiKey) { setShowKeyModal(true); return; }
     const userMsg = input.trim();
     setInput("");
     setMessages(m => [...m, { role:"user", content:userMsg }]);
@@ -9172,92 +9175,298 @@ Give clear, pastoral, ministry-focused insights. Use emojis sparingly. Be concis
         </div>
       </div>
 
-      {/* ── API Key Banner — optional, collapsed by default ─────────────────── */}
+      {/* ── API Key Modal ─────────────────────────────────────────────────────── */}
+      {showKeyModal && (
+        <div style={{ position:"fixed", inset:0, zIndex:1000, background:"rgba(0,0,0,0.55)",
+          display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}
+          onClick={e=>{ if(e.target===e.currentTarget) setShowKeyModal(false); }}>
+          <div style={{ ...card, width:"100%", maxWidth:480, padding:"28px 30px",
+            boxShadow:"0 20px 60px rgba(0,0,0,0.35)" }}>
+            <div style={{ fontSize:18, fontWeight:700, color:t.text, fontFamily:"'Georgia',serif", marginBottom:6 }}>
+              🔑 Connect Anthropic API Key
+            </div>
+            <div style={{ fontSize:13, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", lineHeight:1.7, marginBottom:18 }}>
+              The AI Assistant needs an Anthropic API key to work.<br/>
+              Get a free key at{" "}
+              <a href="https://console.anthropic.com/keys" target="_blank" rel="noreferrer"
+                style={{ color:t.gold, fontWeight:600, textDecoration:"none" }}>
+                console.anthropic.com/keys
+              </a>
+              {" "}— your key is saved only in this browser (localStorage) and never shared.
+            </div>
+            <input type="password" placeholder="sk-ant-api03-…" value={keyInput}
+              onChange={e=>{ setKeyInput(e.target.value); setKeyError(""); }}
+              onKeyDown={e=>e.key==="Enter"&&saveKey()}
+              autoFocus
+              style={{ width:"100%", boxSizing:"border-box", padding:"11px 14px", borderRadius:9,
+                border:`1.5px solid ${keyError ? t.danger : t.border}`,
+                background:isDark(mode)?"rgba(255,255,255,0.07)":t.surfaceAlt,
+                color:t.text, fontFamily:"monospace", fontSize:14, outline:"none", marginBottom:keyError?6:14 }} />
+            {keyError && <div style={{ fontSize:12, color:t.danger, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:12 }}>{keyError}</div>}
+            <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+              <button onClick={()=>{ setShowKeyModal(false); setKeyError(""); }}
+                style={{ padding:"9px 18px", borderRadius:8, border:`1px solid ${t.border}`,
+                  background:"transparent", color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif",
+                  fontSize:13, cursor:"pointer" }}>Cancel</button>
+              <button onClick={saveKey}
+                style={{ padding:"9px 22px", borderRadius:8, border:"none",
+                  background:`linear-gradient(135deg,${t.sidebar},${t.goldLight||t.sidebar})`,
+                  color:"#fff", fontFamily:"'Trebuchet MS',sans-serif",
+                  fontWeight:700, fontSize:13, cursor:"pointer",
+                  boxShadow:`0 4px 14px ${t.sidebar}44` }}>
+                Save & Connect
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── API Key Status Bar ────────────────────────────────────────────────── */}
       <div style={{ marginBottom:14 }}>
         {apiKey ? (
-          <div style={{ display:"flex", alignItems:"center", gap:10,
-            padding:"7px 14px", borderRadius:9, background:t.success+"18",
-            border:`1px solid ${t.success}44`, width:"fit-content" }}>
-            <span style={{ color:t.success, fontSize:13 }}>✓</span>
-            <span style={{ fontSize:12, color:t.success, fontFamily:"'Trebuchet MS',sans-serif", fontWeight:600 }}>Custom API key active</span>
-            <span style={{ fontSize:12, color:t.textMuted, fontFamily:"monospace" }}>{apiKey.slice(0,14)}…</span>
-            <button onClick={forgetKey} style={{ padding:"3px 10px", borderRadius:6, border:`1px solid ${t.danger}44`,
-              background:t.danger+"11", color:t.danger, fontFamily:"'Trebuchet MS',sans-serif", fontSize:11, cursor:"pointer" }}>Remove</button>
+          <div style={{ display:"flex", alignItems:"center", gap:10, padding:"7px 14px",
+            borderRadius:9, background:t.success+"18", border:`1px solid ${t.success}44`, width:"fit-content" }}>
+            <span style={{ color:t.success, fontSize:14 }}>✓</span>
+            <span style={{ fontSize:12, color:t.success, fontFamily:"'Trebuchet MS',sans-serif", fontWeight:600 }}>API key connected</span>
+            <span style={{ fontSize:12, color:t.textMuted, fontFamily:"monospace" }}>{apiKey.slice(0,18)}…</span>
+            <button onClick={forgetKey} style={{ padding:"3px 10px", borderRadius:6,
+              border:`1px solid ${t.danger}44`, background:t.danger+"11", color:t.danger,
+              fontFamily:"'Trebuchet MS',sans-serif", fontSize:11, cursor:"pointer" }}>Remove</button>
           </div>
         ) : (
-          <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
-            {!showKeyInput ? (
-              <button onClick={()=>setShowKeyInput(true)} style={{ padding:"6px 14px", borderRadius:8,
-                border:`1px solid ${t.border}`, background:"transparent", color:t.textMuted,
-                fontFamily:"'Trebuchet MS',sans-serif", fontSize:12, cursor:"pointer", display:"flex", alignItems:"center", gap:6 }}>
-                🔑 Add custom API key <span style={{ fontSize:10, opacity:0.6 }}>(optional)</span>
-              </button>
-            ) : (
-              <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
-                <input type="password" placeholder="sk-ant-api03-…" value={keyInput}
-                  onChange={e=>setKeyInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveKey()}
-                  style={{ minWidth:260, background:isDark(mode)?"rgba(255,255,255,0.07)":t.surfaceAlt,
-                    border:`1px solid ${t.border}`, borderRadius:8, padding:"8px 12px",
-                    color:t.text, fontFamily:"monospace", fontSize:13, outline:"none" }} />
-                <button onClick={saveKey} style={{ padding:"8px 16px", borderRadius:8, border:"none",
-                  background:t.sidebar, color:"#fff", fontFamily:"'Trebuchet MS',sans-serif",
-                  fontWeight:700, fontSize:12, cursor:"pointer" }}>Save</button>
-                <button onClick={()=>setShowKeyInput(false)} style={{ padding:"8px 12px", borderRadius:8,
-                  border:`1px solid ${t.border}`, background:"transparent", color:t.textMuted,
-                  fontFamily:"'Trebuchet MS',sans-serif", fontSize:12, cursor:"pointer" }}>Cancel</button>
-              </div>
-            )}
+          <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 16px",
+            borderRadius:9, background:t.warn+"15", border:`1.5px solid ${t.warn}44` }}>
+            <span style={{ fontSize:16 }}>⚠️</span>
+            <span style={{ fontSize:13, color:t.text, fontFamily:"'Trebuchet MS',sans-serif" }}>
+              An Anthropic API key is required to use the AI Assistant.
+            </span>
+            <button onClick={()=>setShowKeyModal(true)}
+              style={{ marginLeft:"auto", padding:"7px 18px", borderRadius:8, border:"none",
+                background:`linear-gradient(135deg,${t.sidebar},${t.goldLight||t.sidebar})`,
+                color:"#fff", fontFamily:"'Trebuchet MS',sans-serif",
+                fontWeight:700, fontSize:12, cursor:"pointer", whiteSpace:"nowrap" }}>
+              🔑 Add API Key
+            </button>
           </div>
         )}
       </div>
 
       {/* Tabs */}
       <div style={{ display:"flex", gap:4, marginBottom:16, background:t.surfaceAlt, borderRadius:10, padding:4, width:"fit-content" }}>
-        {tabBtn("chat",     "💬 Chat")}
-        {tabBtn("insights", "📊 Quick Insights")}
+        {tabBtn("smart",    "✨ Smart Insights")}
+        {tabBtn("chat",     "💬 AI Chat")}
       </div>
 
-      {activeTab === "insights" && (
-        <div>
-          {/* KPI cards */}
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))", gap:14, marginBottom:20 }}>
-            {[
-              { label:"Latest Session Total", value:latestTotal, sub:latestDate, color:t.gold },
-              { label:"vs Previous Session",  value:(diff>=0?"+":"")+diff+(pct!==null?` (${pct}%)`:""), sub:prevDate||"No prev data", color:diff>=0?t.success:t.danger },
-              { label:"Total Records",        value:records.length, sub:"all time", color:t.info },
-              { label:"Active Classes",       value:classes.filter(c=>c.is_active==="YES").length, sub:"classes", color:"#9B59B6" },
-              { label:"All-time First Timers",value:records.reduce((s,r)=>s+(Number(r.first_timers)||0),0), sub:"total", color:ACTIVE_COLOR },
-              { label:"Total Visitors",       value:records.reduce((s,r)=>s+(Number(r.visitors)||0),0), sub:"all time", color:"#E67E22" },
-            ].map(k=>(
-              <div key={k.label} style={{ ...card, padding:"16px 18px", borderTop:`3px solid ${k.color}` }}>
-                <div style={{ fontSize:13, fontWeight:800, color:t.text, fontFamily:"'Trebuchet MS',sans-serif",
-                  marginBottom:8, lineHeight:1.3, letterSpacing:0.2 }}>{k.label}</div>
-                <div style={{ fontSize:30, fontWeight:900, color:k.color, fontFamily:"'Georgia',serif", lineHeight:1 }}>{k.value}</div>
-                <div style={{ fontSize:11, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginTop:5 }}>{k.sub}</div>
-              </div>
-            ))}
-          </div>
+      {activeTab === "smart" && (() => {
+        // ── Compute all smart insights from raw data ───────────────────────────
+        const allDts   = [...new Set(records.map(r=>r.date).filter(Boolean))].sort();
+        const last6m   = allDts.slice(-6);
+        const thisDate = allDts[allDts.length-1]||"";
+        const prevDate2= allDts[allDts.length-2]||"";
+        const thisRecs = records.filter(r=>r.date===thisDate);
+        const prevRecs2= records.filter(r=>r.date===prevDate2);
+        const thisTotal= thisRecs.reduce((s,r)=>s+(Number(r.total_closing)||0),0);
+        const prevTotal2=prevRecs2.reduce((s,r)=>s+(Number(r.total_closing)||0),0);
+        const allTimeSS= records.reduce((s,r)=>s+(Number(r.total_closing)||0),0);
+        const allTimeCh= churchRecs.reduce((s,r)=>s+(Number(r.total_closing)||0),0);
+        const allFT    = records.reduce((s,r)=>s+(Number(r.first_timers)||0),0);
+        const allBibles= records.reduce((s,r)=>s+(Number(r.bibles_closing)||0),0);
+        const bibleRate= allTimeSS>0 ? Math.round(allBibles/allTimeSS*100) : 0;
+        const sessionDiff = thisTotal-prevTotal2;
+        const sessionPct  = prevTotal2>0 ? Math.round((sessionDiff/prevTotal2)*100) : null;
 
-          {/* Quick prompt tiles */}
-          <div style={{ fontSize:13, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", marginBottom:12, fontWeight:600 }}>
-            Ask the AI about your data:
+        // Per-class stats
+        const activeClasses = classes.filter(c=>c.is_active==="YES");
+        const classStats = activeClasses.map(cls => {
+          const recs = records.filter(r=>r.class_name===cls.name);
+          const avg  = recs.length ? Math.round(recs.reduce((s,r)=>s+(Number(r.total_closing)||0),0)/recs.length) : 0;
+          const lastR= recs.filter(r=>r.date===thisDate);
+          const prevR= recs.filter(r=>r.date===prevDate2);
+          const lastV= lastR.reduce((s,r)=>s+(Number(r.total_closing)||0),0);
+          const prevV= prevR.reduce((s,r)=>s+(Number(r.total_closing)||0),0);
+          const trend= lastV-prevV;
+          const bibles=recs.reduce((s,r)=>s+(Number(r.bibles_closing)||0),0);
+          const bibR = recs.reduce((s,r)=>s+(Number(r.total_closing)||0),0);
+          const bibleP= bibR>0 ? Math.round(bibles/bibR*100) : 0;
+          const ft   = recs.reduce((s,r)=>s+(Number(r.first_timers)||0),0);
+          return { name:cls.name, avg, lastV, prevV, trend, bibleP, ft, sessions:recs.length };
+        }).filter(c=>c.sessions>0);
+
+        const topClass    = [...classStats].sort((a,b)=>b.avg-a.avg)[0];
+        const lowClass    = [...classStats].sort((a,b)=>a.avg-b.avg)[0];
+        const growingClasses  = classStats.filter(c=>c.trend>0).sort((a,b)=>b.trend-a.trend);
+        const decliningClasses= classStats.filter(c=>c.trend<0).sort((a,b)=>a.trend-b.trend);
+        const topBibleClass   = [...classStats].sort((a,b)=>b.bibleP-a.bibleP)[0];
+        const topFTClass      = [...classStats].sort((a,b)=>b.ft-a.ft)[0];
+
+        // Monthly trend (last 6 sessions)
+        const monthMap6 = {};
+        records.filter(r=>last6m.includes(r.date)).forEach(r=>{
+          if(!monthMap6[r.date]) monthMap6[r.date]={date:r.date,total:0};
+          monthMap6[r.date].total += Number(r.total_closing)||0;
+        });
+        const trend6 = Object.values(monthMap6).sort((a,b)=>a.date>b.date?1:-1);
+        const trendDir = trend6.length>=2 ? (trend6[trend6.length-1].total > trend6[0].total ? "up" : "down") : null;
+
+        // Retention
+        const retentionRecs = records.filter(r=>churchRecs.some(c=>c.date===r.date));
+        const retPairs = [...new Set(retentionRecs.map(r=>r.date))].map(d=>{
+          const ss = records.filter(r=>r.date===d).reduce((s,r)=>s+(Number(r.total_closing)||0),0);
+          const ch = churchRecs.filter(r=>r.date===d).reduce((s,r)=>s+(Number(r.total_closing)||0),0);
+          return ch>0 ? Math.round(ss/ch*100) : null;
+        }).filter(v=>v!==null);
+        const avgRetention = retPairs.length ? Math.round(retPairs.reduce((a,b)=>a+b,0)/retPairs.length) : null;
+
+        const FF = "'Trebuchet MS',sans-serif";
+        const kpiColors = [t.gold, t.success, t.info, "#9B59B6", ACTIVE_COLOR, "#E67E22"];
+
+        const InsightCard = ({icon, title, text, color, badge}) => (
+          <div style={{ ...card, padding:"16px 18px", borderLeft:`4px solid ${color}`,
+            display:"flex", flexDirection:"column", gap:6 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <span style={{ fontSize:20 }}>{icon}</span>
+              <span style={{ fontWeight:700, fontSize:13, color:t.text, fontFamily:FF }}>{title}</span>
+              {badge && <span style={{ marginLeft:"auto", fontSize:10, padding:"2px 8px", borderRadius:10,
+                background:color+"22", color, fontFamily:FF, fontWeight:700 }}>{badge}</span>}
+            </div>
+            <div style={{ fontSize:13, color:t.textMuted, fontFamily:FF, lineHeight:1.65 }}>{text}</div>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))", gap:12 }}>
-            {QUICK_PROMPTS.map(p=>(
-              <button key={p.label} onClick={()=>{ setActiveTab("chat"); setInput(p.prompt); setTimeout(()=>document.getElementById("ai-input")?.focus(),100); }}
-                style={{ ...card, padding:"14px 18px", textAlign:"left", cursor:"pointer", border:`1px solid ${t.border}`,
-                  display:"flex", alignItems:"flex-start", gap:12,
-                  transition:"all 0.15s", background:t.surface }}>
-                <span style={{ fontSize:22 }}>{p.icon}</span>
-                <div>
-                  <div style={{ fontWeight:700, color:t.text, fontFamily:"'Trebuchet MS',sans-serif", fontSize:13, marginBottom:4 }}>{p.label}</div>
-                  <div style={{ fontSize:11, color:t.textMuted, fontFamily:"'Trebuchet MS',sans-serif", lineHeight:1.5 }}>{p.prompt.slice(0,80)}…</div>
+        );
+
+        return (
+          <div>
+            {/* ── KPI Row ──────────────────────────────────────────────────── */}
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))", gap:12, marginBottom:22 }}>
+              {[
+                { label:"Latest Session", value:thisTotal, sub:thisDate||"—", color:t.gold },
+                { label:"vs Prev Session", value:(sessionDiff>=0?"+":"")+sessionDiff+(sessionPct!==null?` (${sessionPct}%)`:""), sub:"week-on-week", color:sessionDiff>=0?t.success:t.danger },
+                { label:"All-time SS Total", value:allTimeSS.toLocaleString(), sub:"closing attendance", color:t.info },
+                { label:"Bible Participation", value:bibleRate+"%", sub:"avg at closing", color:"#9B59B6" },
+                { label:"First Timers", value:allFT, sub:"all sessions", color:ACTIVE_COLOR },
+                { label:"Retention vs Church", value:avgRetention!==null?avgRetention+"%":"—", sub:"SS/Church ratio", color:"#E67E22" },
+              ].map((k,i)=>(
+                <div key={k.label} style={{ ...card, padding:"14px 16px", borderTop:`3px solid ${k.color}` }}>
+                  <div style={{ fontSize:11, fontWeight:700, color:t.textMuted, fontFamily:FF,
+                    textTransform:"uppercase", letterSpacing:0.8, marginBottom:6 }}>{k.label}</div>
+                  <div style={{ fontSize:26, fontWeight:900, color:k.color, fontFamily:"'Georgia',serif", lineHeight:1 }}>{k.value}</div>
+                  <div style={{ fontSize:11, color:t.textFaint, fontFamily:FF, marginTop:4 }}>{k.sub}</div>
                 </div>
-              </button>
-            ))}
+              ))}
+            </div>
+
+            {/* ── Smart Insight Cards ──────────────────────────────────────── */}
+            <div style={{ fontSize:12, fontWeight:700, color:t.textMuted, fontFamily:FF,
+              textTransform:"uppercase", letterSpacing:1.2, marginBottom:10 }}>📋 Auto-generated Insights</div>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(300px,1fr))", gap:12, marginBottom:22 }}>
+
+              {/* Trend */}
+              {trendDir && <InsightCard icon={trendDir==="up"?"📈":"📉"}
+                title="Attendance Trend (Last 6 Sessions)"
+                color={trendDir==="up"?t.success:t.danger}
+                badge={trendDir==="up"?"GROWING":"DECLINING"}
+                text={`Attendance has been ${trendDir==="up"?"growing 🎉":"declining ⚠️"} over the last ${trend6.length} sessions. ${
+                  trendDir==="up"
+                  ? `Latest session: ${trend6[trend6.length-1]?.total} vs ${trend6[0]?.total} at the start of the period.`
+                  : `Latest session: ${trend6[trend6.length-1]?.total} vs ${trend6[0]?.total} at the start of the period. Consider reviewing engagement strategies.`
+                }`} />}
+
+              {/* Top class */}
+              {topClass && <InsightCard icon="🏆"
+                title="Top Performing Class"
+                color={t.gold} badge="BEST AVG"
+                text={`${topClass.name} leads with an average closing attendance of ${topClass.avg} per session across ${topClass.sessions} records. ${topClass.bibleP>0?`Bible participation: ${topClass.bibleP}%.`:""}`} />}
+
+              {/* Lowest class */}
+              {lowClass && lowClass.name !== topClass?.name && <InsightCard icon="⚠️"
+                title="Needs Attention"
+                color={t.danger} badge="LOW AVG"
+                text={`${lowClass.name} has the lowest average closing attendance at ${lowClass.avg} per session. This class may benefit from targeted outreach or teacher support.`} />}
+
+              {/* Growing classes */}
+              {growingClasses.length>0 && <InsightCard icon="🚀"
+                title="Growing Classes This Session"
+                color={t.success}
+                text={growingClasses.slice(0,3).map(c=>`${c.name} +${c.trend}`).join(" · ") + (growingClasses.length>3?` and ${growingClasses.length-3} more.`:"")} />}
+
+              {/* Declining classes */}
+              {decliningClasses.length>0 && <InsightCard icon="📉"
+                title="Declining Classes This Session"
+                color={t.warn}
+                text={decliningClasses.slice(0,3).map(c=>`${c.name} ${c.trend}`).join(" · ") + ". Review attendance patterns and consider pastor follow-up."} />}
+
+              {/* Bible participation */}
+              {topBibleClass && <InsightCard icon="📖"
+                title="Bible Participation Leader"
+                color="#9B59B6" badge={topBibleClass.bibleP+"%"}
+                text={`${topBibleClass.name} has the highest Bible participation at ${topBibleClass.bibleP}% of closing attendance. Overall Bible participation across all classes is ${bibleRate}%.`} />}
+
+              {/* First timers */}
+              {topFTClass && allFT>0 && <InsightCard icon="👋"
+                title="First Timers Highlight"
+                color={ACTIVE_COLOR}
+                text={`${allFT} first-time visitors recorded across all sessions. ${topFTClass.name} attracted the most first timers (${topFTClass.ft} total). Keep nurturing new visitors for retention.`} />}
+
+              {/* Retention */}
+              {avgRetention!==null && <InsightCard icon="🔄"
+                title="SS vs Church Retention"
+                color="#E67E22"
+                badge={avgRetention>=70?"HEALTHY":avgRetention>=50?"MODERATE":"LOW"}
+                text={`On average, ${avgRetention}% of church service attendees also participate in Sunday School. ${
+                  avgRetention>=70?"Excellent engagement — keep the momentum! 🎉"
+                  :avgRetention>=50?"Moderate retention. Consider pre-service announcements or class promotions."
+                  :"Low retention. Many church members are not attending Sunday School. Pastor intervention recommended."
+                }`} />}
+
+              {/* Records health */}
+              <InsightCard icon="📁"
+                title="Data Health"
+                color={t.info}
+                text={`${records.length} total Sunday School records across ${activeClasses.length} active classes. ${
+                  records.filter(r=>r.status==="pending").length>0
+                  ? `⚠️ ${records.filter(r=>r.status==="pending").length} records still pending approval.`
+                  : "✓ All records are approved."
+                } Last submission: ${thisDate||"none"}.`} />
+            </div>
+
+            {/* ── Class Leaderboard ────────────────────────────────────────── */}
+            <div style={{ fontSize:12, fontWeight:700, color:t.textMuted, fontFamily:FF,
+              textTransform:"uppercase", letterSpacing:1.2, marginBottom:10 }}>🏅 Class Performance Leaderboard</div>
+            <div style={{ ...card, padding:0, overflow:"hidden" }}>
+              <table style={{ width:"100%", borderCollapse:"collapse" }}>
+                <thead>
+                  <tr style={{ background:t.surfaceAlt }}>
+                    {["#","Class","Avg Closing","Latest","vs Prev","Bible %","First Timers"].map(h=>(
+                      <th key={h} style={{ padding:"10px 14px", textAlign:"left", fontSize:11,
+                        fontWeight:700, color:t.textMuted, fontFamily:FF,
+                        textTransform:"uppercase", letterSpacing:0.8, borderBottom:`1px solid ${t.border}` }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...classStats].sort((a,b)=>b.avg-a.avg).map((c,i)=>(
+                    <tr key={c.name} style={{ borderBottom:`1px solid ${t.border}`,
+                      background: i===0 ? t.gold+"0d" : "transparent" }}>
+                      <td style={{ padding:"10px 14px", fontSize:13, color:t.textMuted, fontFamily:FF }}>
+                        {i===0?"🥇":i===1?"🥈":i===2?"🥉":i+1}
+                      </td>
+                      <td style={{ padding:"10px 14px", fontSize:13, fontWeight:700, color:t.text, fontFamily:FF }}>{c.name}</td>
+                      <td style={{ padding:"10px 14px", fontSize:14, fontWeight:700, color:t.gold, fontFamily:"'Georgia',serif" }}>{c.avg}</td>
+                      <td style={{ padding:"10px 14px", fontSize:13, color:t.text, fontFamily:FF }}>{c.lastV||"—"}</td>
+                      <td style={{ padding:"10px 14px", fontSize:13, fontFamily:FF,
+                        color: c.trend>0?t.success:c.trend<0?t.danger:t.textMuted,
+                        fontWeight: c.trend!==0?700:400 }}>
+                        {c.trend>0?"+":""}{c.trend||"—"}
+                      </td>
+                      <td style={{ padding:"10px 14px", fontSize:13, color:"#9B59B6", fontFamily:FF }}>{c.bibleP}%</td>
+                      <td style={{ padding:"10px 14px", fontSize:13, color:ACTIVE_COLOR, fontFamily:FF }}>{c.ft}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {activeTab === "chat" && (
         <div style={{ display:"flex", flexDirection:"column", gap:0 }}>
@@ -9318,16 +9527,17 @@ Give clear, pastoral, ministry-focused insights. Use emojis sparingly. Be concis
               placeholder="Ask about attendance trends, class performance, recommendations…"
               value={input} onChange={e=>setInput(e.target.value)}
               onKeyDown={e=>{ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); sendMessage(); } }} />
-            <button onClick={sendMessage} disabled={loading || !input.trim()}
+            <button onClick={sendMessage} disabled={loading}
+              title={!apiKey ? "Add your API key to send messages" : ""}
               style={{ padding:"12px 22px", borderRadius:12, border:"none",
-                cursor: (loading||!input.trim()) ? "not-allowed" : "pointer",
-                background: (loading||!input.trim()) ? t.surfaceAlt : `linear-gradient(135deg,${t.sidebar},${t.goldLight||t.sidebar})`,
-                color: (loading||!input.trim()) ? t.textFaint : "#FFFFFF",
+                cursor: loading ? "not-allowed" : "pointer",
+                background: loading ? t.surfaceAlt : !apiKey ? t.warn : `linear-gradient(135deg,${t.sidebar},${t.goldLight||t.sidebar})`,
+                color: loading ? t.textFaint : "#FFFFFF",
                 fontFamily:"'Trebuchet MS',sans-serif", fontSize:14, fontWeight:700,
                 display:"flex", alignItems:"center", gap:7, transition:"all 0.15s",
-                boxShadow: (!loading&&input.trim()) ? `0 4px 14px ${t.sidebar}55` : "none" }}>
-              <Icon name="ai" size={16} color={(loading||!input.trim()) ? t.textFaint : "#FFFFFF"} />
-              {loading ? "Sending…" : "Send"}
+                boxShadow: (!loading&&apiKey) ? `0 4px 14px ${t.sidebar}55` : "none" }}>
+              <Icon name="ai" size={16} color={loading ? t.textFaint : "#FFFFFF"} />
+              {loading ? "Sending…" : !apiKey ? "🔑 Add Key" : "Send"}
             </button>
           </div>
 
